@@ -1,0 +1,13 @@
+/* usa este fichero para personalizar tus vistas */
+.msg {
+    font-size: 60%;
+}
+
+select {
+    width: 100%;
+}
+
+.iulist {
+    max-height: 800px;
+    overflow: scroll;
+}

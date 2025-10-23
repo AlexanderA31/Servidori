@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="css/bootstrap.css">
+    <link rel="stylesheet" href="css/custom.css">
+
+    <!-- Esto aparece como título de la ventana o pestaña en el navegador: cámbialo -->
+    <title>Plantilla IU 2020-21</title>
+</head>
+
+<body>
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <!-- nombre del sitio; es un enlace que lleva a la página ppal -->
+    <a class="navbar-brand" href="#">IU 2019-20</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false"
+            aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <ul class="navbar-nav mr-auto">
+            <li class="nav-item active">
+                <a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">Link</a>
+            </li>
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown"
+                   role="button" data-toggle="dropdown"
+                   aria-haspopup="true" aria-expanded="false">
+                    Dropdown
+                </a>
+                <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+                    <a class="dropdown-item" href="#">Action</a>
+                    <a class="dropdown-item" href="#">Another action</a>
+                    <div class="dropdown-divider"></div>
+                    <a class="dropdown-item" href="#">Something else here</a>
+                </div>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link disabled" href="#" tabindex="-1"
+                   aria-disabled="true">Disabled</a>
+            </li>
+        </ul>
+    </div>
+</nav>
+
+<!-- container-fluid expande el contenedor para que ocupe todo el espacio disponible -->
+<div class="container-fluid">
+    <div class="row">
+        <!-- panel lateral, demostrando acordeones (secciones expansibles) -->
+        <div class="col-sm-4 iulist">
+            <h2>Impresoras</h2>
+            <div class="accordion" id="impresoras">
+
+            </div>
+        </div>
+
+        <div class="col-sm-4 iulist">
+            <h2>Grupos</h2>
+            <div id="grupos">
+
+            </div>
+        </div>
+
+        <div class="col-sm-4 iulist">
+            <h2>Trabajos</h2>
+            <div id="trabajos">
+
+            </div>
+        </div>
+    </div>
+    <hr>
+    <div class="row">
+        <div class="col-sm-8 anuncio">
+            <h2>Ejemplo de formulario con validación y menú emergente</h2>
+            <form method="post" id="form-anuncio">
+                <div class="form-row datos-anuncio">
+                    <div class="form-group col-md-6">
+                        <label for="inputTitulo">Título del anuncio</label>
+                        <input type="text" class="form-control" id="inputTitulo"
+                               placeholder="Vendo Moto" required>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label for="inputCategorias">Categorías</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" readonly
+                                   id="inputCategorias" placeholder="(ninguna)">
+                            <div class="input-group-append">
+                                <button class="btn btn-outline-secondary"
+                                        type="button" data-toggle="modal"
+                                        data-target="#modalSeleccionCategoria">
+                                    Cambiar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row texto-anuncio">
+                    <div class="form-group col">
+                        <label for="inputTextoAnuncio">Cuerpo del
+                            anuncio</label>
+                        <textarea id="inputTextoAnuncio" class="form-control">
+Hello, World!
+                </textarea>
+                    </div>
+                </div>
+                <!-- botón para enviar el formulario; justify-content-end lo justifica a la derecha -->
+                <div class="form-row justify-content-end">
+                    <button type="submit" id="boton-publicar"
+                            class="btn btn-primary">Publicar anuncio
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div id="dropdownBuscableImpresora" class="form-group col-md-4">
+            <h2>Ejemplo de dropdown con búsqueda</h2>
+            <div class="row-md-4">
+                <input id="busqueda" type="search" class="form-control"
+                       placeholder="Filtrar por alias"/>
+            </div>
+            <div class="row-md-4">
+                <select class="multiple from-control" multiple size="6">
+                    <option value="a">a</option>
+                    <option value="b">b</option>
+                </select>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Modal de selección de categorías (lanzado por un botón) -->
+<div class="modal fade" id="modalSeleccionCategoria" tabindex="-1" role="dialog"
+     aria-labelledby="tituloModalCategorias" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloModalCategorias">Selección de
+                    Categorías de Anuncio</h5>
+                <button type="button" class="close" data-dismiss="modal"
+                        aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <ul class="list-group" id="lista-categorias">
+                    <li class="list-group-item d-flex justify-content-between align-items-center"
+                        id="vehiculos">
+                        Vehículos
+                        <span class="badge badge-primary badge-pill">14</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"
+                        id="gangas">
+                        Gangas
+                        <span class="badge badge-primary badge-pill">2</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"
+                        id="vintage">
+                        Vintage
+                        <span class="badge badge-primary badge-pill">1</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"
+                        id="cat-larga">
+                        Otra categoría
+                        <span class="badge badge-primary badge-pill">2</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"
+                        id="cat-muylarga">
+                        Otra categoría
+                        <span class="badge badge-primary badge-pill">2</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"
+                        id="cat-maslargatodavia">
+                        Otra categoría
+                        <span class="badge badge-primary badge-pill">2</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary"
+                        data-dismiss="modal">Cerrar
+                </button>
+                <button type="button" class="btn btn-primary"
+                        data-dismiss="modal" id="button-save-cats">Guardar y
+                    salir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<!-- jQuery primero, Bootstrap después -->
+<script src="js/jquery-3.3.1.js"></script>
+<script src="js/bootstrap.bundle.js"></script>
+
+<!-- todos los scripts de interaccion, aqui -->
+<script src="js/pmgr.js" type="module"></script>
+
+</body>
+</html>

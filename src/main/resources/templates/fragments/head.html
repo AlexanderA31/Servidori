@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html 
+	xmlns:th="http://www.thymeleaf.org">
+<head>
+	<title>IU 2020-21</title>
+	<th:block th:fragment="header">
+	<meta charset="utf-8">
+	<link rel="stylesheet" th:href="@{/css/bootstrap.css}" href="css/bootstrap.css" type="text/css"/>
+	<link rel="stylesheet" th:href="@{/css/main.css}" href="css/bootstrap.css" type="text/css"/>
+	<script type="text/javascript">
+		const config = {
+			rootUrl: "[[${session.ws}?@{/}:'']]",
+			csrf: {
+				name: "[[${_csrf.parameterName}]]",
+				value: "[[${_csrf.token}]]"
+			},
+			admin: [[${session.u != null && session.u.hasRole('ADMIN')}?true:false]],
+			userId: [[${session.u != null}?${session.u.id}:-1]]
+		};
+	</script>
+	</th:block>
+</head>
+<body>
+	Head fragment - rest intentionally left empty.
+</body>
+</html>

@@ -1,0 +1,337 @@
+{
+	"info": {
+		"_postman_id": "189bcc33-81fd-412f-85ab-69a72ec593ce",
+		"name": "iu-2020-21",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "login",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "4bfcab12-6ae6-4c67-a77b-63476f39e75f",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{ \"username\": \"a\", \"password\": \"aa\" }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/api/login",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "addprinter",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "a0470829-3e55-4dc0-ad47-ea1efb90cf6d",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{ \"id\": \"b\", \"alias\": \"aprinter\", \"model\": \"HP ScamMaster 12\", \"location\": \"Upper Floor\", \"ip\": \"1.0.0.0\", \"queue\": [], \"status\": \"PAUSED\" }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/api/{{token}}/addprinter",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"{{token}}",
+						"addprinter"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "setprinter",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "ef5c3ce9-b3e0-4c95-86f3-17417187a4c5",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{ \"id\": 1, \"alias\": \"aprinter\", \"model\": \"HP ScamMaster 13\", \"location\": \"Upper Floor\", \"ip\": \"1.0.0.0\", \"queue\": [], \"status\": \"PAUSED\" }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/api/{{token}}/setprinter",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"{{token}}",
+						"setprinter"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "rmprinter",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "0708307a-0ef5-4086-ab0d-4588674abf6d",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{ \"id\": 1 }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/api/{{token}}/rmprinter",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"{{token}}",
+						"rmprinter"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "adduser",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "6bdcef6e-5930-4f99-9543-acf71f5ae4c6",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{ \"username\": \"g01\", \"password\": \"g01\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/api/{{token}}/adduser",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"{{token}}",
+						"adduser"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "adduser 2",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "460f63d4-eb29-46e7-bb81-d93c7b03e42a",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{ \"username\": \"g02\", \"password\": \"g02\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/api/{{token}}/adduser",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"{{token}}",
+						"adduser"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "ulist",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "88a5e123-c0ad-4230-a529-97d415c23416",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{ \"username\": \"g01\", \"password\": \"g01\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/api/{{token}}/ulist",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"{{token}}",
+						"ulist"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "rmuser",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "2583813f-8b58-49fa-aca6-72ea1bf66f4e",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{ \"id\": 1 }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/api/{{token}}/rmuser",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"{{token}}",
+						"rmuser"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"protocolProfileBehavior": {}
+}
