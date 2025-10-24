@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <th:block th:replace="fragments/head :: header"/>
+    <title>Inicio - Sistema de Gestión de Impresoras</title>
+    <style>
+        .home-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .welcome-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .welcome-card h1 {
+            margin: 0 0 0.5rem 0;
+            font-size: 2rem;
+        }
+        
+        .welcome-card p {
+            margin: 0;
+            opacity: 0.9;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+            border-top: 4px solid #667eea;
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 1rem;
+        }
+        
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+        }
+        
+        .section-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .section-header {
+            padding: 1.5rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+            border-bottom: 2px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .section-body {
+            padding: 1.5rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .item-card {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border-left: 4px solid #667eea;
+        }
+        
+        .item-card:last-child {
+            margin-bottom: 0;
+        }
+        
+        .item-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        
+        .item-details {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #999;
+        }
+        
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .quick-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <nav th:replace="fragments/nav.html :: nav">Nav goes here</nav>
+    
+    <div class="home-container">
+        <!-- Welcome Banner -->
+        <div class="welcome-card">
+            <h1>👋 Bienvenido, <span th:text="${session.u.username}">Usuario</span></h1>
+            <p>Sistema de Gestión de Impresoras - Panel de Control Personal</p>
+            <div class="quick-actions" th:if="${session.u.hasRole('ADMIN')}">
+                <a th:href="@{/admin/}" class="btn">⚙️ Panel de Administración</a>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" th:text="${#lists.size(printers)}">0</div>
+                <div class="stat-label">🖨️ Mis Impresoras</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" th:text="${#lists.size(groups)}">0</div>
+                <div class="stat-label">📁 Mis Grupos</div>
+            </div>
+        </div>
+
+        <!-- Content Grid -->
+        <div class="content-grid">
+            <!-- Printers Section -->
+            <div class="section-card">
+                <div class="section-header">
+                    🖨️ Mis Impresoras
+                </div>
+                <div class="section-body">
+                    <div th:if="${#lists.isEmpty(printers)}" class="empty-state">
+                        <div class="empty-state-icon">🖨️</div>
+                        <p>No tienes impresoras registradas</p>
+                        <a th:if="${session.u.hasRole('ADMIN')}" th:href="@{/admin/}" class="btn">Agregar Impresora</a>
+                    </div>
+                    
+                    <div th:unless="${#lists.isEmpty(printers)}">
+                        <div th:each="printer : ${printers}" class="item-card">
+                            <div class="item-title" th:text="${printer.alias}">Impresora 1</div>
+                            <div class="item-details">
+                                <div><strong>Modelo:</strong> <span th:text="${printer.model}">HP LaserJet</span></div>
+                                <div><strong>Ubicación:</strong> <span th:text="${printer.location}">Oficina</span></div>
+                                <div><strong>IP:</strong> <code th:text="${printer.ip}">192.168.1.1</code></div>
+                                <div style="margin-top: 0.5rem;">
+                                    <span class="badge badge-success" th:text="${printer.currentStatus()}">IDLE</span>
+                                    <span class="badge badge-info">💧 <span th:text="${printer.ink}">100</span>% Tinta</span>
+                                    <span class="badge badge-info">📄 <span th:text="${printer.paper}">100</span>% Papel</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Groups Section -->
+            <div class="section-card">
+                <div class="section-header">
+                    📁 Mis Grupos
+                </div>
+                <div class="section-body">
+                    <div th:if="${#lists.isEmpty(groups)}" class="empty-state">
+                        <div class="empty-state-icon">📁</div>
+                        <p>No tienes grupos creados</p>
+                        <a th:if="${session.u.hasRole('ADMIN')}" th:href="@{/admin/}" class="btn">Crear Grupo</a>
+                    </div>
+                    
+                    <div th:unless="${#lists.isEmpty(groups)}">
+                        <div th:each="group : ${groups}" class="item-card">
+                            <div class="item-title" th:text="${group.name}">Grupo 1</div>
+                            <div class="item-details">
+                                <div>
+                                    <span class="badge badge-info">
+                                        <span th:text="${#lists.size(group.printers)}">0</span> impresoras
+                                    </span>
+                                </div>
+                                <div th:if="${not #lists.isEmpty(group.printers)}" style="margin-top: 0.5rem;">
+                                    <strong>Impresoras:</strong>
+                                    <div th:each="printer : ${group.printers}" style="margin-top: 0.25rem;">
+                                        • <span th:text="${printer.alias}">Impresora</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer th:replace="fragments/footer.html :: footer">Footer goes here</footer>
+</body>
+</html>

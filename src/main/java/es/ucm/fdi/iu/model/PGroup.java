@@ -2,7 +2,7 @@ package es.ucm.fdi.iu.model;
 
 import lombok.*;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,8 +32,9 @@ public class PGroup implements Transferable<PGroup.Transfer> {
     @ManyToMany
     private List<Printer> printers = new ArrayList<>();
 
-    @Getter
+        @Getter
     @AllArgsConstructor
+    @NoArgsConstructor
     public static class Transfer {
         private long id;
         private String name;

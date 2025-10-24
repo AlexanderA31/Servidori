@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -17,12 +17,13 @@ import java.util.stream.Collectors;
  * An authorized user of the system.
  */
 @Entity
+@Table(name = "user_table")
 @Data
 @NoArgsConstructor
 @NamedQueries({
         @NamedQuery(name="User.byUsername",
                 query="SELECT u FROM User u "
-                        + "WHERE u.username = :username AND u.enabled = 1"),
+                        + "WHERE u.username = :username AND u.enabled = true"),
         @NamedQuery(name="User.hasUsername",
                 query="SELECT COUNT(u) "
                         + "FROM User u "
@@ -69,8 +70,9 @@ public class User implements Transferable<User.AdminTransfer> {
                 .anyMatch(r -> r.equals(roleName));
     }
 
-    @Getter
+        @Getter
     @AllArgsConstructor
+    @NoArgsConstructor
     public static class AdminTransfer {
         private long id;
         private String username;
@@ -83,6 +85,7 @@ public class User implements Transferable<User.AdminTransfer> {
 
     @Getter
     @AllArgsConstructor
+    @NoArgsConstructor
     public static class Transfer {
         private String token;
         private List<Job.Transfer> jobs;

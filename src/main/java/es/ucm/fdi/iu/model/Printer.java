@@ -5,7 +5,7 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -31,16 +31,41 @@ public class Printer implements Transferable<Printer.Transfer> {
     @ManyToOne
     private User instance;
 
-    @ManyToMany(mappedBy = "printers")
+        @ManyToMany(mappedBy = "printers")
     private List<PGroup> groups = new ArrayList<>();
 
     private String alias;
     private String model;
     private String location;
     private String ip;
+    
+    // URI del dispositivo para CUPS (ej: ipp://192.168.1.100/ipp/print)
+    private String deviceUri;
+    
+    // Driver PPD a usar
+    private String driver;
+    
+    // Puerto de conexión
+    private Integer port;
+    
+    // Protocolo (IPP, LPD, RAW, SMB)
+    private String protocol;
+    
+    // Si está compartida vía Samba
+    private boolean sharedViaSamba = false;
+    
+    // Si está agregada a CUPS
+    private boolean addedToCups = false;
+    
+    // Nombre del recurso compartido Samba
+    private String sambaShareName;
 
-    @OneToMany(mappedBy = "printer", orphanRemoval = true)
+            @OneToMany(mappedBy = "printer", orphanRemoval = true)
     private List<Job> queue = new ArrayList<>();
+    
+    @ManyToMany(mappedBy = "printers")
+    private List<Department> departments = new ArrayList<>();
+    
     private int ink;
     private int paper;
 
@@ -58,26 +83,35 @@ public class Printer implements Transferable<Printer.Transfer> {
         return Status.PRINTING;
     }
 
-    @Getter
+                @Getter
     @AllArgsConstructor
+    @NoArgsConstructor
     public static class Transfer {
         private long id;
         private String alias;
         private String model;
         private String location;
         private String ip;
+        private String deviceUri;
+        private String driver;
+        private Integer port;
+        private String protocol;
+        private boolean sharedViaSamba;
+        private boolean addedToCups;
+        private String sambaShareName;
         private List<Long> groups;
         private List<Long> queue;
         private Status status;
     }
 
-    @Override
+        @Override
     public Transfer toTransfer() {
         List<Long> gs = groups.stream().map(PGroup::getId)
                 .collect(Collectors.toList());
         List<Long> qs = queue.stream().map(Job::getId)
                 .collect(Collectors.toList());
         return new Transfer(
-                id, alias, model, location, ip, gs, qs, currentStatus());
+                id, alias, model, location, ip, deviceUri, driver, port, protocol,
+                sharedViaSamba, addedToCups, sambaShareName, gs, qs, currentStatus());
     }
 }

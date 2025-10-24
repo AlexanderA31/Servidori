@@ -1,6 +1,6 @@
 package es.ucm.fdi.iu.model;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import lombok.*;
 
 /**
@@ -28,8 +28,9 @@ public class Job implements Transferable<Job.Transfer> {
     private String owner;
     private String fileName;
 
-    @Getter
+        @Getter
     @AllArgsConstructor
+    @NoArgsConstructor
     public static class Transfer {
         private long id;
         private long printer;
