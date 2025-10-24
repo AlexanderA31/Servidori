@@ -7,6 +7,7 @@ import es.ucm.fdi.iu.model.Department;
 import es.ucm.fdi.iu.model.Computer;
 import es.ucm.fdi.iu.model.NetworkRange;
 import es.ucm.fdi.iu.service.PrinterDiscoveryService;
+import es.ucm.fdi.iu.service.PrinterAutoConfigService;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -68,10 +69,15 @@ public class AdminController {
                     "SELECT p FROM Printer p", Printer.class)
                     .getResultList();
             
-                        // Rangos de red
-            List<NetworkRange> networkRanges = entityManager.createNamedQuery(
-                    "NetworkRange.all", NetworkRange.class)
-                    .getResultList();
+                                    // Rangos de red (puede fallar si la tabla no existe aún)
+            List<NetworkRange> networkRanges = new java.util.ArrayList<>();
+            try {
+                networkRanges = entityManager.createNamedQuery(
+                        "NetworkRange.all", NetworkRange.class)
+                        .getResultList();
+            } catch (Exception e) {
+                log.warn("No se pudieron cargar rangos de red: {}", e.getMessage());
+            }
             
             model.addAttribute("departments", departments);
             model.addAttribute("unassignedComputers", unassignedComputers);

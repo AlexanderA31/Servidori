@@ -79,15 +79,15 @@
 
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-value" th:text="${#lists.size(departments)}">0</div>
+                <div class="stat-value" th:text="${departments != null ? #lists.size(departments) : 0}">0</div>
                 <div class="stat-label">Departamentos</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value" th:text="${#lists.size(unassignedComputers)}">0</div>
+                <div class="stat-value" th:text="${unassignedComputers != null ? #lists.size(unassignedComputers) : 0}">0</div>
                 <div class="stat-label">Computadoras Sin Asignar</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value" th:text="${#lists.size(allPrinters)}">0</div>
+                <div class="stat-value" th:text="${allPrinters != null ? #lists.size(allPrinters) : 0}">0</div>
                 <div class="stat-label">Impresoras Disponibles</div>
             </div>
         </div>
@@ -150,7 +150,7 @@
                 </button>
             </div>
             <div class="card-body">
-                <div th:if="${#lists.isEmpty(departments)}" class="empty-state">
+                <div th:if="${departments == null || #lists.isEmpty(departments)}" class="empty-state">
                     <div class="empty-state-icon">🏢</div>
                     <p>No hay departamentos creados</p>
                     <button class="btn btn-primary" onclick="openModal('createDepartmentModal')">
@@ -158,7 +158,7 @@
                     </button>
                 </div>
 
-                <div th:unless="${#lists.isEmpty(departments)}">
+                <div th:unless="${departments == null || #lists.isEmpty(departments)}">
                     <div th:each="dept : ${departments}" class="department-card" 
                          th:style="'border-color: ' + ${dept.color}">
                         
@@ -185,17 +185,17 @@
                             <!-- Computadoras -->
                             <div class="dept-section">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                    <h3 style="margin: 0;">💻 Computadoras (<span th:text="${#lists.size(dept.computers)}">0</span>)</h3>
+                                    <h3 style="margin: 0;">💻 Computadoras (<span th:text="${dept.computers != null ? #lists.size(dept.computers) : 0}">0</span>)</h3>
                                     <button class="btn btn-sm btn-primary" 
                                             th:attr="data-dept-id=${dept.id}, data-dept-name=${dept.name}"
                                             onclick="openAddComputerModal(this.dataset)">➕</button>
                                 </div>
                                 
-                                <div th:if="${#lists.isEmpty(dept.computers)}" style="color: #999; text-align: center; padding: 1rem;">
+                                <div th:if="${dept.computers == null || #lists.isEmpty(dept.computers)}" style="color: #999; text-align: center; padding: 1rem;">
                                     Sin computadoras asignadas
                                 </div>
                                 
-                                <div th:unless="${#lists.isEmpty(dept.computers)}" class="item-list">
+                                <div th:unless="${dept.computers == null || #lists.isEmpty(dept.computers)}" class="item-list">
                                     <div th:each="comp : ${dept.computers}" class="item-badge">
                                         <div>
                                             <div><strong th:text="${comp.name}">PC</strong></div>
@@ -213,17 +213,17 @@
                             <!-- Impresoras -->
                             <div class="dept-section">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                    <h3 style="margin: 0;">🖨️ Impresoras (<span th:text="${#lists.size(dept.printers)}">0</span>)</h3>
+                                    <h3 style="margin: 0;">🖨️ Impresoras (<span th:text="${dept.printers != null ? #lists.size(dept.printers) : 0}">0</span>)</h3>
                                     <button class="btn btn-sm btn-success" 
                                             th:attr="data-dept-id=${dept.id}, data-dept-name=${dept.name}"
                                             onclick="openAssignPrinterModal(this.dataset)">➕</button>
                                 </div>
                                 
-                                <div th:if="${#lists.isEmpty(dept.printers)}" style="color: #999; text-align: center; padding: 1rem;">
+                                <div th:if="${dept.printers == null || #lists.isEmpty(dept.printers)}" style="color: #999; text-align: center; padding: 1rem;">
                                     Sin impresoras asignadas
                                 </div>
                                 
-                                <div th:unless="${#lists.isEmpty(dept.printers)}" class="item-list">
+                                <div th:unless="${dept.printers == null || #lists.isEmpty(dept.printers)}" class="item-list">
                                     <div th:each="printer : ${dept.printers}" class="item-badge">
                                         <div>
                                             <div><strong th:text="${printer.alias}">Printer</strong></div>
@@ -288,10 +288,10 @@
                 
                 <!-- Lista de redes configuradas -->
                 <h4 style="margin: 1rem 0;">🌐 Redes Configuradas</h4>
-                <div th:if="${#lists.isEmpty(networkRanges)}" style="text-align: center; padding: 2rem; color: #999;">
+                <div th:if="${networkRanges == null || #lists.isEmpty(networkRanges)}" style="text-align: center; padding: 2rem; color: #999;">
                     🚫 No hay redes configuradas. Se usará la red por defecto (192.168.1.0/24)
                 </div>
-                <table th:unless="${#lists.isEmpty(networkRanges)}" class="data-table">
+                <table th:unless="${networkRanges == null || #lists.isEmpty(networkRanges)}" class="data-table">
                     <thead>
                         <tr>
                             <th>Nombre</th>
@@ -314,7 +314,10 @@
                                       th:text="'VLAN ' + ${net.vlanId}">VLAN 10</span>
                                 <span th:unless="${net.vlanId != null}" style="color: #999;">--</span>
                             </td>
-                            <td th:text="${net.toTransfer().estimatedHosts}">254</td>
+                            <td>
+                                <span th:with="transfer=${net.toTransfer()}" 
+                                      th:text="${transfer.estimatedHosts}">254</span>
+                            </td>
                             <td>
                                 <span th:if="${net.lastScan != null}" 
                                       th:text="${#temporals.format(net.lastScan, 'dd/MM HH:mm')}">--</span>
