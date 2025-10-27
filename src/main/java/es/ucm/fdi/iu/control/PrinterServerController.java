@@ -31,6 +31,9 @@ public class PrinterServerController {
 
     @Autowired
     private EntityManager entityManager;
+    
+    @Autowired
+    private es.ucm.fdi.iu.service.MultiPortIppServerService multiPortIppService;
 
     /**
      * Pagina principal del servidor de impresion
@@ -82,20 +85,23 @@ public class PrinterServerController {
             List<Printer> printers = entityManager.createQuery(
                 "SELECT p FROM Printer p ORDER BY p.alias", Printer.class).getResultList();
             
-            List<Map<String, String>> printerList = printers.stream()
+            List<Map<String, Object>> printerList = printers.stream()
                 .map(p -> {
-                    Map<String, String> info = new HashMap<>();
+                    int port = multiPortIppService.getPortForPrinter(p);
+                    Map<String, Object> info = new HashMap<>();
+                    info.put("id", p.getId());
                     info.put("name", p.getAlias());
                     info.put("model", p.getModel());
                     info.put("location", p.getLocation());
-                    info.put("ippUri", buildIppUri(serverIp, p.getAlias()));
+                    info.put("port", port);
+                    info.put("ippUri", buildIppUriWithPort(serverIp, p.getAlias(), port));
                     return info;
                 })
                 .collect(Collectors.toList());
             
             Map<String, Object> response = new HashMap<>();
             response.put("serverIp", serverIp);
-            response.put("port", 8631);
+            response.put("basePort", 8631);
             response.put("printers", printerList);
             response.put("total", printerList.size());
             
@@ -226,6 +232,11 @@ public class PrinterServerController {
     private String buildIppUri(String serverIp, String printerName) {
         String safeName = printerName.replace(" ", "_");
         return String.format("ipp://%s:8631/printers/%s", serverIp, safeName);
+    }
+    
+    private String buildIppUriWithPort(String serverIp, String printerName, int port) {
+        String safeName = printerName.replace(" ", "_");
+        return String.format("ipp://%s:%d/printers/%s", serverIp, port, safeName);
     }
 
     private String buildWindowsCommand(String serverIp, String printerName) {

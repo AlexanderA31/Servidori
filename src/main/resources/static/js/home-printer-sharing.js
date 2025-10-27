@@ -57,6 +57,10 @@ function updateIPPInstructions(ippUri, printerName) {
     const ippUrlElement = document.getElementById('ippUrl');
     const linuxCommand = document.getElementById('linuxCommand');
     
+    // Extraer puerto del URI
+    const portMatch = ippUri.match(/:([\d]+)\//);
+    const port = portMatch ? portMatch[1] : '8631';
+    
     ippUrlElement.textContent = ippUri;
     linuxCommand.textContent = 'lpadmin -p "' + printerName + '" -v "' + ippUri + '" -E';
     instructionsDiv.style.display = 'block';
@@ -98,10 +102,12 @@ function downloadWindowsClientScript() {
     const printerName = selectedOption.dataset.name;
     const urlParts = ippUrl.match(/ipp:\/\/([^:]+):(\d+)\/printers\/(.+)/);
     const serverIp = urlParts ? urlParts[1] : 'servidor';
-    const serverPort = urlParts ? urlParts[2] : '8631';
+    const serverPort = urlParts ? parseInt(urlParts[2]) : 8631;
     const printerPath = urlParts ? urlParts[3] : printerName.replace(/\s/g, '_');
     const safeFileName = printerName.replace(/[^a-zA-Z0-9_-]/g, '_');
     const smbPath = '\\\\\\\\' + serverIp + '\\\\' + printerName.replace(/\s/g, '_');
+    
+    console.log('Generando script para:', { printerName, serverIp, serverPort });
     
     const scriptContent = generatePowerShellScript(serverIp, serverPort, printerName, printerPath, ippUrl, smbPath, safeFileName);
     downloadFile(scriptContent, 'instalar-' + safeFileName + '.ps1', 'text/plain');
@@ -185,8 +191,53 @@ Write-Host ""
 
 $success = $false
 
-# Instalando via TCP/IP RAW (metodo compatible)
-Write-Host "Instalando impresora via TCP/IP..." -ForegroundColor Cyan
+# METODO 1: Intentar via IPP primero
+Write-Host "Metodo 1: Instalando via IPP..." -ForegroundColor Cyan
+
+# Normalizar nombre para URL
+$PrinterNameUrl = $PrinterName -replace ' ', '_'
+$ippUrl = "http://" + $ServerIP + ":" + $ServerPort + "/printers/" + $PrinterNameUrl
+Write-Host "  URL IPP: $ippUrl" -ForegroundColor White
+
+try {
+    # Intentar con timeout
+    $ErrorActionPreference = 'Stop'
+    $ProgressPreference = 'SilentlyContinue'
+    
+    # Crear trabajo para timeout
+    $job = Start-Job -ScriptBlock {
+        param($url)
+        try {
+            Add-Printer -ConnectionName $url -ErrorAction Stop
+            return $true
+        } catch {
+            return $false
+        }
+    } -ArgumentList $ippUrl
+    
+    # Esperar max 15 segundos
+    $completed = Wait-Job $job -Timeout 15
+    
+    if ($completed) {
+        $result = Receive-Job $job
+        if ($result -eq $true) {
+            $success = $true
+            Write-Host "  [OK] Impresora instalada via IPP" -ForegroundColor Green
+        }
+    } else {
+        Write-Host "  [!] Timeout esperando respuesta IPP" -ForegroundColor Yellow
+        Stop-Job $job
+    }
+    
+    Remove-Job $job -Force
+    
+} catch {
+    Write-Host "  [!] Error IPP: $($_.Exception.Message)" -ForegroundColor Yellow
+}
+
+if (-not $success) {
+    Write-Host ""
+    Write-Host "Metodo 2: Instalando via TCP/IP RAW..." -ForegroundColor Cyan
 
 # Crear puerto TCP/IP unico por impresora
 Write-Host "  Creando puerto TCP/IP: $portName" -ForegroundColor Yellow

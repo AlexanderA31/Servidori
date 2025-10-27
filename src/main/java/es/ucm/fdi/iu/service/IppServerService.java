@@ -22,7 +22,8 @@ import java.util.concurrent.*;
  * 
  * Y la aplicación redirigirá el trabajo a la impresora real
  */
-@Service
+// DEPRECADO: Usar MultiPortIppServerService en su lugar
+// @Service
 @Slf4j
 public class IppServerService {
 
@@ -147,6 +148,11 @@ public class IppServerService {
 
     private IppResponse processRequest(IppRequest request) {
         switch (request.operation) {
+            case "Probe":
+                // Responder a probes de conexión
+                IppResponse probeResp = new IppResponse();
+                probeResp.statusCode = "successful-ok";
+                return probeResp;
             case "Get-Printer-Attributes":
                 return getPrinterAttributes(request);
             case "Print-Job":
@@ -376,9 +382,15 @@ public class IppServerService {
             byte[] header = new byte[100];
             int headerRead = bufferedIn.read(header);
             
-            if (headerRead < 8) {
-                log.warn("  Request demasiado corto: {} bytes", headerRead);
+            if (headerRead <= 0) {
+                log.debug("  Conexión vacía (probe)");
                 return null;
+            }
+            
+            if (headerRead < 8) {
+                log.debug("  Request corto: {} bytes - posiblemente probe de conexión", headerRead);
+                // Es un probe de Windows, responder OK
+                return createProbeResponse();
             }
             
             log.debug("  Primeros bytes: {}", bytesToHex(header, Math.min(headerRead, 32)));
@@ -487,28 +499,70 @@ public class IppServerService {
     }
 
     private void sendResponse(OutputStream out, IppResponse response) throws IOException {
-        // Implementación simplificada
-        // En producción, construir respuesta IPP completa
-        
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         
-        // Version IPP
-        baos.write(2); // Major
-        baos.write(0); // Minor
+        // Version IPP (2 bytes)
+        baos.write(1); // Major version 1
+        baos.write(1); // Minor version 1 (IPP/1.1)
         
-        // Status code
+        // Status code (2 bytes)
         int statusCode = getStatusCode(response.statusCode);
         baos.write((statusCode >> 8) & 0xFF);
         baos.write(statusCode & 0xFF);
         
-        // Request ID
+        // Request ID (4 bytes)
         baos.write(new byte[]{0, 0, 0, 1});
         
-        // End of attributes
+        // Operation attributes tag
+        baos.write(0x01);
+        
+        // attributes-charset
+        writeAttribute(baos, 0x47, "attributes-charset", "utf-8");
+        
+        // attributes-natural-language
+        writeAttribute(baos, 0x48, "attributes-natural-language", "en-us");
+        
+        // Agregar atributos adicionales si existen
+        if (response.attributes != null && !response.attributes.isEmpty()) {
+            // Job attributes tag
+            baos.write(0x02);
+            
+            for (Map.Entry<String, String> attr : response.attributes.entrySet()) {
+                writeAttribute(baos, 0x44, attr.getKey(), attr.getValue());
+            }
+        }
+        
+        // End of attributes tag
         baos.write(0x03);
         
         out.write(baos.toByteArray());
         out.flush();
+        
+        log.debug("  Respuesta IPP enviada: {} bytes", baos.size());
+    }
+    
+    /**
+     * Escribe un atributo IPP en el stream
+     */
+    private void writeAttribute(ByteArrayOutputStream baos, int valueTag, String name, String value) throws IOException {
+        // Value tag
+        baos.write(valueTag);
+        
+        // Name length (2 bytes)
+        byte[] nameBytes = name.getBytes("UTF-8");
+        baos.write((nameBytes.length >> 8) & 0xFF);
+        baos.write(nameBytes.length & 0xFF);
+        
+        // Name
+        baos.write(nameBytes);
+        
+        // Value length (2 bytes)
+        byte[] valueBytes = value.getBytes("UTF-8");
+        baos.write((valueBytes.length >> 8) & 0xFF);
+        baos.write(valueBytes.length & 0xFF);
+        
+        // Value
+        baos.write(valueBytes);
     }
 
     private String getOperationName(int operationId) {
@@ -547,6 +601,15 @@ public class IppServerService {
         String statusCode;
         Map<String, String> attributes;
         List<Map<String, String>> printerList;
+    }
+    
+    /**
+     * Crea una respuesta para probes de conexión
+     */
+    private IppRequest createProbeResponse() {
+        IppRequest request = new IppRequest();
+        request.operation = "Probe";
+        return request;
     }
     
     /**
