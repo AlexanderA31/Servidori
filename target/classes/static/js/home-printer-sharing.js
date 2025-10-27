@@ -164,7 +164,25 @@ function generatePowerShellScript(serverIp, serverPort, printerName, printerPath
 '\n' +
 '# Limpiar instalaciones previas\n' +
 'Write-Host "Limpiando instalaciones previas..." -ForegroundColor Yellow\n' +
-'Get-Printer -Name $PrinterName -ErrorAction SilentlyContinue | Remove-Printer -Confirm:$false\n' +
+'\n' +
+'# Primero eliminar impresoras existentes\n' +
+'$existingPrinters = Get-Printer -Name "*$PrinterName*" -ErrorAction SilentlyContinue\n' +
+'foreach ($printer in $existingPrinters) {\n' +
+'    Write-Host "  Eliminando impresora: $($printer.Name)" -ForegroundColor Yellow\n' +
+'    Remove-Printer -Name $printer.Name -Confirm:$false -ErrorAction SilentlyContinue\n' +
+'}\n' +
+'\n' +
+'# Esperar a que se liberen los puertos\n' +
+'Start-Sleep -Seconds 3\n' +
+'\n' +
+'# Ahora eliminar puertos huérfanos\n' +
+'$portName = "IP_${ServerIP}_${PrinterName}"\n' +
+'$existingPort = Get-PrinterPort -Name $portName -ErrorAction SilentlyContinue\n' +
+'if ($existingPort) {\n' +
+'    Write-Host "  Eliminando puerto existente: $portName" -ForegroundColor Yellow\n' +
+'    Remove-PrinterPort -Name $portName -Confirm:$false -ErrorAction SilentlyContinue\n' +
+'    Start-Sleep -Seconds 2\n' +
+'}\n' +
 'Write-Host ""\n' +
 '\n' +
 '$success = $false\n' +
@@ -173,17 +191,19 @@ function generatePowerShellScript(serverIp, serverPort, printerName, printerPath
 'Write-Host "Instalando impresora via TCP/IP..." -ForegroundColor Cyan\n' +
 '\n' +
 '# Crear puerto TCP/IP\n' +
-'$portName = "IP_${ServerIP}_${PrinterName}"\n' +
-'Write-Host "  Creando puerto TCP/IP..." -ForegroundColor Yellow\n' +
-'Get-PrinterPort -Name $portName -ErrorAction SilentlyContinue | Remove-PrinterPort -Confirm:$false\n' +
+'Write-Host "  Creando puerto TCP/IP: $portName" -ForegroundColor Yellow\n' +
 '\n' +
 'try {\n' +
 '    Add-PrinterPort -Name $portName -PrinterHostAddress $ServerIP -PortNumber $ServerPort -ErrorAction Stop\n' +
-'    Write-Host "  Puerto creado: $portName" -ForegroundColor Green\n' +
+'    Write-Host "  ✓ Puerto creado correctamente" -ForegroundColor Green\n' +
 '} catch {\n' +
-'    Write-Host "  Error creando puerto: $_" -ForegroundColor Red\n' +
-'    Read-Host "Presiona Enter para salir"\n' +
-'    exit 1\n' +
+'    if ($_.Exception.Message -like "*already exists*") {\n' +
+'        Write-Host "  ! Puerto ya existe, continuando..." -ForegroundColor Yellow\n' +
+'    } else {\n' +
+'        Write-Host "  ✗ Error creando puerto: $_" -ForegroundColor Red\n' +
+'        Read-Host "Presiona Enter para salir"\n' +
+'        exit 1\n' +
+'    }\n' +
 '}\n' +
 '\n' +
 '# Agregar impresora con driver generico\n' +
