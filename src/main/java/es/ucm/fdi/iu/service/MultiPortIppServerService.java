@@ -261,9 +261,13 @@ public class MultiPortIppServerService {
      * Obtiene el puerto asignado a una impresora
      */
     public int getPortForPrinter(Printer printer) {
+        if (printer == null) {
+            return BASE_PORT;
+        }
+        
         List<Printer> all = printerRepository.findAll();
         for (int i = 0; i < all.size(); i++) {
-            if (all.get(i).getId().equals(printer.getId())) {
+            if (all.get(i).getId() == printer.getId()) {
                 return BASE_PORT + i;
             }
         }
@@ -273,10 +277,10 @@ public class MultiPortIppServerService {
     /**
      * Obtiene el puerto asignado a una impresora por ID
      */
-    public int getPortForPrinterId(Long printerId) {
+    public int getPortForPrinterId(long printerId) {
         List<Printer> all = printerRepository.findAll();
         for (int i = 0; i < all.size(); i++) {
-            if (all.get(i).getId().equals(printerId)) {
+            if (all.get(i).getId() == printerId) {
                 return BASE_PORT + i;
             }
         }
