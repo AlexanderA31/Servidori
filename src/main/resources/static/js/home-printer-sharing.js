@@ -118,18 +118,18 @@ function downloadWindowsClientScript() {
 
 // Generar el script PowerShell completo
 function generatePowerShellScript(serverIp, serverPort, printerName, printerPath, ippUrl, smbPath, safeFileName) {
-    // Nota: serverPort siempre será 8631 (puerto único)
-    // El servidor redirige internamente a la IP física de cada impresora
+    // Nota: Cada impresora tiene su puerto dedicado (8631, 8632, 8633, etc.)
+    // El puerto es fijo y está almacenado en la base de datos
     const script = `# Script de instalacion de impresora via TCP/IP
-# NOTA: Este servidor usa UN SOLO PUERTO (8631) para todas las impresoras
-# El servidor redirige automáticamente a la IP física de cada impresora
+# NOTA: Cada impresora tiene su PUERTO DEDICADO FIJO
+# Este puerto nunca cambia y está almacenado en la base de datos
 # Impresora: ${printerName}
 # Servidor: ${serverIp}
 
 param([string]$DisplayName = "${printerName}")
 
 $ServerIP = "${serverIp}"
-$ServerPort = ${serverPort}  # Puerto único para todas las impresoras
+$ServerPort = ${serverPort}  # Puerto FIJO de esta impresora
 $PrinterName = "${printerName}"
 
 Write-Host "========================================" -ForegroundColor Cyan
@@ -137,8 +137,8 @@ Write-Host "  Instalador de Impresora" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Impresora: $DisplayName" -ForegroundColor Green
-Write-Host "Servidor: $ServerIP Puerto: $ServerPort (PUERTO UNICO)" -ForegroundColor Green
-Write-Host "Nota: El servidor redirige a la impresora fisica" -ForegroundColor Yellow
+Write-Host "Servidor: $ServerIP Puerto: $ServerPort (PUERTO FIJO)" -ForegroundColor Green
+Write-Host "Nota: Este puerto es exclusivo para esta impresora" -ForegroundColor Yellow
 Write-Host ""
 
 # Verificar permisos de admin

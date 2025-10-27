@@ -91,20 +91,21 @@ public class PrinterServerController {
             
             List<Map<String, Object>> printerList = printers.stream()
                 .map(p -> {
+                    int port = multiPortIppService.getPortForPrinter(p);
                     Map<String, Object> info = new HashMap<>();
                     info.put("id", p.getId());
                     info.put("name", p.getAlias());
                     info.put("model", p.getModel());
                     info.put("location", p.getLocation());
-                    info.put("port", 8631);  // Puerto único
-                    info.put("ippUri", buildIppUri(serverIp, p.getAlias()));
+                    info.put("port", port);  // Puerto específico de la impresora
+                    info.put("ippUri", buildIppUriWithPort(serverIp, p.getAlias(), port));
                     return info;
                 })
                 .collect(Collectors.toList());
             
             Map<String, Object> response = new HashMap<>();
             response.put("serverIp", serverIp);
-            response.put("port", 8631);  // Puerto único para todas
+            response.put("basePort", 8631);  // Puerto base (primera impresora)
             response.put("printers", printerList);
             response.put("total", printerList.size());
             
@@ -230,10 +231,22 @@ public class PrinterServerController {
         try {
             String serverIp = NetworkUtils.getServerIpAddress();
             
+            // Buscar la impresora para obtener su puerto
+            List<Printer> printers = entityManager.createQuery(
+                "SELECT p FROM Printer p WHERE p.alias = :name", Printer.class)
+                .setParameter("name", printerName)
+                .getResultList();
+            
+            int port = 8631;
+            if (!printers.isEmpty()) {
+                port = multiPortIppService.getPortForPrinter(printers.get(0));
+            }
+            
             Map<String, String> commands = new HashMap<>();
             commands.put("windows", buildWindowsCommand(serverIp, printerName));
             commands.put("linux", buildLinuxCommand(serverIp, printerName));
-            commands.put("ippUri", buildIppUri(serverIp, printerName));
+            commands.put("ippUri", buildIppUriWithPort(serverIp, printerName, port));
+            commands.put("port", String.valueOf(port));
             
             return ResponseEntity.ok(commands);
             
