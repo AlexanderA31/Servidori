@@ -240,11 +240,11 @@ EOFSVC
     # Firewall
     print_header "CONFIGURANDO FIREWALL"
     if command -v ufw &> /dev/null; then
-        ufw --force allow $APP_PORT/tcp comment 'Print Manager'
-        ufw --force allow 631/tcp comment 'CUPS'
-        ufw --force allow 139/tcp comment 'Samba'
-        ufw --force allow 445/tcp comment 'Samba'
-        ufw --force allow 22/tcp comment 'SSH'
+        sudo ufw allow 8080/tcp comment 'Print Manager'
+        sudo ufw allow 631/tcp comment 'CUPS'
+        sudo ufw allow 139/tcp comment 'Samba NetBIOS'
+        sudo ufw allow 445/tcp comment 'Samba SMB'
+        sudo ufw allow 22/tcp comment 'SSH'
         print_success "Reglas de firewall añadidas"
     fi
     
