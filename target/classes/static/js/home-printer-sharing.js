@@ -238,39 +238,40 @@ try {
 if (-not $success) {
     Write-Host ""
     Write-Host "Metodo 2: Instalando via TCP/IP RAW..." -ForegroundColor Cyan
-
-# Crear puerto TCP/IP unico por impresora
-Write-Host "  Creando puerto TCP/IP: $portName" -ForegroundColor Yellow
-
-try {
-    Add-PrinterPort -Name $portName -PrinterHostAddress $ServerIP -PortNumber $ServerPort -ErrorAction Stop
-    Write-Host "  [OK] Puerto creado" -ForegroundColor Green
-} catch {
-    if ($_.Exception.Message -like "*already exists*") {
-        Write-Host "  [!] Puerto ya existe" -ForegroundColor Yellow
-    } else {
-        Write-Host "  [ERROR] Error creando puerto: $_" -ForegroundColor Red
-        Read-Host "Presiona Enter para salir"
-        exit 1
-    }
-}
-
-# Agregar impresora con driver generico
-Write-Host "  Agregando impresora..." -ForegroundColor Yellow
-
-try {
-    # Intentar con driver generico Text Only
-    Add-Printer -Name $PrinterName -PortName $portName -DriverName "Generic / Text Only" -ErrorAction Stop
-    $success = $true
-    Write-Host "  [OK] Impresora instalada con driver generico" -ForegroundColor Green
-} catch {
-    # Si falla, intentar con Microsoft Print To PDF como fallback
+    
+    # Crear puerto TCP/IP unico por impresora
+    Write-Host "  Creando puerto TCP/IP: $portName" -ForegroundColor Yellow
+    
     try {
-        Add-Printer -Name $PrinterName -PortName $portName -DriverName "Microsoft Print To PDF" -ErrorAction Stop
-        $success = $true
-        Write-Host "  [OK] Impresora instalada con driver alternativo" -ForegroundColor Yellow
+        Add-PrinterPort -Name $portName -PrinterHostAddress $ServerIP -PortNumber $ServerPort -ErrorAction Stop
+        Write-Host "  [OK] Puerto creado" -ForegroundColor Green
     } catch {
-        Write-Host "  [ERROR] $_" -ForegroundColor Red
+        if ($_.Exception.Message -like "*already exists*") {
+            Write-Host "  [!] Puerto ya existe" -ForegroundColor Yellow
+        } else {
+            Write-Host "  [ERROR] Error creando puerto: $_" -ForegroundColor Red
+            Read-Host "Presiona Enter para salir"
+            exit 1
+        }
+    }
+    
+    # Agregar impresora con driver generico
+    Write-Host "  Agregando impresora..." -ForegroundColor Yellow
+    
+    try {
+        # Intentar con driver generico Text Only
+        Add-Printer -Name $PrinterName -PortName $portName -DriverName "Generic / Text Only" -ErrorAction Stop
+        $success = $true
+        Write-Host "  [OK] Impresora instalada con driver generico" -ForegroundColor Green
+    } catch {
+        # Si falla, intentar con Microsoft Print To PDF como fallback
+        try {
+            Add-Printer -Name $PrinterName -PortName $portName -DriverName "Microsoft Print To PDF" -ErrorAction Stop
+            $success = $true
+            Write-Host "  [OK] Impresora instalada con driver alternativo" -ForegroundColor Yellow
+        } catch {
+            Write-Host "  [ERROR] $_" -ForegroundColor Red
+        }
     }
 }
 
