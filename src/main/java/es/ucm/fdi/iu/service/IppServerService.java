@@ -192,9 +192,20 @@ public class IppServerService {
     private IppResponse printJob(IppRequest request) {
         String printerName = extractPrinterName(request.printerUri);
         
-        Optional<Printer> printerOpt = printerRepository.findByAlias(printerName);
+        Optional<Printer> printerOpt;
+        
+        if (printerName != null && !printerName.isEmpty()) {
+            printerOpt = printerRepository.findByAlias(printerName);
+        } else {
+            // Si no hay nombre de impresora, usar la primera disponible
+            List<Printer> printers = printerRepository.findAll();
+            printerOpt = printers.isEmpty() ? Optional.empty() : Optional.of(printers.get(0));
+            log.info("  ℹ️  Sin nombre de impresora, usando: {}", 
+                printerOpt.map(Printer::getAlias).orElse("ninguna"));
+        }
         
         if (printerOpt.isEmpty()) {
+            log.error("  ❌ No se encontró impresora para: {}", printerName);
             return createErrorResponse("client-error-not-found");
         }
         
@@ -300,13 +311,24 @@ public class IppServerService {
 
     private String extractPrinterName(String uri) {
         // ipp://servidor:631/printers/HP_LaserJet → HP_LaserJet
+        if (uri == null || uri.isEmpty()) {
+            return null;
+        }
+        
         try {
             URI u = new URI(uri);
             String path = u.getPath();
+            if (path == null || path.isEmpty()) {
+                return null;
+            }
             String[] parts = path.split("/");
-            return parts[parts.length - 1];
+            if (parts.length > 0) {
+                return parts[parts.length - 1];
+            }
+            return null;
         } catch (Exception e) {
-            return "";
+            log.debug("  Error extrayendo nombre de impresora de URI: {}", uri);
+            return null;
         }
     }
 
@@ -350,39 +372,47 @@ public class IppServerService {
         IppRequest request = new IppRequest();
         
         try {
-            // Marcar el stream para poder hacer reset si es necesario
-            in.mark(1024);
+            // Leer los primeros bytes para analizar el contenido
+            BufferedInputStream bufferedIn = new BufferedInputStream(in);
+            bufferedIn.mark(1024);
             
-            // Leer version IPP (2 bytes)
-            int versionMajor = in.read();
-            int versionMinor = in.read();
-            log.debug("  Versión IPP: {}.{}", versionMajor, versionMinor);
+            byte[] header = new byte[100];
+            int headerRead = bufferedIn.read(header);
             
-            // Verificar si es una request IPP válida (versiones 1.0, 1.1, 2.0, etc)
-            if (versionMajor < 1 || versionMajor > 3) {
-                log.warn("  Versión IPP no estándar, intentando reset...");
-                try {
-                    in.reset();
-                    // Intentar buscar el inicio del request IPP
-                    byte[] buffer = new byte[100];
-                    int read = in.read(buffer);
-                    log.debug("  Primeros bytes recibidos: {}", bytesToHex(buffer, read));
-                } catch (Exception e) {
-                    log.error("  No se pudo resetear el stream");
-                }
+            if (headerRead < 8) {
+                log.warn("  Request demasiado corto: {} bytes", headerRead);
                 return null;
             }
             
+            log.debug("  Primeros bytes: {}", bytesToHex(header, Math.min(headerRead, 32)));
+            
+            // Resetear para leer desde el inicio
+            bufferedIn.reset();
+            
+            // Leer version IPP (2 bytes)
+            int versionMajor = bufferedIn.read();
+            int versionMinor = bufferedIn.read();
+            log.debug("  Versión IPP: {}.{}", versionMajor, versionMinor);
+            
+            // Verificar si es una request IPP válida (versiones 1.0, 1.1, 2.0, etc)
+            if (versionMajor < 1 || versionMajor > 3 || versionMinor < 0 || versionMinor > 9) {
+                log.warn("  ⚠ No es un request IPP válido (versión: {}.{})", versionMajor, versionMinor);
+                log.warn("  Posiblemente sea un trabajo RAW enviado directamente al puerto IPP");
+                
+                // Intentar procesar como trabajo RAW
+                return handleRawPrintJob(bufferedIn, header, headerRead);
+            }
+            
             // Leer operation-id (2 bytes)
-            int operationHi = in.read();
-            int operationLo = in.read();
+            int operationHi = bufferedIn.read();
+            int operationLo = bufferedIn.read();
             int operationId = (operationHi << 8) | operationLo;
             request.operation = getOperationName(operationId);
             log.debug("  Operation ID: 0x{} ({})", Integer.toHexString(operationId), request.operation);
             
             // Leer request-id (4 bytes)
             byte[] requestIdBytes = new byte[4];
-            in.read(requestIdBytes);
+            bufferedIn.read(requestIdBytes);
             int requestId = ((requestIdBytes[0] & 0xFF) << 24) |
                            ((requestIdBytes[1] & 0xFF) << 16) |
                            ((requestIdBytes[2] & 0xFF) << 8) |
@@ -390,7 +420,7 @@ public class IppServerService {
             log.debug("  Request ID: {}", requestId);
             
             // Leer atributos IPP
-            parseIppAttributes(in, request);
+            parseIppAttributes(bufferedIn, request);
             
             // Si hay datos de documento (para Print-Job), leerlos
             if ("Print-Job".equals(request.operation)) {
@@ -399,7 +429,7 @@ public class IppServerService {
                 int bytesRead;
                 int totalBytes = 0;
                 
-                while ((bytesRead = in.read(buffer)) != -1) {
+                while ((bytesRead = bufferedIn.read(buffer)) != -1) {
                     baos.write(buffer, 0, bytesRead);
                     totalBytes += bytesRead;
                 }
@@ -520,6 +550,50 @@ public class IppServerService {
         String statusCode;
         Map<String, String> attributes;
         List<Map<String, String>> printerList;
+    }
+    
+    /**
+     * Maneja trabajos de impresión RAW enviados directamente al puerto IPP
+     * (cuando el cliente envía datos PCL/PostScript sin protocolo IPP)
+     */
+    private IppRequest handleRawPrintJob(InputStream in, byte[] initialBytes, int initialLength) {
+        log.info("  📄 Procesando como trabajo RAW (no IPP)");
+        
+        try {
+            // Leer todos los datos incluyendo los bytes iniciales
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            baos.write(initialBytes, 0, initialLength);
+            
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = in.read(buffer)) != -1) {
+                baos.write(buffer, 0, bytesRead);
+            }
+            
+            byte[] allData = baos.toByteArray();
+            log.info("  📦 Datos RAW recibidos: {} bytes", allData.length);
+            
+            // Crear un request IPP sintético para Print-Job
+            IppRequest request = new IppRequest();
+            request.operation = "Print-Job";
+            request.documentData = allData;
+            request.jobName = "RAW Print Job";
+            
+            // Intentar determinar la impresora de destino
+            // Si solo hay una impresora, usarla por defecto
+            List<Printer> printers = printerRepository.findAll();
+            if (!printers.isEmpty()) {
+                Printer defaultPrinter = printers.get(0);
+                request.printerUri = buildPrinterUri(defaultPrinter);
+                log.info("  🖨️  Usando impresora por defecto: {}", defaultPrinter.getAlias());
+            }
+            
+            return request;
+            
+        } catch (Exception e) {
+            log.error("  ❌ Error procesando trabajo RAW: {}", e.getMessage());
+            return null;
+        }
     }
     
     // Método auxiliar para debugging
