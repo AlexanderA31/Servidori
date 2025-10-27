@@ -22,7 +22,8 @@ import java.util.concurrent.*;
  * 
  * Y la aplicación redirigirá el trabajo a la impresora real
  */
-@Service
+// Deshabilitado: Usa MultiPortIppServerService para identificar impresoras
+// @Service
 @Slf4j
 public class IppServerService {
 
@@ -621,7 +622,7 @@ public class IppServerService {
      * Maneja trabajos de impresión RAW enviados directamente al puerto IPP
      * (cuando el cliente envía datos PCL/PostScript sin protocolo IPP)
      */
-    private IppRequest handleRawPrintJob(InputStream in, byte[] initialBytes, int initialLength) {
+    private IppRequest handleRawPrintJob(InputStream in, byte[] initialBytes, int initialLength, Socket clientSocket) {
         log.info("  📄 Procesando como trabajo RAW (no IPP)");
         
         try {
@@ -644,13 +645,15 @@ public class IppServerService {
             request.documentData = allData;
             request.jobName = "RAW Print Job";
             
-            // Intentar determinar la impresora de destino
-            // Si solo hay una impresora, usarla por defecto
+            // PROBLEMA: Con RAW no podemos identificar la impresora destino
+            // Windows envía datos sin metadata de la impresora
+            // Usamos la primera impresora por defecto
             List<Printer> printers = printerRepository.findAll();
             if (!printers.isEmpty()) {
                 Printer defaultPrinter = printers.get(0);
                 request.printerUri = buildPrinterUri(defaultPrinter);
-                log.info("  🖨️  Usando impresora por defecto: {}", defaultPrinter.getAlias());
+                log.warn("⚠️  RAW sin identificador - Usando impresora por defecto: {}", defaultPrinter.getAlias());
+                log.warn("⚠️  Para dirigir a impresora específica, usa protocolo IPP en el cliente");
             }
             
             return request;

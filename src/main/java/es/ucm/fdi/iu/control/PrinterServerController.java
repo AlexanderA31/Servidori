@@ -31,6 +31,9 @@ public class PrinterServerController {
 
     @Autowired
     private EntityManager entityManager;
+    
+    @Autowired
+    private es.ucm.fdi.iu.service.MultiPortIppServerService multiPortIppService;
 
     /**
      * Pagina principal del servidor de impresion
@@ -46,17 +49,20 @@ public class PrinterServerController {
             model.addAttribute("printers", printers);
             model.addAttribute("totalPrinters", printers.size());
             
-            // Generar URIs IPP para cada impresora (todas usan puerto 8631)
+            // Generar URIs IPP para cada impresora con puerto dedicado
             List<PrinterInfo> printerInfos = printers.stream()
-                .map(p -> new PrinterInfo(
-                    p.getAlias(),
-                    p.getModel(),
-                    p.getLocation(),
-                    buildIppUri(serverIp, p.getAlias()),
-                    buildWindowsCommand(serverIp, p.getAlias()),
-                    buildLinuxCommand(serverIp, p.getAlias()),
-                    8631  // Puerto único
-                ))
+                .map(p -> {
+                    int port = multiPortIppService.getPortForPrinter(p);
+                    return new PrinterInfo(
+                        p.getAlias(),
+                        p.getModel(),
+                        p.getLocation(),
+                        buildIppUriWithPort(serverIp, p.getAlias(), port),
+                        buildWindowsCommand(serverIp, p.getAlias()),
+                        buildLinuxCommand(serverIp, p.getAlias()),
+                        port
+                    );
+                })
                 .collect(Collectors.toList());
             
             model.addAttribute("printerInfos", printerInfos);
