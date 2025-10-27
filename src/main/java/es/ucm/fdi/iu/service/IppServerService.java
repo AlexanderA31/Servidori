@@ -622,7 +622,7 @@ public class IppServerService {
      * Maneja trabajos de impresión RAW enviados directamente al puerto IPP
      * (cuando el cliente envía datos PCL/PostScript sin protocolo IPP)
      */
-    private IppRequest handleRawPrintJob(InputStream in, byte[] initialBytes, int initialLength, Socket clientSocket) {
+    private IppRequest handleRawPrintJob(InputStream in, byte[] initialBytes, int initialLength) {
         log.info("  📄 Procesando como trabajo RAW (no IPP)");
         
         try {
