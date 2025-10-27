@@ -31,9 +31,6 @@ public class PrinterServerController {
 
     @Autowired
     private EntityManager entityManager;
-    
-    @Autowired
-    private es.ucm.fdi.iu.service.MultiPortIppServerService multiPortIppService;
 
     /**
      * Pagina principal del servidor de impresion
@@ -49,20 +46,17 @@ public class PrinterServerController {
             model.addAttribute("printers", printers);
             model.addAttribute("totalPrinters", printers.size());
             
-            // Generar URIs IPP para cada impresora con su puerto dedicado
+            // Generar URIs IPP para cada impresora (todas usan puerto 8631)
             List<PrinterInfo> printerInfos = printers.stream()
-                .map(p -> {
-                    int port = multiPortIppService.getPortForPrinter(p);
-                    return new PrinterInfo(
-                        p.getAlias(),
-                        p.getModel(),
-                        p.getLocation(),
-                        buildIppUriWithPort(serverIp, p.getAlias(), port),
-                        buildWindowsCommand(serverIp, p.getAlias()),
-                        buildLinuxCommand(serverIp, p.getAlias()),
-                        port
-                    );
-                })
+                .map(p -> new PrinterInfo(
+                    p.getAlias(),
+                    p.getModel(),
+                    p.getLocation(),
+                    buildIppUri(serverIp, p.getAlias()),
+                    buildWindowsCommand(serverIp, p.getAlias()),
+                    buildLinuxCommand(serverIp, p.getAlias()),
+                    8631  // Puerto único
+                ))
                 .collect(Collectors.toList());
             
             model.addAttribute("printerInfos", printerInfos);
@@ -91,21 +85,20 @@ public class PrinterServerController {
             
             List<Map<String, Object>> printerList = printers.stream()
                 .map(p -> {
-                    int port = multiPortIppService.getPortForPrinter(p);
                     Map<String, Object> info = new HashMap<>();
                     info.put("id", p.getId());
                     info.put("name", p.getAlias());
                     info.put("model", p.getModel());
                     info.put("location", p.getLocation());
-                    info.put("port", port);
-                    info.put("ippUri", buildIppUriWithPort(serverIp, p.getAlias(), port));
+                    info.put("port", 8631);  // Puerto único
+                    info.put("ippUri", buildIppUri(serverIp, p.getAlias()));
                     return info;
                 })
                 .collect(Collectors.toList());
             
             Map<String, Object> response = new HashMap<>();
             response.put("serverIp", serverIp);
-            response.put("basePort", 8631);
+            response.put("port", 8631);  // Puerto único para todas
             response.put("printers", printerList);
             response.put("total", printerList.size());
             

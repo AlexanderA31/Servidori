@@ -115,14 +115,18 @@ function downloadWindowsClientScript() {
 
 // Generar el script PowerShell completo
 function generatePowerShellScript(serverIp, serverPort, printerName, printerPath, ippUrl, smbPath, safeFileName) {
+    // Nota: serverPort siempre será 8631 (puerto único)
+    // El servidor redirige internamente a la IP física de cada impresora
     const script = `# Script de instalacion de impresora via TCP/IP
+# NOTA: Este servidor usa UN SOLO PUERTO (8631) para todas las impresoras
+# El servidor redirige automáticamente a la IP física de cada impresora
 # Impresora: ${printerName}
 # Servidor: ${serverIp}
 
 param([string]$DisplayName = "${printerName}")
 
 $ServerIP = "${serverIp}"
-$ServerPort = ${serverPort}
+$ServerPort = ${serverPort}  # Puerto único para todas las impresoras
 $PrinterName = "${printerName}"
 
 Write-Host "========================================" -ForegroundColor Cyan
@@ -130,7 +134,8 @@ Write-Host "  Instalador de Impresora" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Impresora: $DisplayName" -ForegroundColor Green
-Write-Host "Servidor: $ServerIP" -ForegroundColor Green
+Write-Host "Servidor: $ServerIP:$ServerPort (PUERTO UNICO)" -ForegroundColor Green
+Write-Host "Nota: El servidor redirige a la impresora fisica" -ForegroundColor Yellow
 Write-Host ""
 
 # Verificar permisos de admin

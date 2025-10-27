@@ -43,8 +43,12 @@ public class Printer implements Transferable<Printer.Transfer> {
     // Ej: ipp://192.168.1.100/ipp/print, socket://192.168.1.100:9100
     private String deviceUri;
     
-    // Puerto de conexión (por defecto: 9100 para RAW, 631 para IPP, 515 para LPD)
+        // Puerto de conexión a la impresora física (por defecto: 9100 para RAW, 631 para IPP, 515 para LPD)
     private Integer port;
+    
+    // Puerto IPP dedicado del servidor (8631, 8632, 8633, etc.)
+    // Este es el puerto donde los clientes se conectan a ESTE servidor
+    private Integer ippPort;
     
     // Protocolo de comunicación: RAW, IPP, LPD, SMB
     // RAW = Puerto 9100 (más común y rápido)
@@ -88,7 +92,7 @@ public class Printer implements Transferable<Printer.Transfer> {
         return Status.PRINTING;
     }
 
-                @Getter
+                    @Getter
     @AllArgsConstructor
     @NoArgsConstructor
     public static class Transfer {
@@ -100,6 +104,7 @@ public class Printer implements Transferable<Printer.Transfer> {
         private String deviceUri;
         private String driver;
         private Integer port;
+        private Integer ippPort;
         private String protocol;
         private boolean sharedViaSamba;
         private boolean addedToCups;
@@ -109,14 +114,14 @@ public class Printer implements Transferable<Printer.Transfer> {
         private Status status;
     }
 
-        @Override
+            @Override
     public Transfer toTransfer() {
         List<Long> gs = groups.stream().map(PGroup::getId)
                 .collect(Collectors.toList());
         List<Long> qs = queue.stream().map(Job::getId)
                 .collect(Collectors.toList());
         return new Transfer(
-                id, alias, model, location, ip, deviceUri, driver, port, protocol,
+                id, alias, model, location, ip, deviceUri, driver, port, ippPort, protocol,
                 sharedViaSamba, addedToCups, sambaShareName, gs, qs, currentStatus());
     }
 }

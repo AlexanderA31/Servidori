@@ -24,7 +24,8 @@ import java.util.concurrent.*;
  * Esto permite que Windows identifique correctamente cada impresora
  * sin necesidad de protocolo IPP completo.
  */
-@Service
+// DEPRECADO: Ahora usamos IppServerService con IP directa a impresora física
+// @Service
 @Slf4j
 public class MultiPortIppServerService {
 
