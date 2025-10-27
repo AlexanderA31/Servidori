@@ -134,7 +134,7 @@ Write-Host "  Instalador de Impresora" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Impresora: $DisplayName" -ForegroundColor Green
-Write-Host "Servidor: $ServerIP:$ServerPort (PUERTO UNICO)" -ForegroundColor Green
+Write-Host "Servidor: $ServerIP Puerto: $ServerPort (PUERTO UNICO)" -ForegroundColor Green
 Write-Host "Nota: El servidor redirige a la impresora fisica" -ForegroundColor Yellow
 Write-Host ""
 
