@@ -246,11 +246,7 @@ public class PrinterAutoConfigService {
      * Obtiene la IP del servidor
      */
     private String getServerIp() {
-        try {
-            return java.net.InetAddress.getLocalHost().getHostAddress();
-        } catch (Exception e) {
-            return "localhost";
-        }
+        return es.ucm.fdi.iu.util.NetworkUtils.getServerIpAddress();
     }
 
     /**

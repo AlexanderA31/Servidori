@@ -422,21 +422,7 @@ public class PrinterShareService {
      * Obtiene la IP del servidor
      */
     private String getServerIp() {
-        try {
-            if (isWindows) {
-                // En Windows, intentar obtener IP no-localhost
-                InetAddress[] addresses = InetAddress.getAllByName(InetAddress.getLocalHost().getHostName());
-                for (InetAddress addr : addresses) {
-                    if (!addr.isLoopbackAddress() && addr.getAddress().length == 4) {
-                        return addr.getHostAddress();
-                    }
-                }
-            }
-            return InetAddress.getLocalHost().getHostAddress();
-        } catch (Exception e) {
-            log.warn("No se pudo obtener IP del servidor");
-            return "localhost";
-        }
+        return es.ucm.fdi.iu.util.NetworkUtils.getServerIpAddress();
     }
 
     /**

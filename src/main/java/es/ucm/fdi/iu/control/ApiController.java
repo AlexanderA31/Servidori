@@ -824,13 +824,8 @@ public class ApiController {
     public Map<String, Object> getAllPrinters() {
         log.info("Public API: /api/printers");
         
-        // Obtener IP del servidor (FIJA para todas las impresoras)
-        String serverIp = "localhost";
-        try {
-            serverIp = java.net.InetAddress.getLocalHost().getHostAddress();
-        } catch (Exception e) {
-            log.warn("No se pudo obtener la IP del servidor: {}", e.getMessage());
-        }
+                // Obtener IP del servidor (FIJA para todas las impresoras)
+        String serverIp = es.ucm.fdi.iu.util.NetworkUtils.getServerIpAddress();
         
         List<Map<String, String>> printersList = new ArrayList<>();
         List<Printer> printers = entityManager.createQuery(
