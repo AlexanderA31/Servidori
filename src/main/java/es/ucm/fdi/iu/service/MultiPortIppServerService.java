@@ -48,8 +48,11 @@ public class MultiPortIppServerService {
         executorService = Executors.newCachedThreadPool();
         running = true;
         
-        // Obtener todas las impresoras y asignarles un puerto
-        List<Printer> printers = printerRepository.findAll();
+        // Asignar puertos a impresoras que no tengan uno asignado
+        assignIppPortsIfNeeded();
+        
+        // Obtener todas las impresoras ordenadas por ID
+        List<Printer> printers = printerRepository.findAllByOrderByIdAsc();
         
         if (printers.isEmpty()) {
             log.warn("No hay impresoras registradas. El servidor IPP multi-puerto no se iniciará.");
@@ -60,9 +63,8 @@ public class MultiPortIppServerService {
         log.info("✓ Iniciando servidor IPP Multi-Puerto");
         log.info("════════════════════════════════════════════════════════════");
         
-        for (int i = 0; i < printers.size(); i++) {
-            Printer printer = printers.get(i);
-            int port = BASE_PORT + i;
+        for (Printer printer : printers) {
+            int port = printer.getIppPort() != null ? printer.getIppPort() : BASE_PORT;
             
             try {
                 ServerSocket socket = new ServerSocket(port);
@@ -72,7 +74,7 @@ public class MultiPortIppServerService {
                 // Iniciar listener para esta impresora
                 executorService.submit(() -> acceptConnections(printer, socket, port));
                 
-                log.info("  ✓ {} → Puerto {}", printer.getAlias(), port);
+                log.info("  ✓ {} → Puerto {} (FIJO)", printer.getAlias(), port);
                 
             } catch (IOException e) {
                 log.error("  ✗ Error iniciando puerto {} para {}: {}", 
@@ -81,7 +83,7 @@ public class MultiPortIppServerService {
         }
         
         log.info("════════════════════════════════════════════════════════════");
-        log.info("Total: {} impresoras con puertos dedicados", serverSockets.size());
+        log.info("Total: {} impresoras con puertos fijos dedicados", serverSockets.size());
         log.info("════════════════════════════════════════════════════════════");
     }
 
@@ -258,6 +260,30 @@ public class MultiPortIppServerService {
     }
 
     /**
+     * Asigna puertos IPP a impresoras que no tengan uno asignado
+     */
+    private void assignIppPortsIfNeeded() {
+        List<Printer> printersWithoutPort = printerRepository.findByIppPortIsNull();
+        
+        if (printersWithoutPort.isEmpty()) {
+            return;
+        }
+        
+        log.info("Asignando puertos IPP a {} impresoras...", printersWithoutPort.size());
+        
+        // Obtener el puerto máximo actual
+        Integer maxPort = printerRepository.findMaxIppPort();
+        int nextPort = (maxPort != null) ? maxPort + 1 : BASE_PORT;
+        
+        for (Printer printer : printersWithoutPort) {
+            printer.setIppPort(nextPort);
+            printerRepository.save(printer);
+            log.info("  ✓ {} → Puerto {} asignado", printer.getAlias(), nextPort);
+            nextPort++;
+        }
+    }
+    
+    /**
      * Obtiene el puerto asignado a una impresora
      */
     public int getPortForPrinter(Printer printer) {
@@ -265,25 +291,16 @@ public class MultiPortIppServerService {
             return BASE_PORT;
         }
         
-        List<Printer> all = printerRepository.findAll();
-        for (int i = 0; i < all.size(); i++) {
-            if (all.get(i).getId() == printer.getId()) {
-                return BASE_PORT + i;
-            }
-        }
-        return BASE_PORT;
+        // Usar el puerto fijo almacenado en la BD
+        return printer.getIppPort() != null ? printer.getIppPort() : BASE_PORT;
     }
 
     /**
      * Obtiene el puerto asignado a una impresora por ID
      */
     public int getPortForPrinterId(long printerId) {
-        List<Printer> all = printerRepository.findAll();
-        for (int i = 0; i < all.size(); i++) {
-            if (all.get(i).getId() == printerId) {
-                return BASE_PORT + i;
-            }
-        }
-        return BASE_PORT;
+        Optional<Printer> printer = printerRepository.findById(printerId);
+        return printer.map(p -> p.getIppPort() != null ? p.getIppPort() : BASE_PORT)
+                      .orElse(BASE_PORT);
     }
 }

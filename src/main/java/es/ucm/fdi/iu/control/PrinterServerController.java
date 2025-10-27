@@ -45,7 +45,7 @@ public class PrinterServerController {
             model.addAttribute("serverIp", serverIp);
             
             List<Printer> printers = entityManager.createQuery(
-                "SELECT p FROM Printer p ORDER BY p.alias", Printer.class).getResultList();
+                "SELECT p FROM Printer p ORDER BY p.id", Printer.class).getResultList();
             model.addAttribute("printers", printers);
             model.addAttribute("totalPrinters", printers.size());
             
@@ -87,7 +87,7 @@ public class PrinterServerController {
         try {
             String serverIp = NetworkUtils.getServerIpAddress();
             List<Printer> printers = entityManager.createQuery(
-                "SELECT p FROM Printer p ORDER BY p.alias", Printer.class).getResultList();
+                "SELECT p FROM Printer p ORDER BY p.id", Printer.class).getResultList();
             
             List<Map<String, Object>> printerList = printers.stream()
                 .map(p -> {
