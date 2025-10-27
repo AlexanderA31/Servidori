@@ -69,14 +69,12 @@ public class AdminController {
         try {
             User currentUser = (User) session.getAttribute("u");
             
-            // Obtener IP del servidor
-            String serverIp = "localhost";
-            try {
-                serverIp = InetAddress.getLocalHost().getHostAddress();
-            } catch (Exception e) {
-                log.warn("No se pudo obtener la IP del servidor: {}", e.getMessage());
-            }
+                                    // Obtener IP del servidor
+            String serverIp = es.ucm.fdi.iu.util.NetworkUtils.getServerIpAddress();
             model.addAttribute("serverIp", serverIp);
+            
+            // Puerto IPP (8631 para evitar conflicto con CUPS nativo)
+            model.addAttribute("ippPort", 8631);
             
             // Estadísticas generales
             long totalDepartments = entityManager.createQuery(
