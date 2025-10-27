@@ -27,16 +27,15 @@ sudo mv /opt/print-manager /opt/print-manager.old || true
 echo "▶ Creando nuevo directorio..."
 sudo mkdir -p /opt/print-manager
 
-# 5. Copiar código actualizado
-echo "▶ Copiando código desde ~/Servidori..."
+# 5. Compilar desde el directorio del usuario
+echo "▶ Compilando desde ~/Servidori..."
 cd ~/Servidori
 git pull origin main
-sudo cp -r ~/Servidori/* /opt/print-manager/
+mvn clean package -DskipTests -q
 
-# 6. Compilar
-echo "▶ Compilando..."
-cd /opt/print-manager
-sudo -u printmgr mvn clean package -DskipTests -q
+# 6. Copiar código ya compilado
+echo "▶ Copiando código compilado a /opt/print-manager..."
+sudo cp -r ~/Servidori/* /opt/print-manager/
 
 # 7. Configurar application.properties
 echo "▶ Configurando..."
