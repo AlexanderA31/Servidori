@@ -220,12 +220,15 @@ public class IppServerService {
             String protocol = printer.getProtocol() != null ? printer.getProtocol() : "RAW";
             boolean success = false;
             
+            // Determinar puerto correcto (evitar SNMP 161)
+            int printPort = determinePrintPort(printer);
+            
             switch (protocol.toUpperCase()) {
                 case "RAW":
                     success = ippPrintService.sendToRawPort(
                         printer.getIp(), 
                         tempFile.toPath(), 
-                        printer.getPort() != null ? printer.getPort() : 9100
+                        printPort
                     );
                     break;
                 case "IPP":
@@ -237,8 +240,11 @@ public class IppServerService {
                     break;
                 default:
                     // Intentar múltiples métodos
-                    success = ippPrintService.sendToRawPort(printer.getIp(), tempFile.toPath(), 9100);
+                    success = ippPrintService.sendToRawPort(printer.getIp(), tempFile.toPath(), printPort);
             }
+            
+            log.info("📡 Trabajo enviado a {}:{} (protocolo: {})", 
+                printer.getIp(), printPort, protocol);
             
             int jobId = success ? (int)(System.currentTimeMillis() % 10000) : -1;
             
@@ -653,6 +659,36 @@ public class IppServerService {
             log.error("  ❌ Error procesando trabajo RAW: {}", e.getMessage());
             return null;
         }
+    }
+    
+    /**
+     * Determina el puerto de impresión correcto para la impresora
+     * Evita usar puertos de administración (SNMP 161, IPP 631)
+     */
+    private int determinePrintPort(Printer printer) {
+        Integer configuredPort = printer.getPort();
+        
+        // Si no hay puerto configurado, usar 9100 por defecto
+        if (configuredPort == null) {
+            log.debug("ℹ️ Sin puerto configurado, usando 9100");
+            return 9100;
+        }
+        
+        // Si el puerto es SNMP (161/162), NO es un puerto de impresión
+        if (configuredPort == 161 || configuredPort == 162) {
+            log.warn("⚠️ Puerto SNMP ({}) detectado, usando 9100 para impresión", configuredPort);
+            return 9100;
+        }
+        
+        // Si el puerto es IPP (631), usar 9100 para RAW
+        if (configuredPort == 631) {
+            log.debug("ℹ️ Puerto IPP (631), usando 9100 para RAW");
+            return 9100;
+        }
+        
+        // Usar el puerto configurado si es válido (9100-9103 son comunes)
+        log.debug("✓ Usando puerto configurado: {}", configuredPort);
+        return configuredPort;
     }
     
     /**
