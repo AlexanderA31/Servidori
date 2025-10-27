@@ -100,6 +100,8 @@ function downloadWindowsClientScript() {
     
     const ippUrl = selectedOption.dataset.ippuri;
     const printerName = selectedOption.dataset.name;
+    
+    // Extraer puerto del URI IPP
     const urlParts = ippUrl.match(/ipp:\/\/([^:]+):(\d+)\/printers\/(.+)/);
     const serverIp = urlParts ? urlParts[1] : 'servidor';
     const serverPort = urlParts ? parseInt(urlParts[2]) : 8631;
@@ -107,7 +109,8 @@ function downloadWindowsClientScript() {
     const safeFileName = printerName.replace(/[^a-zA-Z0-9_-]/g, '_');
     const smbPath = '\\\\\\\\' + serverIp + '\\\\' + printerName.replace(/\s/g, '_');
     
-    console.log('Generando script para:', { printerName, serverIp, serverPort });
+    console.log('Descargando script para:', { printerName, serverIp, serverPort });
+    console.log('Puerto especifico detectado:', serverPort);
     
     const scriptContent = generatePowerShellScript(serverIp, serverPort, printerName, printerPath, ippUrl, smbPath, safeFileName);
     downloadFile(scriptContent, 'instalar-' + safeFileName + '.ps1', 'text/plain');

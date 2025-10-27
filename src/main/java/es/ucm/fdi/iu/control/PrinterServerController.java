@@ -123,12 +123,24 @@ public class PrinterServerController {
     public ResponseEntity<String> downloadWindowsScriptForPrinter(@PathVariable String printerName) {
         try {
             String serverIp = NetworkUtils.getServerIpAddress();
-            String script = generateWindowsScriptForPrinter(serverIp, printerName);
             
-            log.info("Generando script Windows personalizado para impresora: {}", printerName);
+            // Obtener el puerto especifico de esta impresora
+            List<Printer> printers = entityManager.createQuery(
+                "SELECT p FROM Printer p WHERE p.alias = :name", Printer.class)
+                .setParameter("name", printerName)
+                .getResultList();
+            
+            int port = 8631; // Puerto por defecto
+            if (!printers.isEmpty()) {
+                port = multiPortIppService.getPortForPrinter(printers.get(0));
+            }
+            
+            String script = generateWindowsScriptForPrinter(serverIp, port, printerName);
+            
+            log.info("Generando script Windows personalizado para impresora: {} (Puerto: {})", printerName, port);
             
             return ResponseEntity.ok()
-                .header("Content-Disposition", "attachment; filename=configurar-" + printerName + ".ps1")
+                .header("Content-Disposition", "attachment; filename=instalar-" + printerName + ".ps1")
                 .header("Content-Type", "text/plain; charset=UTF-8")
                 .body(script);
         } catch (Exception e) {
@@ -550,7 +562,7 @@ public class PrinterServerController {
     /**
      * Genera script Windows personalizado para una impresora especifica
      */
-    private String generateWindowsScriptForPrinter(String serverIp, String printerName) {
+    private String generateWindowsScriptForPrinter(String serverIp, int serverPort, String printerName) {
         // Leer el script base
         try {
             java.nio.file.Path scriptPath = java.nio.file.Paths.get("scripts/configurar-impresora.ps1");
@@ -562,6 +574,11 @@ public class PrinterServerController {
                 scriptBase = scriptBase.replace(
                     "[string]$ServerIP = \"10.1.1.79\"",
                     "[string]$ServerIP = \"" + serverIp + "\""
+                );
+                
+                scriptBase = scriptBase.replace(
+                    "$ServerPort = 8631",
+                    "$ServerPort = " + serverPort
                 );
                 
                 scriptBase = scriptBase.replace(
@@ -580,15 +597,20 @@ public class PrinterServerController {
             log.error("Error leyendo script base", e);
         }
         
-        // Fallback: generar script inline
+        // Fallback: generar script inline con puerto correcto
         return "# Script personalizado para " + printerName + "\n" +
-               "# Servidor: " + serverIp + "\n\n" +
+               "# Servidor: " + serverIp + "\n" +
+               "# Puerto: " + serverPort + "\n\n" +
                "Write-Host 'Instalando impresora " + printerName + "...' -ForegroundColor Cyan\n" +
                "$serverIp = \"" + serverIp + "\"\n" +
+               "$serverPort = " + serverPort + "\n" +
                "$printerName = \"" + printerName + "\"\n" +
-               "$ippUrl = \"http://${serverIp}:8631/printers/${printerName}\"\n\n" +
+               "$portName = \"IP_${serverIp}_${serverPort}\"\n\n" +
+               "# Crear puerto TCP/IP\n" +
+               "Add-PrinterPort -Name $portName -PrinterHostAddress $serverIp -PortNumber $serverPort -ErrorAction SilentlyContinue\n\n" +
                "# Agregar impresora\n" +
-               "Add-Printer -ConnectionName $ippUrl\n";
+               "Add-Printer -Name $printerName -PortName $portName -DriverName \"Generic / Text Only\" -ErrorAction Stop\n" +
+               "Write-Host 'Impresora instalada correctamente' -ForegroundColor Green\n";
     }
     
     /**
