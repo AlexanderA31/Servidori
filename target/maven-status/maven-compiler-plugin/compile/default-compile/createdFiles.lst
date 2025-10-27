@@ -1,3 +1,4 @@
+es\ucm\fdi\iu\service\IppServerService.class
 es\ucm\fdi\iu\control\ApiController$ApiAuthException.class
 es\ucm\fdi\iu\service\PrinterShareService$ShareStatus.class
 es\ucm\fdi\iu\service\CupsService$CupsPrinterInfo.class
@@ -56,9 +57,11 @@ es\ucm\fdi\iu\model\PGroup.class
 es\ucm\fdi\iu\control\DepartmentController.class
 es\ucm\fdi\iu\service\CupsService.class
 es\ucm\fdi\iu\model\Computer$Transfer.class
+es\ucm\fdi\iu\service\IppServerService$IppResponse.class
 es\ucm\fdi\iu\service\PrinterAutoConfigService$ConfigurationResult.class
 es\ucm\fdi\iu\service\CupsService$CupsJobInfo.class
 es\ucm\fdi\iu\model\Department$Transfer.class
+es\ucm\fdi\iu\service\IppServerService$IppRequest.class
 es\ucm\fdi\iu\service\SambaService$SambaUser.class
 es\ucm\fdi\iu\control\AdminController.class
 es\ucm\fdi\iu\model\Department$PrinterInfo.class
