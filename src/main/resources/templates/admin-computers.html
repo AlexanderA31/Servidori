@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="fragments/head :: header"/>
+    <title>Gestión de Computadoras</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <link rel="stylesheet" th:href="@{/css/admin-sidebar.css}"/>
+    <link rel="stylesheet" th:href="@{/css/admin-modern.css}"/>
+    <link rel="stylesheet" th:href="@{/css/admin-computers.css}"/>
+    <link rel="stylesheet" th:href="@{/css/admin-sidebar-override.css}"/>
+</head>
+<body>
+    <nav th:replace="fragments/nav.html :: nav"></nav>
+    
+    <div th:if="${success}" class="alert alert-success alert-fixed">
+        <span th:text="${success}"></span>
+    </div>
+    <div th:if="${error}" class="alert alert-error alert-fixed">
+        <span th:text="${error}"></span>
+    </div>
+
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside th:replace="fragments/admin-sidebar.html :: sidebar"></aside>
+        
+        <!-- Contenido Principal -->
+        <div class="admin-content">
+            <div class="computers-container">
+                <!-- Header -->
+                <div class="computers-header">
+                    <h1><i class="fas fa-desktop"></i> Gestión de Computadoras</h1>
+                    <p>Administra todas las computadoras del sistema</p>
+                </div>
+                
+                <!-- Acciones -->
+                <div class="computers-actions">
+                    <button class="btn btn-primary" onclick="openModal('addComputerModal')">
+                        <i class="fas fa-plus"></i> Agregar Computadora
+                    </button>
+                </div>
+                
+                <!-- Estadísticas -->
+                <div class="computers-stats">
+                    <div class="computer-stat-card">
+                        <div class="computer-stat-icon">
+                            <i class="fas fa-desktop"></i>
+                        </div>
+                        <div class="computer-stat-value" th:text="${allComputers != null ? #lists.size(allComputers) : 0}">0</div>
+                        <div class="computer-stat-label">Total de Computadoras</div>
+                    </div>
+                    <div class="computer-stat-card unassigned-card">
+                        <div class="computer-stat-icon">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="computer-stat-value" th:text="${unassignedComputers != null ? #lists.size(unassignedComputers) : 0}">0</div>
+                        <div class="computer-stat-label">Sin Asignar</div>
+                    </div>
+                    <div class="computer-stat-card assigned-card">
+                        <div class="computer-stat-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="computer-stat-value" th:text="${assignedComputers != null ? #lists.size(assignedComputers) : 0}">0</div>
+                        <div class="computer-stat-label">Asignadas</div>
+                    </div>
+                </div>
+
+                <!-- Computadoras Sin Asignar -->
+                <div class="computers-section" th:if="${unassignedComputers != null and !#lists.isEmpty(unassignedComputers)}">
+                    <h2 class="section-title">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Computadoras Sin Asignar
+                    </h2>
+                    <div class="card">
+                        <div class="card-body">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Computadora</th>
+                                        <th>MAC Address</th>
+                                        <th>Hostname</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="computer : ${unassignedComputers}">
+                                        <td>
+                                            <div class="computer-name-cell">
+                                                <div class="computer-icon">
+                                                    <i class="fas fa-desktop"></i>
+                                                </div>
+                                                <strong th:text="${computer.name}">PC-001</strong>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="mac-badge" th:text="${computer.macAddress}">00:00:00:00:00:00</span>
+                                        </td>
+                                        <td th:text="${computer.hostname != null ? computer.hostname : '--'}">hostname</td>
+                                        <td>
+                                            <span th:if="${computer.authorized}" class="status-badge-authorized">Autorizado</span>
+                                            <span th:unless="${computer.authorized}" class="status-badge-unauthorized">No Autorizado</span>
+                                        </td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                <button class="btn btn-sm btn-primary" 
+                                                        th:attr="data-id=${computer.id}, data-name=${computer.name}"
+                                                        onclick="openAssignComputerModal(this.dataset)"
+                                                        title="Asignar a departamento">
+                                                    <i class="fas fa-building"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-primary" 
+                                                        th:attr="data-id=${computer.id}, data-name=${computer.name}, data-mac=${computer.macAddress}, data-hostname=${computer.hostname}"
+                                                        onclick="openEditComputerModal(this.dataset)"
+                                                        title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <form method="post" th:action="@{/admin/delete-computer(id=${computer.id})}" 
+                                                      class="d-inline" 
+                                                      onsubmit="return confirm('⚠️ ¿Eliminar computadora?')">
+                                                    <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Computadoras Asignadas -->
+                <div class="computers-section">
+                    <h2 class="section-title">
+                        <i class="fas fa-check-circle"></i>
+                        Computadoras Asignadas por Departamento
+                    </h2>
+                    
+                    <div th:if="${assignedComputers == null || #lists.isEmpty(assignedComputers)}" class="empty-state">
+                        <div class="empty-state-icon"><i class="fas fa-desktop"></i></div>
+                        <p>No hay computadoras asignadas a departamentos</p>
+                    </div>
+                    
+                    <div th:unless="${assignedComputers == null || #lists.isEmpty(assignedComputers)}" class="card">
+                        <div class="card-body">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Computadora</th>
+                                        <th>MAC Address</th>
+                                        <th>Hostname</th>
+                                        <th>Departamento</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="computer : ${assignedComputers}">
+                                        <td>
+                                            <div class="computer-name-cell">
+                                                <div class="computer-icon">
+                                                    <i class="fas fa-desktop"></i>
+                                                </div>
+                                                <strong th:text="${computer.name}">PC-001</strong>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="mac-badge" th:text="${computer.macAddress}">00:00:00:00:00:00</span>
+                                        </td>
+                                        <td th:text="${computer.hostname != null ? computer.hostname : '--'}">hostname</td>
+                                        <td>
+                                            <span class="department-badge" th:text="${computer.department.name}">Departamento</span>
+                                        </td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                <button class="btn btn-sm btn-primary" 
+                                                        th:attr="data-id=${computer.id}, data-name=${computer.name}, data-mac=${computer.macAddress}, data-hostname=${computer.hostname}"
+                                                        onclick="openEditComputerModal(this.dataset)"
+                                                        title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <form method="post" th:action="@{/admin/remove-computer-from-dept(computerId=${computer.id})}" 
+                                                      class="d-inline" 
+                                                      onsubmit="return confirm('¿Desasignar computadora del departamento?')">
+                                                    <button type="submit" class="btn btn-sm btn-primary" title="Desasignar">
+                                                        <i class="fas fa-unlink"></i>
+                                                    </button>
+                                                </form>
+                                                <form method="post" th:action="@{/admin/delete-computer(id=${computer.id})}" 
+                                                      class="d-inline" 
+                                                      onsubmit="return confirm('⚠️ ¿Eliminar computadora?')">
+                                                    <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALES -->
+    <div th:replace="fragments/admin-computers-modals :: modals"></div>
+    
+    <!-- Barra de progreso minimizada GLOBAL -->
+    <div th:replace="fragments/scan-progress-minimized.html :: minimized-bar"></div>
+
+    <footer th:replace="fragments/footer.html :: footer"></footer>
+
+    <script th:src="@{/js/admin.js}"></script>
+    <script th:src="@{/js/scan-monitor-global.js}"></script>
+    <script th:replace="fragments/admin-computers-scripts :: scripts"></script>
+</body>
+</html>

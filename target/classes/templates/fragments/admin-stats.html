@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Admin Stats Fragment</title>
+</head>
+<body>
+    <!-- Admin Stats Fragment -->
+    <div class="stats-grid" th:fragment="stats">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-building"></i></div>
+            <div class="stat-value" th:text="${totalDepartments}">0</div>
+            <div class="stat-label">Departamentos</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-desktop"></i></div>
+            <div class="stat-value" th:text="${totalComputers}">0</div>
+            <div class="stat-label">Computadoras</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-print"></i></div>
+            <div class="stat-value" th:text="${totalPrinters}">0</div>
+            <div class="stat-label">Impresoras</div>
+        </div>
+    </div>
+</body>
+</html>

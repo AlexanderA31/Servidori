@@ -6,8 +6,12 @@ import es.ucm.fdi.iu.model.User;
 import es.ucm.fdi.iu.model.Department;
 import es.ucm.fdi.iu.model.Computer;
 import es.ucm.fdi.iu.model.NetworkRange;
+import es.ucm.fdi.iu.model.Job;
 import es.ucm.fdi.iu.service.PrinterDiscoveryService;
 import es.ucm.fdi.iu.service.PrinterAutoConfigService;
+import es.ucm.fdi.iu.service.PrintQueueService;
+import org.springframework.web.multipart.MultipartFile;
+import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -45,16 +49,76 @@ public class AdminController {
 	    @Autowired
     private PrinterDiscoveryService printerDiscoveryService;
     
-    @Autowired
+        @Autowired
     private PrinterAutoConfigService printerAutoConfigService;
+    
+    @Autowired
+    private es.ucm.fdi.iu.service.SambaAutoConfigService sambaAutoConfigService;
+    
+        @Autowired
+    private es.ucm.fdi.iu.service.IppPrintService ippPrintService;
+    
+    @Autowired
+    private PrintQueueService printQueueService;
 
-                @GetMapping({"/", ""})
+                                                                    // ========== DASHBOARD PRINCIPAL ==========
+    
+    @GetMapping({"/", ""})
     @Transactional
-    public String index(Model model, HttpSession session) {
+    public String dashboard(Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
         try {
             User currentUser = (User) session.getAttribute("u");
             
-                        // Cargar departamentos
+            // Obtener IP del servidor
+            String serverIp = "localhost";
+            try {
+                serverIp = InetAddress.getLocalHost().getHostAddress();
+            } catch (Exception e) {
+                log.warn("No se pudo obtener la IP del servidor: {}", e.getMessage());
+            }
+            model.addAttribute("serverIp", serverIp);
+            
+            // Estadísticas generales
+            long totalDepartments = entityManager.createQuery(
+                    "SELECT COUNT(d) FROM Department d", Long.class)
+                    .getSingleResult();
+            
+            long totalComputers = entityManager.createQuery(
+                    "SELECT COUNT(c) FROM Computer c", Long.class)
+                    .getSingleResult();
+            
+            long unassignedComputers = entityManager.createQuery(
+                    "SELECT COUNT(c) FROM Computer c WHERE c.department IS NULL", Long.class)
+                    .getSingleResult();
+            
+                        long totalPrinters = entityManager.createQuery(
+                    "SELECT COUNT(p) FROM Printer p", Long.class)
+                    .getSingleResult();
+            
+            model.addAttribute("totalDepartments", totalDepartments);
+            model.addAttribute("totalComputers", totalComputers);
+            model.addAttribute("unassignedComputers", unassignedComputers);
+            model.addAttribute("totalPrinters", totalPrinters);
+            model.addAttribute("currentUri", request.getRequestURI());
+            
+            log.info("Dashboard loaded successfully");
+            return "admin-dashboard";
+        } catch (Exception e) {
+            log.error("Error loading dashboard", e);
+            model.addAttribute("error", "Error al cargar el dashboard: " + e.getMessage());
+            return "error";
+        }
+    }
+    
+    // ========== SECCIÓN: DEPARTAMENTOS ==========
+    
+        @GetMapping("/departments")
+    @Transactional
+    public String departments(Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
+        try {
+            User currentUser = (User) session.getAttribute("u");
+            
+            // Cargar departamentos
             List<Department> departments = entityManager.createNamedQuery(
                     "Department.all", Department.class)
                     .getResultList();
@@ -69,7 +133,7 @@ public class AdminController {
                     "SELECT p FROM Printer p", Printer.class)
                     .getResultList();
             
-                                    // Rangos de red (puede fallar si la tabla no existe aún)
+            // Rangos de red
             List<NetworkRange> networkRanges = new java.util.ArrayList<>();
             try {
                 networkRanges = entityManager.createNamedQuery(
@@ -83,15 +147,349 @@ public class AdminController {
             model.addAttribute("unassignedComputers", unassignedComputers);
             model.addAttribute("allPrinters", allPrinters);
             model.addAttribute("networkRanges", networkRanges);
+            model.addAttribute("currentUri", request.getRequestURI());
             
-            log.info("Admin panel loaded successfully");
-            return "departments";
+            log.info("Departments section loaded");
+            return "admin-departments";
         } catch (Exception e) {
-            log.error("Error loading admin panel", e);
-            model.addAttribute("error", "Error al cargar el panel: " + e.getMessage());
+            log.error("Error loading departments", e);
+            model.addAttribute("error", "Error al cargar departamentos: " + e.getMessage());
             return "error";
         }
     }
+    
+    // ========== SECCIÓN: IMPRESORAS ==========
+    
+        @GetMapping("/printers")
+    @Transactional
+    public String printers(Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
+        try {
+            User currentUser = (User) session.getAttribute("u");
+            
+            // Cargar todas las impresoras
+            List<Printer> allPrinters = entityManager.createQuery(
+                    "SELECT p FROM Printer p ORDER BY p.alias", Printer.class)
+                    .getResultList();
+            
+            // Rangos de red
+            List<NetworkRange> networkRanges = new java.util.ArrayList<>();
+            try {
+                networkRanges = entityManager.createNamedQuery(
+                        "NetworkRange.all", NetworkRange.class)
+                        .getResultList();
+            } catch (Exception e) {
+                log.warn("No se pudieron cargar rangos de red: {}", e.getMessage());
+            }
+            
+            // Datos para el sidebar
+            List<Department> departments = entityManager.createNamedQuery(
+                    "Department.all", Department.class)
+                    .getResultList();
+            
+            List<Computer> unassignedComputers = entityManager.createQuery(
+                    "SELECT c FROM Computer c WHERE c.department IS NULL", Computer.class)
+                    .getResultList();
+            
+            model.addAttribute("allPrinters", allPrinters);
+            model.addAttribute("networkRanges", networkRanges);
+            model.addAttribute("departments", departments);  // PARA EL SIDEBAR
+            model.addAttribute("unassignedComputers", unassignedComputers);  // PARA EL SIDEBAR
+            model.addAttribute("currentUri", request.getRequestURI());
+            
+            log.info("Printers section loaded with {} printers", allPrinters.size());
+            return "admin-printers";
+        } catch (Exception e) {
+            log.error("Error loading printers", e);
+            model.addAttribute("error", "Error al cargar impresoras: " + e.getMessage());
+            return "error";
+        }
+    }
+    
+    // ========== SECCIÓN: COLAS DE IMPRESIÓN ==========
+    
+    @GetMapping("/printqueues")
+    @Transactional
+    public String printQueues(Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
+        try {
+            User currentUser = (User) session.getAttribute("u");
+            
+            // Cargar todas las impresoras con sus colas
+            List<Printer> printersWithJobs = entityManager.createQuery(
+                    "SELECT DISTINCT p FROM Printer p LEFT JOIN FETCH p.queue ORDER BY p.alias", Printer.class)
+                    .getResultList();
+            
+            // Filtrar solo las impresoras que tienen trabajos
+            printersWithJobs = printersWithJobs.stream()
+                    .filter(p -> p.getQueue() != null && !p.getQueue().isEmpty())
+                    .collect(java.util.stream.Collectors.toList());
+            
+            // Todas las impresoras (para el modal de agregar trabajo)
+            List<Printer> allPrinters = entityManager.createQuery(
+                    "SELECT p FROM Printer p ORDER BY p.alias", Printer.class)
+                    .getResultList();
+            
+            // Estadísticas
+            long totalJobs = entityManager.createQuery(
+                    "SELECT COUNT(j) FROM Job j", Long.class)
+                    .getSingleResult();
+            
+            long activePrinters = printersWithJobs.size();
+            long pendingJobs = totalJobs;
+            
+            // Datos para el sidebar
+            List<Department> departments = entityManager.createNamedQuery(
+                    "Department.all", Department.class)
+                    .getResultList();
+            
+            List<Computer> unassignedComputers = entityManager.createQuery(
+                    "SELECT c FROM Computer c WHERE c.department IS NULL", Computer.class)
+                    .getResultList();
+            
+            model.addAttribute("printersWithJobs", printersWithJobs);
+            model.addAttribute("allPrinters", allPrinters);
+            model.addAttribute("totalJobs", totalJobs);
+            model.addAttribute("activePrinters", activePrinters);
+            model.addAttribute("pendingJobs", pendingJobs);
+            model.addAttribute("departments", departments);
+            model.addAttribute("unassignedComputers", unassignedComputers);
+            model.addAttribute("currentUri", request.getRequestURI());
+            
+            log.info("Print queues section loaded with {} active printers", activePrinters);
+            return "admin-printqueues";
+        } catch (Exception e) {
+            log.error("Error loading print queues", e);
+            model.addAttribute("error", "Error al cargar colas de impresión: " + e.getMessage());
+            return "error";
+        }
+    }
+    
+        @PostMapping("/printqueues/add-job")
+    @Transactional
+    public String addJob(
+            @RequestParam Long printerId,
+            @RequestParam String fileName,
+            @RequestParam String owner,
+            @RequestParam(required = false) MultipartFile file,
+            HttpSession session,
+            RedirectAttributes ra) {
+        try {
+            User user = (User) session.getAttribute("u");
+            Printer printer = entityManager.find(Printer.class, printerId);
+            
+            if (printer == null) {
+                ra.addFlashAttribute("error", "Impresora no encontrada");
+                return "redirect:/admin/printqueues";
+            }
+            
+            // Obtener datos del archivo si se proporcionó
+            byte[] fileData = null;
+            if (file != null && !file.isEmpty()) {
+                fileData = file.getBytes();
+                log.info("📎 Archivo recibido: {} ({} bytes)", file.getOriginalFilename(), fileData.length);
+            }
+            
+            // Usar el servicio de colas para agregar el trabajo
+            Job job = printQueueService.addJob(printer, fileName, owner, user, fileData);
+            
+            ra.addFlashAttribute("success", "Trabajo agregado a la cola de " + printer.getAlias() + 
+                " (ID: " + job.getId() + ")");
+        } catch (Exception e) {
+            log.error("Error adding job", e);
+            ra.addFlashAttribute("error", "Error: " + e.getMessage());
+        }
+        return "redirect:/admin/printqueues";
+    }
+    
+        @PostMapping("/printqueues/cancel-job")
+    @Transactional
+    public String cancelJob(@RequestParam Long jobId, RedirectAttributes ra) {
+        try {
+            boolean cancelled = printQueueService.cancelJob(jobId);
+            if (cancelled) {
+                ra.addFlashAttribute("success", "Trabajo cancelado exitosamente");
+            } else {
+                ra.addFlashAttribute("error", "No se pudo cancelar el trabajo");
+            }
+        } catch (Exception e) {
+            log.error("Error canceling job", e);
+            ra.addFlashAttribute("error", "Error: " + e.getMessage());
+        }
+        return "redirect:/admin/printqueues";
+    }
+    
+        @PostMapping("/printqueues/clear-queue")
+    @Transactional
+    public String clearQueue(@RequestParam Long printerId, RedirectAttributes ra) {
+        try {
+            int cleared = printQueueService.clearQueue(printerId);
+            if (cleared > 0) {
+                ra.addFlashAttribute("success", "Cola limpiada: " + cleared + " trabajo(s) eliminado(s)");
+            } else {
+                ra.addFlashAttribute("info", "No había trabajos en la cola");
+            }
+        } catch (Exception e) {
+            log.error("Error clearing queue", e);
+            ra.addFlashAttribute("error", "Error: " + e.getMessage());
+        }
+        return "redirect:/admin/printqueues";
+    }
+    
+    @PostMapping("/printqueues/clear-all")
+    @Transactional
+    public String clearAllQueues(RedirectAttributes ra) {
+        try {
+            int totalDeleted = entityManager.createQuery("DELETE FROM Job").executeUpdate();
+            ra.addFlashAttribute("success", "Todas las colas limpiadas: " + totalDeleted + " trabajo(s) eliminado(s)");
+        } catch (Exception e) {
+            log.error("Error clearing all queues", e);
+            ra.addFlashAttribute("error", "Error: " + e.getMessage());
+        }
+        return "redirect:/admin/printqueues";
+    }
+    
+    @PostMapping("/printqueues/move-to-top")
+    @Transactional
+    public String moveJobToTop(@RequestParam Long jobId, RedirectAttributes ra) {
+        try {
+            Job job = entityManager.find(Job.class, jobId);
+            if (job != null && job.getPrinter() != null) {
+                Printer printer = job.getPrinter();
+                List<Job> queue = printer.getQueue();
+                
+                if (queue.remove(job)) {
+                    queue.add(0, job);
+                    entityManager.flush();
+                    ra.addFlashAttribute("success", "Trabajo movido al inicio de la cola");
+                } else {
+                    ra.addFlashAttribute("error", "No se pudo mover el trabajo");
+                }
+            } else {
+                ra.addFlashAttribute("error", "Trabajo o impresora no encontrado");
+            }
+        } catch (Exception e) {
+            log.error("Error moving job to top", e);
+            ra.addFlashAttribute("error", "Error: " + e.getMessage());
+        }
+        return "redirect:/admin/printqueues";
+    }
+    
+    // ========== SECCIÓN: COMPUTADORAS ==========
+    
+        @GetMapping("/computers")
+    @Transactional
+    public String computers(Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
+        try {
+            User currentUser = (User) session.getAttribute("u");
+            
+            // Cargar todas las computadoras
+            List<Computer> allComputers = entityManager.createQuery(
+                    "SELECT c FROM Computer c ORDER BY c.name", Computer.class)
+                    .getResultList();
+            
+            // Computadoras sin asignar
+            List<Computer> unassignedComputers = entityManager.createQuery(
+                    "SELECT c FROM Computer c WHERE c.department IS NULL ORDER BY c.name", Computer.class)
+                    .getResultList();
+            
+            // Computadoras por departamento
+            List<Computer> assignedComputers = entityManager.createQuery(
+                    "SELECT c FROM Computer c WHERE c.department IS NOT NULL ORDER BY c.department.name, c.name", Computer.class)
+                    .getResultList();
+            
+            // Cargar departamentos para asignación Y para el sidebar
+            List<Department> departments = entityManager.createNamedQuery(
+                    "Department.all", Department.class)
+                    .getResultList();
+            
+            // Cargar todas las impresoras PARA EL SIDEBAR
+            List<Printer> allPrinters = entityManager.createQuery(
+                    "SELECT p FROM Printer p", Printer.class)
+                    .getResultList();
+            
+            model.addAttribute("allComputers", allComputers);
+            model.addAttribute("unassignedComputers", unassignedComputers);
+            model.addAttribute("assignedComputers", assignedComputers);
+            model.addAttribute("departments", departments);
+            model.addAttribute("allPrinters", allPrinters);  // PARA EL SIDEBAR
+            model.addAttribute("currentUri", request.getRequestURI());
+            
+            log.info("Computers section loaded with {} computers", allComputers.size());
+            return "admin-computers";
+        } catch (Exception e) {
+            log.error("Error loading computers", e);
+            model.addAttribute("error", "Error al cargar computadoras: " + e.getMessage());
+            return "error";
+        }
+    }
+    
+        // ========== SECCIÓN: REDES / VLANs ========== (DESHABILITADA)
+    
+    /*
+    @GetMapping("/network")
+    @Transactional
+    public String network(Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
+        try {
+            User currentUser = (User) session.getAttribute("u");
+            
+            // Cargar rangos de red
+            List<NetworkRange> networkRanges = new java.util.ArrayList<>();
+            try {
+                networkRanges = entityManager.createNamedQuery(
+                        "NetworkRange.all", NetworkRange.class)
+                        .getResultList();
+            } catch (Exception e) {
+                log.warn("No se pudieron cargar rangos de red: {}", e.getMessage());
+            }
+            
+            // Obtener IP del servidor
+            String serverIp = "localhost";
+            try {
+                serverIp = InetAddress.getLocalHost().getHostAddress();
+            } catch (Exception e) {
+                log.warn("No se pudo obtener la IP del servidor: {}", e.getMessage());
+            }
+            
+            model.addAttribute("networkRanges", networkRanges);
+            model.addAttribute("serverIp", serverIp);
+            model.addAttribute("currentUri", request.getRequestURI());
+            
+                        log.info("Network section loaded with {} ranges", networkRanges.size());
+            return "admin-network";
+        } catch (Exception e) {
+            log.error("Error loading network section", e);
+            model.addAttribute("error", "Error al cargar configuración de red: " + e.getMessage());
+                        return "error";
+        }
+    }
+    */
+    
+    // ========== SECCIÓN: USUARIOS ========== (DESHABILITADA)
+    
+        /*
+    @GetMapping("/users")
+    @Transactional
+    public String users(Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
+        try {
+            User currentUser = (User) session.getAttribute("u");
+            
+            // Cargar todos los usuarios
+            List<User> allUsers = entityManager.createQuery(
+                    "SELECT u FROM User u ORDER BY u.username", User.class)
+                    .getResultList();
+            
+            model.addAttribute("allUsers", allUsers);
+            model.addAttribute("currentUserId", currentUser != null ? currentUser.getId() : -1);
+            model.addAttribute("currentUri", request.getRequestURI());
+            
+            log.info("Users section loaded with {} users", allUsers.size());
+            return "admin-users";
+        } catch (Exception e) {
+            log.error("Error loading users section", e);
+            model.addAttribute("error", "Error al cargar usuarios: " + e.getMessage());
+                        return "error";
+        }
+    }
+    */
 
     // ========== GESTIÓN DE DEPARTAMENTOS ==========
     
@@ -120,7 +518,7 @@ public class AdminController {
             log.error("Error creating department", e);
             ra.addFlashAttribute("error", "Error: " + e.getMessage());
         }
-        return "redirect:/admin/";
+        return "redirect:/admin/departments";
     }
     
     @PostMapping("/add-computer-to-dept")
@@ -139,7 +537,7 @@ public class AdminController {
             
             if (dept == null) {
                 ra.addFlashAttribute("error", "Departamento no encontrado");
-                return "redirect:/admin/";
+                return "redirect:/admin/departments";
             }
             
             Computer computer = new Computer();
@@ -150,13 +548,13 @@ public class AdminController {
             computer.setDepartment(dept);
             computer.setInstance(user);
             
-            entityManager.persist(computer);
+                        entityManager.persist(computer);
             ra.addFlashAttribute("success", "Computadora agregada al departamento");
         } catch (Exception e) {
             log.error("Error adding computer", e);
             ra.addFlashAttribute("error", "Error: " + e.getMessage());
         }
-        return "redirect:/admin/";
+        return "redirect:/admin/computers";
     }
     
     @PostMapping("/assign-printer-to-dept")
@@ -172,7 +570,7 @@ public class AdminController {
             
             if (dept == null || printer == null) {
                 ra.addFlashAttribute("error", "Departamento o impresora no encontrado");
-                return "redirect:/admin/";
+                return "redirect:/admin/departments";
             }
             
             if (!dept.getPrinters().contains(printer)) {
@@ -185,7 +583,7 @@ public class AdminController {
             log.error("Error assigning printer", e);
             ra.addFlashAttribute("error", "Error: " + e.getMessage());
         }
-        return "redirect:/admin/";
+        return "redirect:/admin/departments";
     }
     
     @PostMapping("/remove-printer-from-dept")
@@ -207,10 +605,10 @@ public class AdminController {
             log.error("Error removing printer", e);
             ra.addFlashAttribute("error", "Error: " + e.getMessage());
         }
-        return "redirect:/admin/";
+        return "redirect:/admin/departments";
     }
     
-    @PostMapping("/remove-computer-from-dept")
+        @PostMapping("/remove-computer-from-dept")
     @Transactional
     public String removeComputerFromDepartment(
             @RequestParam long computerId,
@@ -226,7 +624,109 @@ public class AdminController {
             log.error("Error removing computer", e);
             ra.addFlashAttribute("error", "Error: " + e.getMessage());
         }
-        return "redirect:/admin/";
+        return "redirect:/admin/computers";
+    }
+    
+    @PostMapping("/add-computer")
+    @Transactional
+    public String addComputer(
+            @RequestParam String macAddress,
+            @RequestParam String name,
+            @RequestParam(required = false) String hostname,
+            @RequestParam(required = false) Long departmentId,
+            HttpSession session,
+            RedirectAttributes ra) {
+        try {
+            User user = (User) session.getAttribute("u");
+            
+            Computer computer = new Computer();
+            computer.setMacAddress(macAddress);
+            computer.setName(name);
+            computer.setHostname(hostname);
+            computer.setAuthorized(true);
+            computer.setInstance(user);
+            
+            if (departmentId != null) {
+                Department dept = entityManager.find(Department.class, departmentId);
+                if (dept != null) {
+                    computer.setDepartment(dept);
+                }
+            }
+            
+            entityManager.persist(computer);
+            ra.addFlashAttribute("success", "Computadora agregada: " + name);
+        } catch (Exception e) {
+            log.error("Error adding computer", e);
+            ra.addFlashAttribute("error", "Error: " + e.getMessage());
+        }
+        return "redirect:/admin/computers";
+    }
+    
+    @PostMapping("/edit-computer")
+    @Transactional
+    public String editComputer(
+            @RequestParam Long id,
+            @RequestParam String macAddress,
+            @RequestParam String name,
+            @RequestParam(required = false) String hostname,
+            RedirectAttributes ra) {
+        try {
+            Computer computer = entityManager.find(Computer.class, id);
+            if (computer != null) {
+                computer.setMacAddress(macAddress);
+                computer.setName(name);
+                computer.setHostname(hostname);
+                ra.addFlashAttribute("success", "Computadora actualizada");
+            } else {
+                ra.addFlashAttribute("error", "Computadora no encontrada");
+            }
+        } catch (Exception e) {
+            log.error("Error editing computer", e);
+            ra.addFlashAttribute("error", "Error: " + e.getMessage());
+        }
+        return "redirect:/admin/computers";
+    }
+    
+    @PostMapping("/delete-computer")
+    @Transactional
+    public String deleteComputer(@RequestParam Long id, RedirectAttributes ra) {
+        try {
+            Computer computer = entityManager.find(Computer.class, id);
+            if (computer != null) {
+                String computerName = computer.getName();
+                entityManager.remove(computer);
+                ra.addFlashAttribute("success", "Computadora eliminada: " + computerName);
+            } else {
+                ra.addFlashAttribute("error", "Computadora no encontrada");
+            }
+        } catch (Exception e) {
+            log.error("Error deleting computer", e);
+            ra.addFlashAttribute("error", "Error: " + e.getMessage());
+        }
+        return "redirect:/admin/computers";
+    }
+    
+    @PostMapping("/assign-computer-to-dept")
+    @Transactional
+    public String assignComputerToDepartment(
+            @RequestParam Long computerId,
+            @RequestParam Long departmentId,
+            RedirectAttributes ra) {
+        try {
+            Computer computer = entityManager.find(Computer.class, computerId);
+            Department dept = entityManager.find(Department.class, departmentId);
+            
+            if (computer != null && dept != null) {
+                computer.setDepartment(dept);
+                ra.addFlashAttribute("success", "Computadora asignada a " + dept.getName());
+            } else {
+                ra.addFlashAttribute("error", "Computadora o departamento no encontrado");
+            }
+        } catch (Exception e) {
+            log.error("Error assigning computer", e);
+            ra.addFlashAttribute("error", "Error: " + e.getMessage());
+        }
+        return "redirect:/admin/computers";
     }
     
     @PostMapping("/delete-department")
@@ -244,11 +744,12 @@ public class AdminController {
             log.error("Error deleting department", e);
             ra.addFlashAttribute("error", "Error: " + e.getMessage());
         }
-        return "redirect:/admin/";
+        return "redirect:/admin/departments";
     }
     
-    // ========== GESTIÓN DE USUARIOS (COMENTADO - NO SE USA) ==========
+        // ========== GESTIÓN DE USUARIOS ========== (DESHABILITADA)
     
+    /*
     @PostMapping("/adduser")
     @Transactional
     public String addUser(
@@ -263,13 +764,13 @@ public class AdminController {
             user.setEnabled(true);
             user.setRoles(roles != null && !roles.isEmpty() ? roles : "USER");
             
-            entityManager.persist(user);
+                        entityManager.persist(user);
             ra.addFlashAttribute("success", "Usuario creado exitosamente");
         } catch (Exception e) {
             log.error("Error creating user", e);
             ra.addFlashAttribute("error", "Error al crear usuario: " + e.getMessage());
         }
-        return "redirect:/admin";
+        return "redirect:/admin/users";
     }
 
     @PostMapping("/edituser")
@@ -287,14 +788,14 @@ public class AdminController {
                 if (password != null && !password.isEmpty()) {
                     user.setPassword(passwordEncoder.encode(password));
                 }
-                user.setRoles(roles);
+                                user.setRoles(roles);
                 ra.addFlashAttribute("success", "Usuario actualizado exitosamente");
             }
         } catch (Exception e) {
             log.error("Error editing user", e);
             ra.addFlashAttribute("error", "Error al editar usuario: " + e.getMessage());
         }
-        return "redirect:/admin";
+        return "redirect:/admin/users";
     }
 
     @PostMapping("/deleteuser")
@@ -309,13 +810,13 @@ public class AdminController {
                 } else {
                     entityManager.remove(user);
                     ra.addFlashAttribute("success", "Usuario eliminado exitosamente");
-                }
+                                }
             }
         } catch (Exception e) {
             log.error("Error deleting user", e);
             ra.addFlashAttribute("error", "Error al eliminar usuario: " + e.getMessage());
         }
-        return "redirect:/admin";
+        return "redirect:/admin/users";
     }
 
     @PostMapping("/toggleuser")
@@ -325,66 +826,172 @@ public class AdminController {
             User user = entityManager.find(User.class, id);
             if (user != null) {
                 user.setEnabled(!user.isEnabled());
-                ra.addFlashAttribute("success", "Estado del usuario actualizado");
+                                ra.addFlashAttribute("success", "Estado del usuario actualizado");
             }
         } catch (Exception e) {
             log.error("Error toggling user", e);
             ra.addFlashAttribute("error", "Error al cambiar estado: " + e.getMessage());
         }
-        return "redirect:/admin";
+                return "redirect:/admin/users";
     }
+    */
 
     // ========== DESCUBRIMIENTO DE IMPRESORAS ==========
     
-        @PostMapping("/discover-printers")
+                @PostMapping("/discover-printers")
     public String discoverPrinters(HttpSession session, RedirectAttributes ra) {
         try {
             User user = (User) session.getAttribute("u");
             
             // Ejecutar escaneo en background
             new Thread(() -> {
+                int registeredCount = 0;
+                int duplicatesCount = 0;
                 try {
+                    log.info("========================================");
+                    log.info("🔍 Iniciando descubrimiento de impresoras...");
+                    
                     // Descubrir impresoras de red
                     List<PrinterDiscoveryService.DiscoveredPrinter> networkPrinters = 
                         printerDiscoveryService.discoverNetworkPrinters();
+                    log.info("✅ Impresoras de red descubiertas: {}", networkPrinters.size());
                     
                     // Descubrir impresoras locales
                     List<PrinterDiscoveryService.DiscoveredPrinter> localPrinters = 
                         printerDiscoveryService.discoverLocalPrinters();
+                    log.info("✅ Impresoras locales descubiertas: {}", localPrinters.size());
                     
-                    // Registrar impresoras encontradas
+                    int totalFound = networkPrinters.size() + localPrinters.size();
+                    log.info("📊 Total de impresoras encontradas: {}", totalFound);
+                    log.info("💾 Iniciando registro en base de datos...");
+                    
+                    // Registrar impresoras de red
                     for (PrinterDiscoveryService.DiscoveredPrinter discovered : networkPrinters) {
-                        printerDiscoveryService.registerDiscoveredPrinter(discovered, user);
+                        Printer registered = printerDiscoveryService.registerDiscoveredPrinter(discovered, user);
+                        if (registered != null) {
+                            registeredCount++;
+                        } else {
+                            duplicatesCount++;
+                        }
                     }
                     
+                    // Registrar impresoras locales
                     for (PrinterDiscoveryService.DiscoveredPrinter discovered : localPrinters) {
-                        printerDiscoveryService.registerDiscoveredPrinter(discovered, user);
+                        Printer registered = printerDiscoveryService.registerDiscoveredPrinter(discovered, user);
+                        if (registered != null) {
+                            registeredCount++;
+                        } else {
+                            duplicatesCount++;
+                        }
                     }
                     
-                    log.info("Escaneo completado: {} impresoras de red, {} locales", 
-                            networkPrinters.size(), localPrinters.size());
+                    log.info("========================================");
+                    log.info("✅ RESUMEN DEL ESCANEO:");
+                    log.info("  🔍 Impresoras encontradas: {}", totalFound);
+                    log.info("  ✅ Impresoras registradas: {}", registeredCount);
+                    log.info("  ❌ Duplicadas (ya existían): {}", duplicatesCount);
+                    log.info("========================================");
+                    
                 } catch (Exception e) {
-                    log.error("Error durante el escaneo", e);
+                    log.error("❌ Error durante el escaneo", e);
                 }
             }).start();
             
-            ra.addFlashAttribute("info", "Escaneo iniciado en segundo plano. Actualiza la página para ver el progreso.");
+                        ra.addFlashAttribute("info", "Escaneo iniciado en segundo plano. Actualiza la página para ver el progreso.");
         } catch (Exception e) {
             log.error("Error al iniciar escaneo", e);
             ra.addFlashAttribute("error", "Error: " + e.getMessage());
         }
-        return "redirect:/admin/?scanning=true";
+        return "redirect:/admin/printers?scanning=true";
     }
     
-        @GetMapping("/scan-status")
+            @GetMapping("/scan-status")
     @ResponseBody
     public PrinterDiscoveryService.ScanStatus getScanStatus() {
         return printerDiscoveryService.getScanStatus();
     }
     
+    @GetMapping("/printqueues/stats")
+    @ResponseBody
+    public Map<String, Object> getQueueStats() {
+        return printQueueService.getQueueStatistics();
+    }
+    
+    // ========== API REST PARA REGISTRO AUTOMÁTICO DE IMPRESORAS COMPARTIDAS ==========
+    
+    @PostMapping("/api/register-shared-printer")
+    @ResponseBody
+    @Transactional
+    public Map<String, Object> registerSharedPrinter(
+            @RequestBody Map<String, String> printerData,
+            HttpSession session) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            User user = (User) session.getAttribute("u");
+            if (user == null) {
+                // Si no hay sesión, usar el usuario admin por defecto (ID 1)
+                user = entityManager.find(User.class, 1L);
+                if (user == null) {
+                    response.put("success", false);
+                    response.put("error", "No se pudo identificar el usuario");
+                    return response;
+                }
+            }
+            
+            String alias = printerData.get("alias");
+            String model = printerData.get("model");
+            String ip = printerData.get("ip");
+            String location = printerData.getOrDefault("location", "Computadora compartida");
+            String protocol = printerData.getOrDefault("protocol", "IPP");
+            Integer port = Integer.parseInt(printerData.getOrDefault("port", "631"));
+            
+            // Verificar si ya existe una impresora con esa IP
+            List<Printer> existing = entityManager.createQuery(
+                "SELECT p FROM Printer p WHERE p.ip = :ip", Printer.class)
+                .setParameter("ip", ip)
+                .getResultList();
+            
+            if (!existing.isEmpty()) {
+                response.put("success", false);
+                response.put("error", "Ya existe una impresora registrada con esa IP");
+                response.put("existingPrinter", existing.get(0).getAlias());
+                return response;
+            }
+            
+            // Crear nueva impresora
+            Printer printer = new Printer();
+            printer.setAlias(alias);
+            printer.setModel(model);
+            printer.setLocation(location);
+            printer.setIp(ip);
+            printer.setProtocol(protocol);
+            printer.setPort(port);
+            printer.setDeviceUri("ipp://" + ip + ":" + port + "/printers/" + alias.replace(" ", "_"));
+            printer.setInstance(user);
+            printer.setInk(100);
+            printer.setPaper(100);
+            
+            entityManager.persist(printer);
+            entityManager.flush();
+            
+            response.put("success", true);
+            response.put("message", "Impresora registrada exitosamente");
+            response.put("printerId", printer.getId());
+            response.put("printerName", printer.getAlias());
+            
+            log.info("✅ Impresora compartida registrada automáticamente: {} (IP: {})", alias, ip);
+            
+        } catch (Exception e) {
+            log.error("❌ Error registrando impresora compartida", e);
+            response.put("success", false);
+            response.put("error", e.getMessage());
+        }
+        return response;
+    }
+    
     // ========== GESTIÓN DE IMPRESORAS ==========
     
-        @PostMapping("/addprinter")
+                @PostMapping("/add-printer")
     @Transactional
     public String addPrinter(
             @RequestParam String alias,
@@ -394,62 +1001,92 @@ public class AdminController {
             @RequestParam(required = false) String deviceUri,
             @RequestParam(required = false) String driver,
             @RequestParam(required = false) String protocol,
-            @RequestParam(defaultValue = "true") boolean addToCups,
-            @RequestParam(defaultValue = "true") boolean shareViaSamba,
-            @RequestParam Long userId,
+            @RequestParam(required = false) Integer port,
+            @RequestParam(defaultValue = "false") boolean addToCups,
+            @RequestParam(defaultValue = "false") boolean shareViaSamba,
+            HttpSession session,
             RedirectAttributes ra) {
         try {
-            User user = entityManager.find(User.class, userId);
+            User user = (User) session.getAttribute("u");
             if (user == null) {
-                ra.addFlashAttribute("error", "Usuario no encontrado");
-                return "redirect:/admin";
+                ra.addFlashAttribute("error", "Sesión expirada. Inicia sesión nuevamente.");
+                return "redirect:/login";
             }
             
             // Crear impresora
             Printer printer = new Printer();
-            printer.setAlias(alias);
+                        printer.setAlias(alias);
             printer.setModel(model);
             printer.setLocation(location);
             printer.setIp(ip);
             printer.setDeviceUri(deviceUri);
             printer.setDriver(driver);
             printer.setProtocol(protocol);
+            printer.setPort(port);
             printer.setInstance(user);
             printer.setInk(100);
             printer.setPaper(100);
             
-            entityManager.persist(printer);
+                        entityManager.persist(printer);
             entityManager.flush(); // Asegurar que se persiste antes de configurar
             
-            // Auto-configurar en CUPS y Samba si se solicita
+            log.info("========================================");
+            log.info("NUEVA IMPRESORA AGREGADA");
+            log.info("========================================");
+            log.info("Alias: {}", printer.getAlias());
+            log.info("IP: {}", printer.getIp());
+            log.info("Configurar en CUPS: {}", addToCups);
+            log.info("Compartir vía Samba: {}", shareViaSamba);
+            
+            // Auto-configurar Samba si se solicita
+            if (shareViaSamba) {
+                log.info("Iniciando auto-configuración Samba...");
+                boolean sambaSuccess = sambaAutoConfigService.autoConfigurePrinter(printer);
+                
+                if (sambaSuccess) {
+                    ra.addFlashAttribute("success", 
+                        "✅ Impresora creada y compartida vía Samba<br>" +
+                        "Ruta de acceso: \\\\<servidor-ip>\\" + printer.getAlias());
+                    log.info("✅ Impresora configurada en Samba exitosamente");
+                } else {
+                    ra.addFlashAttribute("warning", 
+                        "⚠️ Impresora creada pero no se pudo configurar Samba automáticamente.<br>" +
+                        "Configúrala manualmente o verifica que Samba esté instalado.");
+                    log.warn("⚠️ No se pudo configurar Samba automáticamente");
+                }
+            }
+            
+            // Auto-configurar en CUPS si se solicita
             if (addToCups) {
                 PrinterAutoConfigService.ConfigurationResult result = 
-                    printerAutoConfigService.autoConfigurePrinter(printer, shareViaSamba);
+                    printerAutoConfigService.autoConfigurePrinter(printer, false);
                 
                 if (result.isFullyConfigured()) {
                     StringBuilder msg = new StringBuilder("Impresora configurada exitosamente");
                     if (result.getIppUri() != null) {
                         msg.append("<br>IPP: ").append(result.getIppUri());
                     }
-                    if (result.getSambaUri() != null) {
-                        msg.append("<br>Samba: ").append(result.getSambaUri());
+                    if (shareViaSamba) {
+                        msg.append("<br>Samba: \\\\<servidor-ip>\\").append(printer.getAlias());
                     }
                     ra.addFlashAttribute("success", msg.toString());
                 } else {
                     ra.addFlashAttribute("warning", "Impresora creada pero con errores en configuración");
                 }
-            } else {
+            } else if (!shareViaSamba) {
                 ra.addFlashAttribute("success", "Impresora creada (sin auto-configuración)");
             }
             
-        } catch (Exception e) {
+            log.info("========================================");
+            
+                } catch (Exception e) {
             log.error("Error creating printer", e);
             ra.addFlashAttribute("error", "Error al crear impresora: " + e.getMessage());
         }
-        return "redirect:/admin";
+        return "redirect:/admin/printers";
     }
 
-    @PostMapping("/editprinter")
+                @PostMapping("/edit-printer")
     @Transactional
     public String editPrinter(
             @RequestParam Long id,
@@ -457,37 +1094,239 @@ public class AdminController {
             @RequestParam String model,
             @RequestParam String location,
             @RequestParam String ip,
+            @RequestParam(defaultValue = "false") boolean shareViaSamba,
             RedirectAttributes ra) {
         try {
             Printer printer = entityManager.find(Printer.class, id);
             if (printer != null) {
+                String oldAlias = printer.getAlias();
+                boolean wasShared = printer.isSharedViaSamba();
+                
                 printer.setAlias(alias);
                 printer.setModel(model);
                 printer.setLocation(location);
                 printer.setIp(ip);
-                ra.addFlashAttribute("success", "Impresora actualizada exitosamente");
+                
+                log.info("========================================");
+                log.info("IMPRESORA ACTUALIZADA");
+                log.info("========================================");
+                log.info("Alias anterior: {}", oldAlias);
+                log.info("Alias nuevo: {}", alias);
+                log.info("Compartir vía Samba: {}", shareViaSamba);
+                log.info("Estaba compartida: {}", wasShared);
+                
+                // Si cambió el alias y estaba compartida, eliminar el compartido anterior
+                if (wasShared && !oldAlias.equals(alias)) {
+                    log.info("Alias cambió, eliminando configuración Samba anterior...");
+                    Printer tempPrinter = new Printer();
+                    tempPrinter.setAlias(oldAlias);
+                    sambaAutoConfigService.unconfigurePrinter(tempPrinter);
+                }
+                
+                // Configurar o des-configurar Samba según se solicite
+                if (shareViaSamba && !wasShared) {
+                    // Activar compartido
+                    log.info("Activando compartido Samba...");
+                    boolean success = sambaAutoConfigService.autoConfigurePrinter(printer);
+                    if (success) {
+                        ra.addFlashAttribute("success", 
+                            "✅ Impresora actualizada y compartida vía Samba<br>" +
+                            "Ruta: \\\\<servidor-ip>\\" + printer.getAlias());
+                    } else {
+                        ra.addFlashAttribute("warning", 
+                            "Impresora actualizada pero no se pudo configurar Samba");
+                    }
+                } else if (!shareViaSamba && wasShared) {
+                    // Desactivar compartido
+                    log.info("Desactivando compartido Samba...");
+                    boolean success = sambaAutoConfigService.unconfigurePrinter(printer);
+                    if (success) {
+                        ra.addFlashAttribute("success", 
+                            "Impresora actualizada y compartido Samba eliminado");
+                    } else {
+                        ra.addFlashAttribute("warning", 
+                            "Impresora actualizada pero no se pudo eliminar compartido Samba");
+                    }
+                } else if (shareViaSamba && wasShared) {
+                    // Actualizar compartido existente
+                    log.info("Actualizando configuración Samba existente...");
+                    boolean success = sambaAutoConfigService.autoConfigurePrinter(printer);
+                    if (success) {
+                        ra.addFlashAttribute("success", 
+                            "Impresora y compartido Samba actualizados");
+                    } else {
+                        ra.addFlashAttribute("warning", 
+                            "Impresora actualizada pero no se pudo actualizar Samba");
+                    }
+                } else {
+                    ra.addFlashAttribute("success", "Impresora actualizada exitosamente");
+                }
+                
+                log.info("========================================");
+            } else {
+                ra.addFlashAttribute("error", "Impresora no encontrada");
             }
-        } catch (Exception e) {
+                } catch (Exception e) {
             log.error("Error editing printer", e);
             ra.addFlashAttribute("error", "Error al editar impresora: " + e.getMessage());
         }
-        return "redirect:/admin";
+        return "redirect:/admin/printers";
     }
 
-    @PostMapping("/deleteprinter")
+            @PostMapping("/test-printer")
+    @Transactional
+    public String testPrinter(@RequestParam Long id, HttpSession session, RedirectAttributes ra) {
+        try {
+            User user = (User) session.getAttribute("u");
+            Printer printer = entityManager.find(Printer.class, id);
+            
+                        if (printer == null) {
+                ra.addFlashAttribute("error", "Impresora no encontrada");
+                return "redirect:/admin/printers";
+            }
+            
+            String username = user != null ? user.getUsername() : "admin";
+            log.info("🖨️ Iniciando prueba de impresión para: {} (ID: {})", printer.getAlias(), id);
+            
+            // Intentar imprimir página de prueba
+            boolean success = ippPrintService.printTestPage(printer, username);
+            
+            if (success) {
+                ra.addFlashAttribute("success", 
+                    "✅ Página de prueba enviada a \"" + printer.getAlias() + 
+                    "\". Revisa la impresora para verificar la impresión.");
+                log.info("✅ Página de prueba enviada exitosamente a {}", printer.getAlias());
+            } else {
+                ra.addFlashAttribute("warning", 
+                    "⚠️ No se pudo enviar la página de prueba a \"" + printer.getAlias() + 
+                    "\". Verifica que la impresora esté encendida y conectada. " +
+                    "IP: " + printer.getIp());
+                log.warn("⚠️ Fallo al enviar página de prueba a {}", printer.getAlias());
+            }
+            
+        } catch (Exception e) {
+                        log.error("❌ Error en prueba de impresión", e);
+            ra.addFlashAttribute("error", "Error al enviar página de prueba: " + e.getMessage());
+        }
+        return "redirect:/admin/printers";
+    }
+    
+            @PostMapping("/share-printer-samba")
+    @Transactional
+    public String sharePrinterSamba(@RequestParam Long id, RedirectAttributes ra) {
+        try {
+            Printer printer = entityManager.find(Printer.class, id);
+            if (printer != null) {
+                log.info("⚙️ Compartiendo impresora vía Samba: {}", printer.getAlias());
+                
+                boolean success = sambaAutoConfigService.autoConfigurePrinter(printer);
+                
+                if (success) {
+                    ra.addFlashAttribute("success", 
+                        "✅ Impresora \"" + printer.getAlias() + "\" compartida vía Samba<br>" +
+                        "Ruta de acceso: \\\\<servidor-ip>\\" + printer.getAlias());
+                } else {
+                    ra.addFlashAttribute("error", 
+                        "❌ No se pudo compartir la impresora vía Samba. " +
+                        "Verifica que Samba esté instalado y configurado.");
+                }
+            } else {
+                ra.addFlashAttribute("error", "Impresora no encontrada");
+            }
+        } catch (Exception e) {
+            log.error("❌ Error compartiendo impresora vía Samba", e);
+            ra.addFlashAttribute("error", "Error: " + e.getMessage());
+        }
+        return "redirect:/admin/printers";
+    }
+    
+    @PostMapping("/unshare-printer-samba")
+    @Transactional
+    public String unsharePrinterSamba(@RequestParam Long id, RedirectAttributes ra) {
+        try {
+            Printer printer = entityManager.find(Printer.class, id);
+            if (printer != null) {
+                log.info("⚙️ Eliminando compartido Samba de: {}", printer.getAlias());
+                
+                boolean success = sambaAutoConfigService.unconfigurePrinter(printer);
+                
+                if (success) {
+                    ra.addFlashAttribute("success", 
+                        "✅ Compartido Samba eliminado de \"" + printer.getAlias() + "\"");
+                } else {
+                    ra.addFlashAttribute("warning", 
+                        "⚠️ No se pudo eliminar el compartido Samba");
+                }
+            } else {
+                ra.addFlashAttribute("error", "Impresora no encontrada");
+            }
+        } catch (Exception e) {
+            log.error("❌ Error eliminando compartido Samba", e);
+            ra.addFlashAttribute("error", "Error: " + e.getMessage());
+        }
+        return "redirect:/admin/printers";
+    }
+    
+    @GetMapping("/printer-samba-status/{id}")
+    @ResponseBody
+    public es.ucm.fdi.iu.service.SambaAutoConfigService.SambaShareStatus getPrinterSambaStatus(
+            @PathVariable Long id) {
+        try {
+            Printer printer = entityManager.find(Printer.class, id);
+            if (printer != null) {
+                return sambaAutoConfigService.getShareStatus(printer);
+            }
+        } catch (Exception e) {
+            log.error("Error obteniendo estado Samba", e);
+        }
+        return null;
+    }
+    
+                @PostMapping("/delete-printer")
     @Transactional
     public String deletePrinter(@RequestParam Long id, RedirectAttributes ra) {
         try {
             Printer printer = entityManager.find(Printer.class, id);
             if (printer != null) {
+                String printerName = printer.getAlias();
+                boolean wasShared = printer.isSharedViaSamba();
+                
+                log.info("========================================");
+                log.info("ELIMINANDO IMPRESORA");
+                log.info("========================================");
+                log.info("Impresora: {}", printerName);
+                log.info("Compartida vía Samba: {}", wasShared);
+                
+                // Si estaba compartida vía Samba, eliminar el compartido primero
+                if (wasShared) {
+                    log.info("Eliminando compartido Samba antes de eliminar impresora...");
+                    sambaAutoConfigService.unconfigurePrinter(printer);
+                }
+                
+                // Remover impresora de todos los departamentos
+                List<Department> departments = entityManager.createQuery(
+                    "SELECT d FROM Department d JOIN d.printers p WHERE p.id = :printerId", 
+                    Department.class)
+                    .setParameter("printerId", id)
+                    .getResultList();
+                
+                for (Department dept : departments) {
+                    dept.getPrinters().remove(printer);
+                }
+                
+                // Eliminar impresora
                 entityManager.remove(printer);
-                ra.addFlashAttribute("success", "Impresora eliminada exitosamente");
+                ra.addFlashAttribute("success", "Impresora \"" + printerName + "\" eliminada exitosamente");
+                log.info("✅ Impresora eliminada: {} (ID: {})", printerName, id);
+                log.info("========================================");
+            } else {
+                ra.addFlashAttribute("error", "Impresora no encontrada");
             }
         } catch (Exception e) {
-            log.error("Error deleting printer", e);
+                        log.error("❌ Error deleting printer", e);
             ra.addFlashAttribute("error", "Error al eliminar impresora: " + e.getMessage());
         }
-        return "redirect:/admin";
+        return "redirect:/admin/printers";
     }
 
     // ========== GESTIÓN DE GRUPOS ==========
@@ -601,22 +1440,24 @@ public class AdminController {
         return "redirect:/admin";
     }
     
-    // ========== GESTIÓN DE RANGOS DE RED / VLANs ==========
+            // ========== GESTIÓN DE RANGOS DE RED / VLANs ==========
     
-    @PostMapping("/add-network-range")
+        @PostMapping("/add-network-range")
     @Transactional
     public String addNetworkRange(
             @RequestParam String name,
             @RequestParam String cidrRange,
             @RequestParam(required = false) String description,
             @RequestParam(required = false) Integer vlanId,
+            @RequestParam(required = false) String returnTo,
             HttpSession session,
-            RedirectAttributes ra) {
+            RedirectAttributes ra,
+            jakarta.servlet.http.HttpServletRequest request) {
         try {
             // Validar formato CIDR
             if (!NetworkRange.isValidCIDR(cidrRange)) {
                 ra.addFlashAttribute("error", "Formato CIDR inválido. Use formato: 192.168.1.0/24");
-                return "redirect:/admin/";
+                return determineRedirectUrl(returnTo, request);
             }
             
             User user = (User) session.getAttribute("u");
@@ -635,12 +1476,70 @@ public class AdminController {
             log.error("Error adding network range", e);
             ra.addFlashAttribute("error", "Error: " + e.getMessage());
         }
-        return "redirect:/admin/";
+        return determineRedirectUrl(returnTo, request);
     }
     
-    @PostMapping("/toggle-network-range")
+        @PostMapping("/edit-network-range")
     @Transactional
-    public String toggleNetworkRange(@RequestParam long id, RedirectAttributes ra) {
+    public String editNetworkRange(
+            @RequestParam Long id,
+            @RequestParam String name,
+            @RequestParam String cidrRange,
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false) Integer vlanId,
+            @RequestParam(defaultValue = "false") boolean active,
+            @RequestParam(required = false) String returnTo,
+            RedirectAttributes ra,
+            jakarta.servlet.http.HttpServletRequest request) {
+        try {
+            // Validar formato CIDR
+            if (!NetworkRange.isValidCIDR(cidrRange)) {
+                ra.addFlashAttribute("error", "Formato CIDR inválido. Use formato: 192.168.1.0/24");
+                return determineRedirectUrl(returnTo, request);
+            }
+            
+            NetworkRange range = entityManager.find(NetworkRange.class, id);
+            if (range != null) {
+                range.setName(name);
+                range.setCidrRange(cidrRange);
+                range.setDescription(description);
+                range.setVlanId(vlanId);
+                range.setActive(active);
+                
+                ra.addFlashAttribute("success", "Rango de red actualizado: " + name);
+            } else {
+                ra.addFlashAttribute("error", "Rango de red no encontrado");
+            }
+        } catch (Exception e) {
+            log.error("Error editing network range", e);
+            ra.addFlashAttribute("error", "Error: " + e.getMessage());
+        }
+        return determineRedirectUrl(returnTo, request);
+    }
+    
+    private String determineRedirectUrl(String returnTo, jakarta.servlet.http.HttpServletRequest request) {
+        // Si se especifica returnTo, usarlo
+        if (returnTo != null && !returnTo.isEmpty()) {
+            return "redirect:" + returnTo;
+        }
+        
+        // Intentar obtener el referer
+        String referer = request.getHeader("Referer");
+        if (referer != null && referer.contains("/printers")) {
+            return "redirect:/admin/printers";
+        }
+        
+        // Por defecto, regresar a departments
+        return "redirect:/admin/departments";
+    }
+    
+        @PostMapping("/toggle-network-range")
+    @Transactional
+    public String toggleNetworkRange(
+            @RequestParam long id,
+            @RequestParam(required = false) String returnTo,
+            RedirectAttributes ra,
+            jakarta.servlet.http.HttpServletRequest request) {
         try {
             NetworkRange range = entityManager.find(NetworkRange.class, id);
             if (range != null) {
@@ -652,12 +1551,16 @@ public class AdminController {
             log.error("Error toggling network range", e);
             ra.addFlashAttribute("error", "Error: " + e.getMessage());
         }
-        return "redirect:/admin/";
+        return determineRedirectUrl(returnTo, request);
     }
     
-    @PostMapping("/delete-network-range")
+        @PostMapping("/delete-network-range")
     @Transactional
-    public String deleteNetworkRange(@RequestParam long id, RedirectAttributes ra) {
+    public String deleteNetworkRange(
+            @RequestParam long id,
+            @RequestParam(required = false) String returnTo,
+            RedirectAttributes ra,
+            jakarta.servlet.http.HttpServletRequest request) {
         try {
             NetworkRange range = entityManager.find(NetworkRange.class, id);
             if (range != null) {
@@ -669,6 +1572,6 @@ public class AdminController {
             log.error("Error deleting network range", e);
             ra.addFlashAttribute("error", "Error: " + e.getMessage());
         }
-        return "redirect:/admin/";
+        return determineRedirectUrl(returnTo, request);
     }
 }

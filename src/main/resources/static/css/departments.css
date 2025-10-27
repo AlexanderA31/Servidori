@@ -1,0 +1,1069 @@
+/* Estilos Empresariales para Gestión de Departamentos */
+
+/* Contenedor principal */
+.departments-container {
+    max-width: 100%;
+    margin: 0;
+    padding: 2rem;
+}
+
+/* Header con IP */
+.departments-header-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+/* Admin header dentro del layout */
+.admin-content .admin-header {
+    margin-bottom: 2rem;
+}
+
+/* Header Content con Logo de la UEB */
+.admin-header-content {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.admin-header-logo {
+    flex-shrink: 0;
+}
+
+.ueb-logo-admin {
+    height: 60px;
+    width: auto;
+    display: block;
+    object-fit: contain;
+}
+
+.admin-header-text {
+    flex-grow: 1;
+}
+
+.departments-header-right {
+    text-align: right;
+}
+
+.server-ip-label-small {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+}
+
+.server-ip-value-large {
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+    color: var(--text-primary);
+}
+
+.btn-guide {
+    margin-top: 0.5rem;
+}
+
+/* Card header buttons */
+.card-header-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Modal de redes */
+.modal-networks {
+    max-width: 800px;
+}
+
+.modal-gradient-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.network-form-box {
+    background: #f5f5f5;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.network-form-title {
+    margin: 0 0 1rem 0;
+}
+
+.networks-title {
+    margin: 1rem 0;
+}
+
+.no-networks-message {
+    text-align: center;
+    padding: 2rem;
+    color: #999;
+}
+
+/* Estilos para formularios dentro de modales */
+.modal-dept-info {
+    background: #f0f0f0;
+    padding: 1rem;
+    border-radius: 5px;
+    margin-bottom: 1rem;
+}
+
+.modal-auto-config {
+    background: #f0f8ff;
+    padding: 1rem;
+    border-radius: 5px;
+    margin-top: 1rem;
+}
+
+.modal-auto-config h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.95rem;
+}
+
+.modal-checkbox-group {
+    display: flex;
+    gap: 1rem;
+}
+
+.modal-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Estilos para modal de progreso */
+.scan-modal-content {
+    max-width: 600px;
+}
+
+.scan-modal-header {
+    background: var(--primary-color);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    gap: 1rem;
+}
+
+.scan-modal-header h3 {
+    margin: 0;
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.scan-progress-wrapper {
+    margin-bottom: 1rem;
+}
+
+.scan-progress-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.scan-progress-bar-bg {
+    width: 100%;
+    height: 30px;
+    background: #e0e0e0;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.scan-progress-bar {
+    width: 0%;
+    height: 100%;
+    background: var(--primary-color);
+    transition: width 0.3s ease;
+}
+
+.scan-stats-container {
+    background: #f5f5f5;
+    padding: 1rem;
+    border-radius: 5px;
+    margin: 1rem 0;
+}
+
+.scan-stats-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.scan-stat-item {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.scan-stat-value {
+    font-weight: bold;
+}
+
+.scan-stat-network {
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+.scan-stat-printers {
+    font-weight: bold;
+    color: var(--primary-color);
+    font-size: 1.5rem;
+}
+
+.scan-message-wrapper {
+    text-align: center;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.scan-force-btn {
+    margin-top: 1rem;
+    display: none;
+}
+
+/* Tabla de departamentos - asegurar que se muestre correctamente */
+.departments-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.dept-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.dept-color-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.dept-items-container {
+    margin-top: 0.5rem;
+}
+
+.dept-item-badge {
+    display: inline-block;
+    margin: 0.2rem;
+}
+
+/* Printer/Computer items with remove button */
+.dept-printer-item,
+.dept-computer-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    margin: 0.3rem;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.dept-printer-item:hover,
+.dept-computer-item:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dept-printer-item .printer-name,
+.dept-computer-item .computer-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #1f2937;
+}
+
+.btn-remove-item {
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0.25rem 0.4rem;
+    font-size: 0.75rem;
+    transition: all 0.2s ease;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    min-height: 24px;
+}
+
+.btn-remove-item:hover {
+    color: #ffffff;
+    background: #ef4444;
+    border-color: #dc2626;
+    transform: scale(1.1);
+}
+
+.btn-remove-item i {
+    font-size: 0.75rem;
+}
+
+
+
+/* Tarjetas de Departamentos */
+.department-card {
+    border: 3px solid;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    background: white;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: all 0.3s;
+}
+
+.department-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.department-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid;
+}
+
+.department-header h2 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.department-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    color: var(--secondary-color);
+}
+
+.department-header p {
+    margin: 0.5rem 0 0 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+/* Secciones de Departamento */
+.dept-section {
+    margin: 1rem 0;
+    padding: 1.25rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+}
+
+.dept-section h3 {
+    margin: 0 0 1rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.dept-section h3 i {
+    color: var(--secondary-color);
+}
+
+/* Lista de Items */
+.item-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.item-badge {
+    padding: 0.5rem 1rem;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.item-badge:hover {
+    border-color: var(--secondary-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.item-badge strong {
+    color: var(--text-dark);
+    font-size: 0.95rem;
+}
+
+/* Badges de Información */
+.mac-badge,
+.ip-badge {
+    font-family: 'Courier New', monospace;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.85rem;
+    display: inline-block;
+}
+
+.mac-badge {
+    background: #f0f0f0;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.85rem;
+}
+
+.ip-badge {
+    background: #e3f2fd;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    color: #1976d2;
+    font-size: 0.85rem;
+}
+
+/* IP Única del Servidor */
+.server-ip-card {
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.server-ip-card .card-body {
+    padding: 2rem;
+}
+
+.server-ip-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 0.5rem;
+}
+
+.server-ip-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
+}
+
+.server-ip-features {
+    margin-top: 1rem;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.8;
+}
+
+.server-ip-features strong {
+    color: var(--text-dark);
+}
+
+.server-ip-features i {
+    color: var(--primary-color);
+    margin-right: 0.5rem;
+}
+
+/* Card de Impresoras */
+.printers-card {
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.printers-card .card-header {
+    background: var(--light-bg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.printer-item {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1.25rem;
+    background: white;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s;
+}
+
+.printer-item:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--secondary-color);
+}
+
+.printer-item h4 {
+    margin: 0 0 0.75rem 0;
+    color: var(--text-dark);
+    font-size: 1.125rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.printer-item h4 i {
+    color: var(--primary-color);
+}
+
+.printer-item-details {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
+.printer-item-details strong {
+    color: var(--text-dark);
+    font-weight: 600;
+}
+
+.printer-actions {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+/* Card de Descubrimiento */
+.discovery-card {
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.discovery-card .card-header {
+    background: var(--light-bg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.discovery-info {
+    background: var(--light-bg);
+    padding: 1.5rem;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+}
+
+.discovery-info h4 {
+    margin: 0 0 1.25rem 0;
+    color: var(--text-dark);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.discovery-features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.discovery-feature {
+    padding: 1.25rem;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.discovery-feature-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--primary-color);
+}
+
+.discovery-feature strong {
+    display: block;
+    color: var(--text-dark);
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+.discovery-feature-description {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
+/* Card de Departamentos */
+.departments-card .card-header {
+    background: var(--light-bg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Estados Vacíos */
+.empty-state-department {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+    background: var(--light-bg);
+    border-radius: 8px;
+    border: 1px dashed var(--border-color);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .item-list {
+        grid-template-columns: 1fr;
+    }
+    
+    .discovery-features {
+        grid-template-columns: 1fr;
+    }
+    
+    .printer-actions {
+        grid-template-columns: 1fr;
+    }
+    
+    .server-ip-value {
+        font-size: 1.75rem;
+    }
+}
+
+@media (max-width: 1024px) {
+    .dept-section h3 {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* Estilos adicionales para alerts y modales */
+.alert-fixed {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    z-index: 9999;
+    min-width: 300px;
+}
+
+/* Grid de columnas */
+.two-column-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+/* Flex entre elementos */
+.flex-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 2rem;
+}
+
+.flex-1 {
+    flex: 1;
+    min-width: 300px;
+}
+
+/* Text center */
+.text-center {
+    text-align: center;
+}
+
+/* Padding y margins */
+.p-1 {
+    padding: 1rem;
+}
+
+.mt-075 {
+    margin-top: 0.75rem;
+}
+
+/* Grid de impresoras */
+.printers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1rem;
+}
+
+.printer-card-item {
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 1rem;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.printer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 0.75rem;
+}
+
+.printer-title {
+    margin: 0 0 0.5rem 0;
+    color: #1976d2;
+}
+
+.printer-info {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.printer-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #e0e0e0;
+}
+
+/* Discovery card styles */
+.discovery-banner {
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+}
+
+.discovery-header {
+    background: var(--primary-color);
+    color: white;
+}
+
+.discovery-content {
+    background: var(--light-bg);
+    padding: 1.5rem;
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
+}
+
+.discovery-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+.discovery-box {
+    padding: 1rem;
+    background: white;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.discovery-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.discovery-description {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 0.3rem;
+}
+
+/* Department color circle */
+.dept-color-circle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+}
+
+/* Responsive adjustments */
+/* Estilos para modales específicos */
+.modal-wide {
+    max-width: 800px;
+}
+
+.modal-header-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.form-grid-2-1 {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1rem;
+}
+
+.info-box-gray {
+    background: #f5f5f5;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.info-box-blue {
+    background: #f0f8ff;
+    padding: 1rem;
+    border-radius: 5px;
+    margin-top: 1rem;
+}
+
+.flex-gap {
+    display: flex;
+    gap: 1rem;
+}
+
+.flex-align-center {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Estilos para el modal de progreso de escaneo */
+.scan-progress-header {
+    background: var(--primary-color);
+    color: white;
+}
+
+.progress-container {
+    margin-bottom: 1rem;
+}
+
+.progress-flex {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 30px;
+    background: #e0e0e0;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    width: 0%;
+    height: 100%;
+    background: var(--primary-color);
+    transition: width 0.3s ease;
+}
+
+.scan-stats-box {
+    background: #f5f5f5;
+    padding: 1rem;
+    border-radius: 5px;
+    margin: 1rem 0;
+}
+
+.scan-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.scan-stat-label {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.scan-stat-value {
+    font-weight: bold;
+}
+
+.scan-stat-primary {
+    color: #2e7d32;
+}
+
+.scan-stat-secondary {
+    color: #1976d2;
+    font-size: 1.5rem;
+}
+
+.scan-message-center {
+    text-align: center;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+/* Estilos para secciones dentro de departamentos */
+.dept-header-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.dept-header-flex h3 {
+    margin: 0;
+}
+
+.dept-empty-state {
+    color: #999;
+    text-align: center;
+    padding: 1rem;
+}
+
+/* Botones pequeños inline */
+.btn-inline-sm {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+/* Para small text */
+.text-small {
+    font-size: 0.875rem;
+}
+
+.text-muted {
+    color: #666;
+}
+
+.text-gray {
+    color: #999;
+}
+
+/* Margins específicos */
+.ml-1 {
+    margin-left: 1rem;
+}
+
+.mb-05 {
+    margin-bottom: 0.5rem;
+}
+
+.mt-03 {
+    margin-top: 0.3rem;
+}
+
+.mt-05 {
+    margin-top: 0.5rem;
+}
+
+.mb-1 {
+    margin-bottom: 1rem;
+}
+
+/* Font sizes */
+.font-size-085 {
+    font-size: 0.85rem;
+}
+
+.font-size-11 {
+    font-size: 1.1rem;
+}
+
+.font-size-2 {
+    font-size: 2rem;
+}
+
+.font-size-095 {
+    font-size: 0.95rem;
+}
+
+/* Colors */
+.color-primary {
+    color: #2e7d32;
+}
+
+.bg-green-light {
+    background: #e8f5e9;
+}
+
+.border-left-green {
+    border-left: 4px solid #4caf50;
+}
+
+/* Display utilities */
+.d-inline {
+    display: inline;
+}
+
+.d-flex {
+    display: flex;
+}
+
+.gap-05 {
+    gap: 0.5rem;
+}
+
+.gap-1 {
+    gap: 1rem;
+}
+
+/* Padding */
+.p-15 {
+    padding: 1.5rem;
+}
+
+/* Border radius */
+.br-8 {
+    border-radius: 8px;
+}
+
+.br-6 {
+    border-radius: 6px;
+}
+
+.br-5 {
+    border-radius: 5px;
+}
+
+/* Shadows */
+.shadow-sm {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Width utilities */
+.w-100 {
+    width: 100%;
+}
+
+/* Max width */
+.max-w-600 {
+    max-width: 600px;
+}
+
+@media (max-width: 768px) {
+    .discovery-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .printers-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .two-column-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .flex-between {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .form-grid-2,
+    .form-grid-2-1 {
+        grid-template-columns: 1fr;
+    }
+    
+    .scan-stats-grid {
+        grid-template-columns: 1fr;
+    }
+}

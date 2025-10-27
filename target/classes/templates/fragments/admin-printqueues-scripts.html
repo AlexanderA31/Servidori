@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+    <script th:fragment="scripts">
+        // Función para actualizar las colas
+        function refreshQueues() {
+            window.location.reload();
+        }
+
+        // Función para limpiar todas las colas
+        function clearAllQueues() {
+            openModal('clearAllModal');
+        }
+
+        // Función para mover un trabajo al inicio de la cola
+        function moveJobToTop(jobId) {
+            if (confirm('¿Mover este trabajo al inicio de la cola?')) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/admin/printqueues/move-to-top?jobId=' + jobId;
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
+        // Función para ver detalles de un trabajo
+        function viewJobDetails(jobData) {
+            document.getElementById('jobDetailId').textContent = jobData.id;
+            document.getElementById('jobDetailFile').textContent = jobData.fileName;
+            document.getElementById('jobDetailUser').textContent = jobData.owner;
+            document.getElementById('jobDetailPrinter').textContent = jobData.printerName;
+            document.getElementById('jobDetailPosition').textContent = jobData.position;
+            document.getElementById('jobDetailStatus').textContent = jobData.status;
+            openModal('viewJobModal');
+        }
+
+        // Auto-cerrar alertas
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    alert.style.opacity = '0';
+                    setTimeout(() => alert.remove(), 300);
+                }, 5000);
+            });
+            
+            // Iniciar monitoreo de estado
+            startStatusMonitoring();
+            
+            // Auto-actualizar cada 30 segundos
+            let autoRefresh = setInterval(refreshQueues, 30000);
+            
+            // Pausar auto-actualización si hay un modal abierto
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal || e.target.classList.contains('close-modal')) {
+                        clearInterval(autoRefresh);
+                        autoRefresh = setInterval(refreshQueues, 30000);
+                    }
+                });
+            });
+        });
+        
+        // Monitoreo de estado del servicio
+        let statusInterval = null;
+        
+        function startStatusMonitoring() {
+            updateServiceStatus();
+            statusInterval = setInterval(updateServiceStatus, 5000);
+        }
+        
+        function updateServiceStatus() {
+            fetch('/admin/printqueues/stats')
+                .then(response => response.json())
+                .then(data => {
+                    // Actualizar estado del servicio
+                    const serviceState = document.getElementById('serviceState');
+                    const processingCount = document.getElementById('processingCount');
+                    const lastUpdate = document.getElementById('lastUpdate');
+                    
+                    if (serviceState) {
+                        serviceState.textContent = data.running ? 'Activo' : 'Detenido';
+                        serviceState.className = data.running ? 'text-success' : 'text-danger';
+                    }
+                    
+                    if (processingCount) {
+                        processingCount.textContent = data.processingJobs || 0;
+                    }
+                    
+                    if (lastUpdate) {
+                        const now = new Date();
+                        lastUpdate.textContent = now.toLocaleTimeString();
+                    }
+                    
+                    // Actualizar indicador visual
+                    const statusDot = document.querySelector('.status-dot');
+                    if (statusDot) {
+                        statusDot.className = 'status-dot ' + (data.running ? 'status-running' : 'status-stopped');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error obteniendo estado:', error);
+                });
+        }
+        
+        // Función para pausar/reanudar auto-actualización
+        let autoRefreshEnabled = true;
+        function toggleAutoRefresh() {
+            autoRefreshEnabled = !autoRefreshEnabled;
+            const btn = document.getElementById('toggleAutoRefreshBtn');
+            if (btn) {
+                btn.innerHTML = autoRefreshEnabled ? 
+                    '<i class="fas fa-pause"></i> Pausar Auto-Actualización' : 
+                    '<i class="fas fa-play"></i> Reanudar Auto-Actualización';
+                btn.className = autoRefreshEnabled ? 'btn btn-secondary' : 'btn btn-warning';
+            }
+            
+            if (!autoRefreshEnabled) {
+                if (statusInterval) clearInterval(statusInterval);
+            } else {
+                startStatusMonitoring();
+            }
+        }
+    </script>
+</body>
+</html>

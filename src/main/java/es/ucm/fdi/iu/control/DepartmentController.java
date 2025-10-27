@@ -41,9 +41,20 @@ public class DepartmentController {
                 "SELECT p FROM Printer p", Printer.class)
                 .getResultList();
         
+        // Cargar rangos de red
+        List<NetworkRange> networkRanges = new java.util.ArrayList<>();
+        try {
+            networkRanges = em.createNamedQuery(
+                    "NetworkRange.all", NetworkRange.class)
+                    .getResultList();
+        } catch (Exception e) {
+            log.warn("No se pudieron cargar rangos de red: {}", e.getMessage());
+        }
+        
         model.addAttribute("departments", departments);
         model.addAttribute("unassignedComputers", unassignedComputers);
         model.addAttribute("allPrinters", allPrinters);
+        model.addAttribute("networkRanges", networkRanges);
         
         return "departments";
     }

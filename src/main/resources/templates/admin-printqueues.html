@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="fragments/head :: header"/>
+    <title>Gestión de Colas de Impresión</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <link rel="stylesheet" th:href="@{/css/admin-sidebar.css}"/>
+    <link rel="stylesheet" th:href="@{/css/admin-modern.css}"/>
+    <link rel="stylesheet" th:href="@{/css/admin-departments.css}"/>
+    <link rel="stylesheet" th:href="@{/css/admin-printqueues.css}"/>
+    <link rel="stylesheet" th:href="@{/css/admin-sidebar-override.css}"/>
+</head>
+<body>
+    <nav th:replace="fragments/nav.html :: nav"></nav>
+    
+    <div th:if="${success}" class="alert alert-success alert-fixed">
+        <span th:text="${success}"></span>
+    </div>
+    <div th:if="${error}" class="alert alert-error alert-fixed">
+        <span th:text="${error}"></span>
+    </div>
+    <div th:if="${warning}" class="alert alert-warning alert-fixed">
+        <span th:text="${warning}"></span>
+    </div>
+    <div th:if="${info}" class="alert alert-info alert-fixed">
+        <span th:text="${info}"></span>
+    </div>
+
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside th:replace="fragments/admin-sidebar.html :: sidebar"></aside>
+        
+        <!-- Contenido Principal -->
+        <div class="admin-content">
+            <div class="departments-container">
+                <!-- Header -->
+                <div class="departments-header">
+                    <h1><i class="fas fa-list-ol"></i> Gestión de Colas de Impresión</h1>
+                    <p>Monitorea y administra todas las colas de impresión activas</p>
+                </div>
+                
+                <!-- Acciones -->
+                <div class="departments-actions">
+                    <button class="btn btn-primary" onclick="refreshQueues()">
+                        <i class="fas fa-sync"></i> Actualizar
+                    </button>
+                    <button class="btn btn-primary" onclick="openModal('addJobModal')">
+                        <i class="fas fa-plus"></i> Agregar Trabajo
+                    </button>
+                    <button class="btn btn-danger" onclick="clearAllQueues()">
+                        <i class="fas fa-trash-alt"></i> Limpiar Todas las Colas
+                    </button>
+                    <button id="toggleAutoRefreshBtn" class="btn btn-secondary" onclick="toggleAutoRefresh()">
+                        <i class="fas fa-pause"></i> Pausar Auto-Actualización
+                    </button>
+                </div>
+                
+                <!-- Estado del Servicio -->
+                <div class="queue-service-status" id="serviceStatus">
+                    <div class="status-indicator">
+                        <span class="status-dot status-running"></span>
+                        <span>Servicio de Colas: <strong id="serviceState">Activo</strong></span>
+                    </div>
+                    <div class="status-info">
+                        <span>📊 Trabajos en proceso: <strong id="processingCount">0</strong></span>
+                        <span>⏱️ Última actualización: <strong id="lastUpdate">--</strong></span>
+                    </div>
+                </div>
+                
+                <!-- Estadísticas -->
+                <div class="departments-stats">
+                    <div class="dept-stat-card">
+                        <div class="dept-stat-icon queue-stat-total">
+                            <i class="fas fa-list-ol"></i>
+                        </div>
+                        <div class="dept-stat-value" th:text="${totalJobs != null ? totalJobs : 0}">0</div>
+                        <div class="dept-stat-label">Total de Trabajos</div>
+                    </div>
+                    <div class="dept-stat-card">
+                        <div class="dept-stat-icon queue-stat-active">
+                            <i class="fas fa-print"></i>
+                        </div>
+                        <div class="dept-stat-value" th:text="${activePrinters != null ? activePrinters : 0}">0</div>
+                        <div class="dept-stat-label">Impresoras Activas</div>
+                    </div>
+                    <div class="dept-stat-card">
+                        <div class="dept-stat-icon queue-stat-pending">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="dept-stat-value" th:text="${pendingJobs != null ? pendingJobs : 0}">0</div>
+                        <div class="dept-stat-label">Trabajos Pendientes</div>
+                    </div>
+                </div>
+
+                <!-- Lista de Colas por Impresora -->
+                <div th:if="${printersWithJobs != null && !#lists.isEmpty(printersWithJobs)}">
+                    <div th:each="printer : ${printersWithJobs}" class="queue-printer-card">
+                        <div class="queue-printer-header">
+                            <div class="queue-printer-info">
+                                <div class="printer-icon-large">
+                                    <i class="fas fa-print"></i>
+                                </div>
+                                <div class="queue-printer-details">
+                                    <h3 th:text="${printer.alias}">Impresora</h3>
+                                    <div class="queue-printer-meta">
+                                        <span class="meta-item">
+                                            <i class="fas fa-map-marker-alt"></i>
+                                            <span th:text="${printer.location}">Ubicación</span>
+                                        </span>
+                                        <span class="meta-item">
+                                            <i class="fas fa-network-wired"></i>
+                                            <span th:text="${printer.ip}">IP</span>
+                                        </span>
+                                        <span class="meta-item">
+                                            <i class="fas fa-cog"></i>
+                                            <span th:text="${printer.model}">Modelo</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="queue-printer-actions">
+                                <span class="queue-count-badge" th:text="${#lists.size(printer.queue)} + ' trabajo(s)'">0 trabajos</span>
+                                <form method="post" th:action="@{/admin/printqueues/clear-queue(printerId=${printer.id})}" 
+                                      class="d-inline" 
+                                      onsubmit="return confirm('⚠️ ¿Limpiar toda la cola de: ' + this.dataset.name + '?')" 
+                                      th:attr="data-name=${printer.alias}">
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Limpiar Cola">
+                                        <i class="fas fa-broom"></i> Limpiar Cola
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <!-- Tabla de Trabajos -->
+                        <div class="queue-table-wrapper">
+                            <table class="data-table queue-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Archivo</th>
+                                        <th>Usuario</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="job, iterStat : ${printer.queue}">
+                                        <td>
+                                            <span class="job-position" th:text="${iterStat.count}">1</span>
+                                        </td>
+                                        <td>
+                                            <div class="job-file-info">
+                                                <i class="fas fa-file-alt"></i>
+                                                <span th:text="${job.fileName}">documento.pdf</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="job-user-info">
+                                                <i class="fas fa-user"></i>
+                                                <span th:text="${job.owner}">usuario</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span th:if="${iterStat.first}" class="job-status-badge status-printing">
+                                                <i class="fas fa-spinner fa-spin"></i> Imprimiendo
+                                            </span>
+                                            <span th:unless="${iterStat.first}" class="job-status-badge status-queued">
+                                                <i class="fas fa-clock"></i> En cola
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                <button th:if="${!iterStat.first}" 
+                                                        class="btn btn-sm btn-primary" 
+                                                        th:attr="data-job-id=${job.id}"
+                                                        onclick="moveJobToTop(this.dataset.jobId)"
+                                                        title="Mover al inicio">
+                                                    <i class="fas fa-arrow-up"></i>
+                                                </button>
+                                                <form method="post" th:action="@{/admin/printqueues/cancel-job(jobId=${job.id})}" 
+                                                      class="d-inline" 
+                                                      onsubmit="return confirm('⚠️ ¿Cancelar trabajo: ' + this.dataset.name + '?')" 
+                                                      th:attr="data-name=${job.fileName}">
+                                                    <button type="submit" class="btn btn-sm btn-danger" title="Cancelar">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Estado Vacío -->
+                <div th:if="${printersWithJobs == null || #lists.isEmpty(printersWithJobs)}" class="departments-table-card">
+                    <div class="card-body">
+                        <div class="empty-state">
+                            <div class="empty-state-icon"><i class="fas fa-list-ol"></i></div>
+                            <p>No hay trabajos en las colas de impresión</p>
+                            <button class="btn btn-primary" onclick="openModal('addJobModal')">
+                                <i class="fas fa-plus"></i> Agregar Primer Trabajo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Historial Reciente (Opcional) -->
+                <div class="departments-table-card" style="margin-top: 2rem;" th:if="${recentJobs != null && !#lists.isEmpty(recentJobs)}">
+                    <div class="card-header">
+                        <span><i class="fas fa-history"></i> Historial Reciente</span>
+                    </div>
+                    <div class="card-body">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Archivo</th>
+                                    <th>Usuario</th>
+                                    <th>Impresora</th>
+                                    <th>Fecha</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="job : ${recentJobs}">
+                                    <td th:text="${job.fileName}">documento.pdf</td>
+                                    <td th:text="${job.owner}">usuario</td>
+                                    <td th:text="${job.printer != null ? job.printer.alias : 'N/A'}">Impresora</td>
+                                    <td>Hace 5 minutos</td>
+                                    <td>
+                                        <span class="job-status-badge status-completed">
+                                            <i class="fas fa-check"></i> Completado
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALES -->
+    <div th:replace="fragments/admin-printqueues-modals :: modals"></div>
+    
+    <!-- Barra de progreso minimizada GLOBAL -->
+    <div th:replace="fragments/scan-progress-minimized.html :: minimized-bar"></div>
+
+    <footer th:replace="fragments/footer.html :: footer"></footer>
+
+    <script th:src="@{/js/admin.js}"></script>
+    <script th:src="@{/js/scan-monitor-global.js}"></script>
+    <script th:replace="fragments/admin-printqueues-scripts :: scripts"></script>
+</body>
+</html>

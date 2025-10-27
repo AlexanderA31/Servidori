@@ -34,30 +34,35 @@ public class Printer implements Transferable<Printer.Transfer> {
         @ManyToMany(mappedBy = "printers")
     private List<PGroup> groups = new ArrayList<>();
 
-    private String alias;
+        private String alias;
     private String model;
     private String location;
     private String ip;
     
-    // URI del dispositivo para CUPS (ej: ipp://192.168.1.100/ipp/print)
+    // URI del dispositivo (opcional, manual override)
+    // Ej: ipp://192.168.1.100/ipp/print, socket://192.168.1.100:9100
     private String deviceUri;
     
-    // Driver PPD a usar
-    private String driver;
-    
-    // Puerto de conexión
+    // Puerto de conexión (por defecto: 9100 para RAW, 631 para IPP, 515 para LPD)
     private Integer port;
     
-    // Protocolo (IPP, LPD, RAW, SMB)
+    // Protocolo de comunicación: RAW, IPP, LPD, SMB
+    // RAW = Puerto 9100 (más común y rápido)
+    // IPP = Internet Printing Protocol (puerto 631)
+    // LPD = Line Printer Daemon (puerto 515)
+    // SMB = Samba/Windows Share
     private String protocol;
     
-    // Si está compartida vía Samba
+        // @Deprecated - Ya no se usan CUPS/Samba nativos
+    @Deprecated
+    private String driver;
+    
+    // Compartido vía Samba para clientes Windows
     private boolean sharedViaSamba = false;
     
-    // Si está agregada a CUPS
+    @Deprecated
     private boolean addedToCups = false;
-    
-    // Nombre del recurso compartido Samba
+    @Deprecated
     private String sambaShareName;
 
             @OneToMany(mappedBy = "printer", orphanRemoval = true)

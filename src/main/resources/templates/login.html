@@ -1,66 +1,86 @@
 <!DOCTYPE html>
-<html
-        xmlns:th="http://www.thymeleaf.org">
-  <head>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>Login IU 2020/21</title>
+    <title>Iniciar Sesión - Sistema de Gestión de Impresoras</title>
     <link rel="stylesheet" th:href="@{/css/bootstrap.css}" />
-    <link rel="stylesheet" th:href="@{/css/custom.css}" />
-  </head>
-    <body style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh;">
-     <div class="container">
-      <form class="form-signin" method="post" th:action="@{/login}">
-        <div class="text-center mb-4">
-          <h2 class="form-signin-heading">🔒 Iniciar Sesión</h2>
-          <p class="text-muted">Sistema de Gestión de Impresoras</p>
-        </div>
-        
-                <!-- Show error message if login failed -->
-        <div th:if="${param.error}" class="alert alert-danger">
-          <strong>⚠️ Error:</strong> Usuario o contraseña inválidos.
-        </div>
-        
-                <!-- Show logout message -->
-        <div th:if="${param.logout}" class="alert alert-success">
-          <strong>✓ Éxito:</strong> Has cerrado sesión correctamente.
-        </div>
-        
-                <div class="form-group">
-          <label for="username">Usuario</label>
-          <div class="input-group">
-            <div class="input-group-prepend">
-              <span class="input-group-text">👤</span>
+    <link rel="stylesheet" th:href="@{/css/login.css}" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="login-page">
+    <div class="login-container">
+                <!-- Logo y Título -->
+        <div class="login-brand">
+            <div class="brand-logo">
+                <img src="https://www.ueb.edu.ec/images/Logos/Logos_Marca_Comercial/logotipo-ueb2.png" 
+                     alt="Universidad Estatal de Bolívar" 
+                     class="ueb-logo">
             </div>
-            <input type="text" id="username" name="username" 
-              class="form-control" placeholder="Nombre de usuario" required="required" autofocus="autofocus">
-          </div>
+   
         </div>
-        <div class="form-group">
-          <label for="password">Contraseña</label>
-          <div class="input-group">
-            <div class="input-group-prepend">
-              <span class="input-group-text">🔑</span>
+        
+        <!-- Formulario de Login -->
+        <form class="login-form" method="post" th:action="@{/login}">
+        
+                            <!-- Mensajes de alerta -->
+            <div th:if="${param.error}" class="alert-message alert-error">
+                <i class="fas fa-exclamation-circle"></i>
+                <span>Usuario o contraseña incorrectos</span>
             </div>
-            <input type="password" id="password" name="password" 
-              class="form-control" placeholder="Contraseña" required="required">
-          </div>
+            
+            <div th:if="${param.logout}" class="alert-message alert-success">
+                <i class="fas fa-check-circle"></i>
+                <span>Sesión cerrada correctamente</span>
+            </div>
+            
+            <!-- Campo Usuario -->
+            <div class="form-field">
+                <label for="username" class="form-label">Usuario</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-user input-icon"></i>
+                    <input type="text" 
+                           id="username" 
+                           name="username" 
+                           class="form-input" 
+                           placeholder="Ingresa tu usuario" 
+                           required 
+                           autofocus>
+                </div>
+            </div>
+            
+            <!-- Campo Contraseña -->
+            <div class="form-field">
+                <label for="password" class="form-label">Contraseña</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-lock input-icon"></i>
+                    <input type="password" 
+                           id="password" 
+                           name="password" 
+                           class="form-input" 
+                           placeholder="Ingresa tu contraseña" 
+                           required>
+                </div>
+            </div>
+            
+            <!-- CSRF Token -->
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+            
+            <!-- Botón Submit -->
+            <button class="btn-submit" type="submit">
+                <span>Iniciar Sesión</span>
+                <i class="fas fa-arrow-right"></i>
+            </button>
+        </form>
+        
+        
+        <!-- Link de regreso -->
+        <div class="login-footer">
+            <a href="/" class="back-link">
+                <i class="fas fa-arrow-left"></i>
+                Volver al inicio
+            </a>
         </div>
-        
-        <!-- CSRF Token - THIS IS CRITICAL! -->
-        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
-        
-        <button class="btn btn-lg btn-primary btn-block" type="submit" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
-          Iniciar Sesión
-        </button>
-      </form>
-      
-            <div class="text-center mt-3" style="background: white; padding: 1rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-        <small class="text-muted">
-          <strong>👉 Credenciales por defecto:</strong><br>
-          Usuario: <code>admin</code> | Contraseña: <code>admin123</code>
-        </small>
-      </div>
-</div>
+    </div>
 </body>
 </html>

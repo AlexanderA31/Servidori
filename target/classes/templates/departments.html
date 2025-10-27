@@ -3,145 +3,138 @@
 <head>
     <th:block th:replace="fragments/head :: header"/>
     <title>Gestión de Departamentos</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <link rel="stylesheet" th:href="@{/css/admin-sidebar.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-modern.css}"/>
-    <style>
-        .department-card {
-            border: 3px solid;
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin: 1rem 0;
-            background: white;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .department-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-            padding-bottom: 1rem;
-            border-bottom: 2px solid;
-        }
-        .dept-section {
-            margin: 1rem 0;
-            padding: 1rem;
-            background: #f9f9f9;
-            border-radius: 8px;
-        }
-        .item-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 0.5rem;
-            margin-top: 0.5rem;
-        }
-        .item-badge {
-            padding: 0.5rem 1rem;
-            background: white;
-            border-radius: 6px;
-            border: 1px solid #e0e0e0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .mac-badge {
-            font-family: 'Courier New', monospace;
-            background: #f0f0f0;
-            padding: 0.2rem 0.5rem;
-            border-radius: 3px;
-            font-size: 0.85rem;
-        }
-        .ip-badge {
-            font-family: 'Courier New', monospace;
-            background: #e3f2fd;
-            padding: 0.2rem 0.5rem;
-            border-radius: 3px;
-            color: #1976d2;
-            font-size: 0.85rem;
-        }
-    </style>
+    <link rel="stylesheet" th:href="@{/css/departments.css}"/>
 </head>
 <body>
     <nav th:replace="fragments/nav.html :: nav"></nav>
     
-    <div th:if="${success}" class="alert alert-success" style="position: fixed; top: 80px; right: 20px; z-index: 9999;">
+    <div th:if="${success}" class="alert alert-success alert-fixed">
         <span th:text="${success}"></span>
     </div>
-    <div th:if="${error}" class="alert alert-error" style="position: fixed; top: 80px; right: 20px; z-index: 9999;">
+    <div th:if="${error}" class="alert alert-error alert-fixed">
         <span th:text="${error}"></span>
     </div>
 
-    <div class="admin-container">
-        <div class="admin-header">
-            <h1>🏢 Gestión de Departamentos</h1>
-            <p style="margin: 0.5rem 0 0 0; color: var(--text-muted);">
-                Organiza computadoras e impresoras por departamentos. Las computadoras solo verán las impresoras de su departamento.
-            </p>
-        </div>
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside th:replace="fragments/admin-sidebar.html :: sidebar"></aside>
+        
+        <!-- Contenido Principal -->
+        <div class="admin-content">
+    <div class="departments-container">
+        <!-- Header con IP del Servidor -->
+     
 
+        <!-- Estadísticas -->
         <div class="stats-grid">
             <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-building"></i></div>
                 <div class="stat-value" th:text="${departments != null ? #lists.size(departments) : 0}">0</div>
                 <div class="stat-label">Departamentos</div>
             </div>
             <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-desktop"></i></div>
                 <div class="stat-value" th:text="${unassignedComputers != null ? #lists.size(unassignedComputers) : 0}">0</div>
                 <div class="stat-label">Computadoras Sin Asignar</div>
             </div>
             <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-print"></i></div>
                 <div class="stat-value" th:text="${allPrinters != null ? #lists.size(allPrinters) : 0}">0</div>
                 <div class="stat-label">Impresoras Disponibles</div>
             </div>
         </div>
 
-        <!-- Descubrimiento de Impresoras -->
-        <div class="card" style="margin-bottom: 1rem; border: 2px solid #4caf50;">
-            <div class="card-header" style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); color: white;">
-                <span style="font-size: 1.1rem;">🔍 Descubrimiento Automático de Impresoras</span>
-                <div>
-                    <button class="btn btn-sm" style="background: white; color: #667eea; margin-right: 0.5rem; font-weight: bold;" 
-                            onclick="openModal('configureNetworksModal')">
-                        ⚙️ Configurar Redes
+        <!-- Lista de Todas las Impresoras -->
+        <div class="card printers-card">
+            <div class="card-header">
+                <span><i class="fas fa-print"></i> Todas las Impresoras del Sistema</span>
+                <div class="card-header-buttons">
+                    <button class="btn btn-primary btn-sm" onclick="openModal('configureNetworksModal')">
+                        <i class="fas fa-cog"></i> Configurar Redes
                     </button>
-                    <form method="post" th:action="@{/admin/discover-printers}" style="display: inline;">
-                        <button type="submit" class="btn btn-sm" style="background: white; color: #4caf50; font-weight: bold;" 
+                    <form method="post" th:action="@{/admin/discover-printers}" class="d-inline">
+                        <button type="submit" class="btn btn-primary btn-sm" 
                                 onclick="return confirm('✅ Escanear la red en busca de impresoras:\n\n🌐 Redes (VLANs): 192.168.x.x, 10.0.x.x\n🖨️ USB y Compartidas\n\n⏱️ Tiempo estimado: 2-5 minutos\n\n¿Continuar?')">
-                            🔄 Iniciar Escaneo
+                            <i class="fas fa-sync"></i> Escanear Red
                         </button>
                     </form>
+                    <button class="btn btn-primary btn-sm" onclick="openModal('addPrinterModal')">
+                        <i class="fas fa-plus"></i> Agregar Manual
+                    </button>
                 </div>
             </div>
             <div class="card-body">
-                <div style="background: #e8f5e9; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #4caf50;">
-                    <h4 style="margin: 0 0 1rem 0; color: #2e7d32;">🎯 ¿Qué detecta el escaneo?</h4>
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
-                        <div style="padding: 1rem; background: white; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🌐</div>
-                            <strong>Impresoras de Red</strong>
-                            <div style="font-size: 0.85rem; color: #666; margin-top: 0.3rem;">
-                                Diferentes VLANs y subredes<br>
-                                Puertos: RAW (9100), IPP (631), LPD (515)
-                            </div>
-                        </div>
-                        <div style="padding: 1rem; background: white; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔌</div>
-                            <strong>Impresoras USB</strong>
-                            <div style="font-size: 0.85rem; color: #666; margin-top: 0.3rem;">
-                                Conectadas directamente<br>
-                                A computadoras del sistema
-                            </div>
-                        </div>
-                        <div style="padding: 1rem; background: white; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">💻🖨️</div>
-                            <strong>Compartidas</strong>
-                            <div style="font-size: 0.85rem; color: #666; margin-top: 0.3rem;">
-                                Computadoras que comparten<br>
-                                Sus impresoras locales
-                            </div>
-                        </div>
-                    </div>
+                <div th:if="${allPrinters == null || #lists.isEmpty(allPrinters)}" class="empty-state">
+                    <div class="empty-state-icon"><i class="fas fa-print"></i></div>
+                    <p>No hay impresoras registradas en el sistema</p>
+                    <button class="btn btn-primary" onclick="openModal('addPrinterModal')">
+                        <i class="fas fa-plus"></i> Agregar Primera Impresora
+                    </button>
+                </div>
+                
+                <div th:unless="${allPrinters == null || #lists.isEmpty(allPrinters)}">
+                    <!-- Sección: Tabla de Impresoras -->
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Impresora</th>
+                                <th>Modelo</th>
+                                <th>Ubicación</th>
+                                <th>Dirección IP</th>
+                                <th>URI</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="printer : ${allPrinters}">
+                                <td>
+                                    <strong>🖨️ <span th:text="${printer.alias}">Impresora</span></strong>
+                                </td>
+                                <td th:text="${printer.model}">Modelo</td>
+                                <td th:text="${printer.location}">Ubicación</td>
+                                <td>
+                                    <span class="ip-badge" th:text="${printer.ip}">IP</span>
+                                </td>
+                                <td>
+                                    <code th:if="${printer.deviceUri}" th:text="${printer.deviceUri}">URI</code>
+                                    <span th:unless="${printer.deviceUri}" class="text-muted">--</span>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="btn btn-sm btn-primary" 
+                                                th:attr="data-id=${printer.id}, data-alias=${printer.alias}, data-model=${printer.model}, data-location=${printer.location}, data-ip=${printer.ip}"
+                                                onclick="openEditPrinterModal(this.dataset)">
+                                            ✏️
+                                        </button>
+                                        <form method="post" th:action="@{/admin/test-printer(id=${printer.id})}" 
+                                              class="d-inline" 
+                                              onsubmit="return confirm('🖨️ ¿Enviar página de prueba a: ' + this.dataset.name + '?')" 
+                                              th:attr="data-name=${printer.alias}">
+                                            <button type="submit" class="btn btn-sm btn-primary">
+                                                🧪
+                                            </button>
+                                        </form>
+                                        <form method="post" th:action="@{/admin/delete-printer(id=${printer.id})}" 
+                                              class="d-inline" 
+                                              onsubmit="return confirm('⚠️ ¿Eliminar impresora: ' + this.dataset.name + '?')" 
+                                              th:attr="data-name=${printer.alias}">
+                                            <button type="submit" class="btn btn-sm btn-primary">
+                                                🗑️
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
+        <!-- Sección de Departamentos -->
         <div class="card">
             <div class="card-header">
                 <span>📋 Departamentos</span>
@@ -159,104 +152,100 @@
                 </div>
 
                 <div th:unless="${departments == null || #lists.isEmpty(departments)}">
-                    <div th:each="dept : ${departments}" class="department-card" 
-                         th:style="'border-color: ' + ${dept.color}">
-                        
-                        <div class="department-header" th:style="'border-color: ' + ${dept.color}">
-                            <div>
-                                <h2 style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-                                    <span th:style="'width: 20px; height: 20px; border-radius: 50%; background: ' + ${dept.color}"></span>
-                                    <span th:text="${dept.name}">Departamento</span>
-                                </h2>
-                                <p style="margin: 0.5rem 0 0 0; color: #666;">
-                                    <span th:text="${dept.description}">Descripción</span>
-                                    <span th:if="${dept.location}" style="margin-left: 1rem;">
-                                        📍 <span th:text="${dept.location}">Ubicación</span>
-                                    </span>
-                                </p>
-                            </div>
-                            <form method="post" th:action="@{/admin/delete-department(id=${dept.id})}" 
-                                  style="display: inline;" onsubmit="return confirm('¿Eliminar este departamento?')">
-                                <button type="submit" class="btn btn-danger btn-sm">🗑️ Eliminar</button>
-                            </form>
-                        </div>
+                    <!-- Sección: Tabla de Departamentos -->
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Departamento</th>
+                                <th>Descripción</th>
+                                <th>Ubicación</th>
+                                <th>Computadoras</th>
+                                <th>Impresoras</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                    <tr th:each="dept : ${departments}" 
+                         th:style="'border-left: 4px solid ' + ${dept.color}">
+                                <td>
+                                    <div class="dept-name-cell">
+                                        <span class="dept-color-dot" th:style="'background: ' + ${dept.color}"></span>
+                                        <strong th:text="${dept.name}">Departamento</strong>
+                                    </div>
+                                </td>
+                                <td th:text="${dept.description}">Descripción</td>
+                                <td>
+                                    <span th:if="${dept.location}" th:text="${dept.location}">Ubicación</span>
+                                    <span th:unless="${dept.location}" class="text-muted">--</span>
+                                </td>
 
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                            <!-- Computadoras -->
-                            <div class="dept-section">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                    <h3 style="margin: 0;">💻 Computadoras (<span th:text="${dept.computers != null ? #lists.size(dept.computers) : 0}">0</span>)</h3>
-                                    <button class="btn btn-sm btn-primary" 
-                                            th:attr="data-dept-id=${dept.id}, data-dept-name=${dept.name}"
-                                            onclick="openAddComputerModal(this.dataset)">➕</button>
-                                </div>
-                                
-                                <div th:if="${dept.computers == null || #lists.isEmpty(dept.computers)}" style="color: #999; text-align: center; padding: 1rem;">
-                                    Sin computadoras asignadas
-                                </div>
-                                
-                                <div th:unless="${dept.computers == null || #lists.isEmpty(dept.computers)}" class="item-list">
-                                    <div th:each="comp : ${dept.computers}" class="item-badge">
-                                        <div>
-                                            <div><strong th:text="${comp.name}">PC</strong></div>
-                                            <span class="mac-badge" th:text="${comp.macAddress}">MAC</span>
+                                <td>
+                                    <div>
+                                        <strong th:text="${dept.computers != null ? #lists.size(dept.computers) : 0}">0</strong>
+                                        <button class="btn btn-sm btn-primary" 
+                                                th:attr="data-dept-id=${dept.id}, data-dept-name=${dept.name}"
+                                                onclick="openAddComputerModal(this.dataset)"
+                                                title="Agregar computadora">➕</button>
+                                    </div>
+                                    <div th:if="${dept.computers != null and #lists.size(dept.computers) > 0}" class="dept-items-container">
+                                        <div th:each="comp : ${dept.computers}" class="badge badge-secondary dept-item-badge">
+                                            <span th:text="${comp.name}">PC</span>
                                         </div>
-                                        <form method="post" th:action="@{/admin/remove-computer-from-dept(computerId=${comp.id})}" 
-                                              style="display: inline;">
-                                            <button type="submit" class="btn btn-sm btn-danger" 
-                                                    style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">✕</button>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div>
+                                        <strong th:text="${dept.printers != null ? #lists.size(dept.printers) : 0}">0</strong>
+                                        <button class="btn btn-sm btn-primary" 
+                                                th:attr="data-dept-id=${dept.id}, data-dept-name=${dept.name}"
+                                                onclick="openAssignPrinterModal(this.dataset)"
+                                                title="Asignar impresora">➕</button>
+                                    </div>
+                                                                          <div th:if="${dept.printers != null and #lists.size(dept.printers) > 0}" class="dept-items-container">
+                                          <div th:each="printer : ${dept.printers}" class="dept-printer-item">
+                                              <span class="printer-name" th:text="${printer.alias}">Printer</span>
+                                              <form method="post" th:action="@{/admin/remove-printer-from-dept(departmentId=${dept.id}, printerId=${printer.id})}" 
+                                                    class="d-inline"
+                                                    th:attr="data-printer=${printer.alias}, data-dept=${dept.name}"
+                                                    onsubmit="return confirm('¿Quitar impresora \'' + this.dataset.printer + '\' del departamento \'' + this.dataset.dept + '\'?')">
+                                                  <button type="submit" class="btn-remove-item" title="Quitar impresora">
+                                                      <i class="fas fa-times"></i>
+                                                  </button>
+                                              </form>
+                                          </div>
+                                      </div>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <form method="post" th:action="@{/admin/delete-department(id=${dept.id})}" 
+                                              class="d-inline" onsubmit="return confirm('¿Eliminar este departamento?')">
+                                            <button type="submit" class="btn btn-sm btn-primary">🗑️</button>
                                         </form>
                                     </div>
-                                </div>
-                            </div>
-
-                            <!-- Impresoras -->
-                            <div class="dept-section">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                    <h3 style="margin: 0;">🖨️ Impresoras (<span th:text="${dept.printers != null ? #lists.size(dept.printers) : 0}">0</span>)</h3>
-                                    <button class="btn btn-sm btn-success" 
-                                            th:attr="data-dept-id=${dept.id}, data-dept-name=${dept.name}"
-                                            onclick="openAssignPrinterModal(this.dataset)">➕</button>
-                                </div>
-                                
-                                <div th:if="${dept.printers == null || #lists.isEmpty(dept.printers)}" style="color: #999; text-align: center; padding: 1rem;">
-                                    Sin impresoras asignadas
-                                </div>
-                                
-                                <div th:unless="${dept.printers == null || #lists.isEmpty(dept.printers)}" class="item-list">
-                                    <div th:each="printer : ${dept.printers}" class="item-badge">
-                                        <div>
-                                            <div><strong th:text="${printer.alias}">Printer</strong></div>
-                                            <span class="ip-badge" th:text="${printer.ip}">IP</span>
-                                        </div>
-                                        <form method="post" th:action="@{/admin/remove-printer-from-dept(departmentId=${dept.id}, printerId=${printer.id})}" 
-                                              style="display: inline;">
-                                            <button type="submit" class="btn btn-sm btn-danger" 
-                                                    style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">✕</button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
+        </div>
+    </div>
         </div>
     </div>
 
     <!-- Modal: Configurar Redes/VLANs -->
     <div id="configureNetworksModal" class="modal">
-        <div class="modal-content" style="max-width: 800px;">
-            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+        <div class="modal-content modal-networks">
+            <div class="modal-header modal-gradient-header">
                 <h3>⚙️ Configurar Rangos de Red / VLANs</h3>
                 <button class="close-modal" onclick="closeModal('configureNetworksModal')">×</button>
             </div>
             <div class="modal-body">
                 <!-- Formulario para agregar red -->
-                <div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-                    <h4 style="margin: 0 0 1rem 0;">➕ Agregar Nueva Red</h4>
+                <div class="network-form-box">
+                    <h4 class="network-form-title">➕ Agregar Nueva Red</h4>
                     <form method="post" th:action="@{/admin/add-network-range}">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-grid-2">
                             <div class="form-group">
                                 <label class="form-label">Nombre *</label>
                                 <input type="text" name="name" class="form-control" 
@@ -267,10 +256,10 @@
                                 <input type="text" name="cidrRange" class="form-control" 
                                        placeholder="192.168.1.0/24" 
                                        pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$" required>
-                                <small style="color: #666;">Formato: 192.168.1.0/24</small>
+                                <small class="text-muted">Formato: 192.168.1.0/24</small>
                             </div>
                         </div>
-                        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
+                        <div class="form-grid-2-1">
                             <div class="form-group">
                                 <label class="form-label">Descripción</label>
                                 <input type="text" name="description" class="form-control" 
@@ -287,8 +276,8 @@
                 </div>
                 
                 <!-- Lista de redes configuradas -->
-                <h4 style="margin: 1rem 0;">🌐 Redes Configuradas</h4>
-                <div th:if="${networkRanges == null || #lists.isEmpty(networkRanges)}" style="text-align: center; padding: 2rem; color: #999;">
+                <h4 class="networks-title">🌐 Redes Configuradas</h4>
+                <div th:if="${networkRanges == null || #lists.isEmpty(networkRanges)}" class="no-networks-message">
                     🚫 No hay redes configuradas. Se usará la red por defecto (192.168.1.0/24)
                 </div>
                 <table th:unless="${networkRanges == null || #lists.isEmpty(networkRanges)}" class="data-table">
@@ -335,15 +324,20 @@
                             </td>
                             <td>
                                 <div class="action-buttons">
+                                    <button class="btn btn-sm btn-primary" 
+                                            th:attr="data-id=${net.id}, data-name=${net.name}, data-cidr=${net.cidrRange}, data-description=${net.description}, data-vlan=${net.vlanId}, data-active=${net.active}"
+                                            onclick="openEditNetworkModal(this.dataset)"
+                                            title="Editar red">
+                                        ✏️
+                                    </button>
                                     <form method="post" th:action="@{/admin/toggle-network-range(id=${net.id})}" 
-                                          style="display:inline;">
-                                        <button type="submit" class="btn btn-sm" 
-                                                th:classappend="${net.active ? 'btn-warning' : 'btn-success'}">
+                                          class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-primary">
                                             <span th:text="${net.active ? '🔒' : '🔓'}"></span>
                                         </button>
                                     </form>
                                     <form method="post" th:action="@{/admin/delete-network-range(id=${net.id})}" 
-                                          style="display:inline;" 
+                                          class="d-inline" 
                                           onsubmit="return confirm('¿Eliminar esta red?')">
                                         <button type="submit" class="btn btn-sm btn-danger">🗑️</button>
                                     </form>
@@ -396,6 +390,60 @@
         </div>
     </div>
 
+    <!-- Modal: Editar Red -->
+    <div id="editNetworkModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>✏️ Editar Rango de Red</h3>
+                <button class="close-modal" onclick="closeModal('editNetworkModal')">×</button>
+            </div>
+            <form method="post" th:action="@{/admin/edit-network-range}">
+                <div class="modal-body">
+                    <input type="hidden" id="editNetworkId" name="id">
+                    
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Nombre *</label>
+                            <input type="text" id="editNetworkName" name="name" class="form-control" 
+                                   placeholder="ej: VLAN Producción" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Rango CIDR *</label>
+                            <input type="text" id="editNetworkCidr" name="cidrRange" class="form-control" 
+                                   placeholder="192.168.1.0/24" 
+                                   pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$" required>
+                            <small class="text-muted">Formato: 192.168.1.0/24</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-grid-2-1">
+                        <div class="form-group">
+                            <label class="form-label">Descripción</label>
+                            <input type="text" id="editNetworkDescription" name="description" class="form-control" 
+                                   placeholder="Red de producción - Piso 2">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">VLAN ID</label>
+                            <input type="number" id="editNetworkVlan" name="vlanId" class="form-control" 
+                                   placeholder="10" min="1" max="4094">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="modal-checkbox-label">
+                            <input type="checkbox" id="editNetworkActive" name="active" value="true">
+                            <span>Red Activa</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('editNetworkModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal: Agregar Computadora -->
     <div id="addComputerModal" class="modal">
         <div class="modal-content">
@@ -406,7 +454,7 @@
             <form method="post" th:action="@{/admin/add-computer-to-dept}">
                 <div class="modal-body">
                     <input type="hidden" id="addComputerDeptId" name="departmentId">
-                    <div style="background: #f0f0f0; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                    <div class="modal-dept-info">
                         <strong>Departamento:</strong> <span id="addComputerDeptName"></span>
                     </div>
                     <div class="form-group">
@@ -435,6 +483,138 @@
         </div>
     </div>
 
+    <!-- Modal: Agregar Impresora -->
+    <div id="addPrinterModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🖨️ Agregar Nueva Impresora</h3>
+                <button class="close-modal" onclick="closeModal('addPrinterModal')">×</button>
+            </div>
+            <form method="post" th:action="@{/admin/add-printer}">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Alias/Nombre *</label>
+                        <input type="text" name="alias" class="form-control" 
+                               placeholder="ej: HP_LaserJet_Oficina" required>
+                        <small>Nombre único para identificar la impresora</small>
+                    </div>
+                    
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Modelo *</label>
+                            <input type="text" name="model" class="form-control" 
+                                   placeholder="HP LaserJet Pro M404dn" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Ubicación *</label>
+                            <input type="text" name="location" class="form-control" 
+                                   placeholder="Oficina Principal - Piso 2" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Dirección IP *</label>
+                        <input type="text" name="ip" class="form-control" 
+                               placeholder="192.168.1.50" 
+                               pattern="^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$" required>
+                        <small>Dirección IP de la impresora en la red</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">URI del Dispositivo (Opcional)</label>
+                        <input type="text" name="deviceUri" class="form-control" 
+                               placeholder="ipp://192.168.1.50:631/ipp/print">
+                        <small>URI para conectarse a la impresora (IPP, LPD, RAW, etc.)</small>
+                    </div>
+                    
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Protocolo</label>
+                            <select name="protocol" class="form-control">
+                                <option value="">-- Seleccionar --</option>
+                                <option value="IPP">IPP (Internet Printing Protocol)</option>
+                                <option value="LPD">LPD (Line Printer Daemon)</option>
+                                <option value="RAW">RAW (Puerto 9100)</option>
+                                <option value="SMB">SMB (Samba/Windows)</option>
+                                <option value="USB">USB</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Puerto</label>
+                            <input type="number" name="port" class="form-control" 
+                                   placeholder="631" min="1" max="65535">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Driver PPD (Opcional)</label>
+                        <input type="text" name="driver" class="form-control" 
+                               placeholder="ruta/al/driver.ppd">
+                    </div>
+                    
+                    <div class="modal-auto-config">
+                        <h4>ℹ️ Configuración Automática</h4>
+                        <div class="modal-checkbox-group">
+                            <label class="modal-checkbox-label">
+                                <input type="checkbox" name="addToCups" value="true" checked>
+                                <span>Agregar a CUPS automáticamente</span>
+                            </label>
+                            <label class="modal-checkbox-label">
+                                <input type="checkbox" name="shareViaSamba" value="true" checked>
+                                <span>Compartir vía Samba</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('addPrinterModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Agregar Impresora</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal: Editar Impresora -->
+    <div id="editPrinterModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>✏️ Editar Impresora</h3>
+                <button class="close-modal" onclick="closeModal('editPrinterModal')">×</button>
+            </div>
+            <form method="post" th:action="@{/admin/edit-printer}">
+                <div class="modal-body">
+                    <input type="hidden" id="editPrinterId" name="id">
+                    
+                    <div class="form-group">
+                        <label class="form-label">Alias/Nombre *</label>
+                        <input type="text" id="editPrinterAlias" name="alias" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Modelo *</label>
+                            <input type="text" id="editPrinterModel" name="model" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Ubicación *</label>
+                            <input type="text" id="editPrinterLocation" name="location" class="form-control" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Dirección IP *</label>
+                        <input type="text" id="editPrinterIp" name="ip" class="form-control" 
+                               pattern="^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('editPrinterModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal: Asignar Impresora -->
     <div id="assignPrinterModal" class="modal">
         <div class="modal-content">
@@ -445,7 +625,7 @@
             <form method="post" th:action="@{/admin/assign-printer-to-dept}">
                 <div class="modal-body">
                     <input type="hidden" id="assignPrinterDeptId" name="departmentId">
-                    <div style="background: #f0f0f0; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                    <div class="modal-dept-info">
                         <strong>Departamento:</strong> <span id="assignPrinterDeptName"></span>
                     </div>
                     <div class="form-group">
@@ -473,46 +653,45 @@
     
     <!-- Modal de Progreso de Escaneo -->
     <div id="scanProgressModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 600px;">
-            <div class="modal-header" style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); color: white;">
+        <div class="modal-content scan-modal-content">
+            <div class="modal-header scan-modal-header">
                 <h3>🔍 Escaneando Red en Busca de Impresoras...</h3>
             </div>
             <div class="modal-body">
-                <div style="margin-bottom: 1rem;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                <div class="scan-progress-wrapper">
+                    <div class="scan-progress-info">
                         <span id="scanProgress">0%</span>
                         <span id="scanDetails">Preparando escaneo...</span>
                     </div>
-                    <div style="width: 100%; height: 30px; background: #e0e0e0; border-radius: 15px; overflow: hidden;">
-                        <div id="progressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #4caf50 0%, #8bc34a 100%); transition: width 0.3s ease;"></div>
+                    <div class="scan-progress-bar-bg">
+                        <div id="progressBar" class="scan-progress-bar"></div>
                     </div>
                 </div>
                 
-                <div style="background: #f5f5f5; padding: 1rem; border-radius: 5px; margin: 1rem 0;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="scan-stats-container">
+                    <div class="scan-stats-grid-2">
                         <div>
-                            <div style="font-size: 0.85rem; color: #666;">Red Actual:</div>
-                            <div id="currentNetwork" style="font-weight: bold; color: #2e7d32;">--</div>
+                            <div class="scan-stat-item">Red Actual:</div>
+                            <div id="currentNetwork" class="scan-stat-network">--</div>
                         </div>
                         <div>
-                            <div style="font-size: 0.85rem; color: #666;">Impresoras Encontradas:</div>
-                            <div id="foundPrinters" style="font-weight: bold; color: #1976d2; font-size: 1.5rem;">0</div>
+                            <div class="scan-stat-item">Impresoras Encontradas:</div>
+                            <div id="foundPrinters" class="scan-stat-printers">0</div>
                         </div>
                         <div>
-                            <div style="font-size: 0.85rem; color: #666;">Hosts Escaneados:</div>
-                            <div id="hostsScanned" style="font-weight: bold;">0 / 0</div>
+                            <div class="scan-stat-item">Hosts Escaneados:</div>
+                            <div id="hostsScanned" class="scan-stat-value">0 / 0</div>
                         </div>
                         <div>
-                            <div style="font-size: 0.85rem; color: #666;">Tiempo Restante:</div>
-                            <div id="timeRemaining" style="font-weight: bold;">Calculando...</div>
+                            <div class="scan-stat-item">Tiempo Restante:</div>
+                            <div id="timeRemaining" class="scan-stat-value">Calculando...</div>
                         </div>
                     </div>
                 </div>
                 
-                <div style="text-align: center; color: #666; font-size: 0.9rem;">
+                <div class="scan-message-wrapper">
                     <div id="scanMessage">⏳ Por favor espera, esto puede tomar varios minutos...</div>
-                    <button id="forceCompleteBtn" class="btn btn-sm btn-warning" 
-                            style="margin-top: 1rem; display: none;"
+                    <button id="forceCompleteBtn" class="btn btn-sm btn-warning scan-force-btn"
                             onclick="forceComplete()">
                         ⚠️ Forzar Completar (si se quedó atascado)
                     </button>
@@ -522,6 +701,25 @@
     </div>
     
     <script>
+        function openEditNetworkModal(data) {
+            document.getElementById('editNetworkId').value = data.id;
+            document.getElementById('editNetworkName').value = data.name;
+            document.getElementById('editNetworkCidr').value = data.cidr;
+            document.getElementById('editNetworkDescription').value = data.description || '';
+            document.getElementById('editNetworkVlan').value = data.vlan || '';
+            document.getElementById('editNetworkActive').checked = data.active === 'true';
+            openModal('editNetworkModal');
+        }
+        
+        function openEditPrinterModal(data) {
+            document.getElementById('editPrinterId').value = data.id;
+            document.getElementById('editPrinterAlias').value = data.alias;
+            document.getElementById('editPrinterModel').value = data.model;
+            document.getElementById('editPrinterLocation').value = data.location;
+            document.getElementById('editPrinterIp').value = data.ip;
+            openModal('editPrinterModal');
+        }
+        
         function openAddComputerModal(data) {
             document.getElementById('addComputerDeptId').value = data.deptId;
             document.getElementById('addComputerDeptName').textContent = data.deptName;

@@ -1,0 +1,125 @@
+/* FORZAR SIDEBAR BLANCO - Máxima Prioridad */
+/* Este archivo sobrescribe cualquier otro estilo del sidebar */
+
+/* Fondo blanco del sidebar - FORZAR */
+.admin-sidebar,
+aside.admin-sidebar,
+#adminSidebar,
+.admin-sidebar:not(.collapsed) {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    background-image: none !important;
+}
+
+/* Header del sidebar */
+.sidebar-header {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.sidebar-title {
+    color: #64748b !important;
+}
+
+/* Títulos de sección */
+.sidebar-section-title {
+    color: #94a3b8 !important;
+}
+
+/* Enlaces del menú */
+.sidebar-menu-link {
+    color: #0f172a !important;
+}
+
+.sidebar-menu-link:hover {
+    background: #f8fafc !important;
+    color: #1e3a8a !important;
+}
+
+.sidebar-menu-link.active {
+    background: #e0e7ff !important;
+    color: #1e3a8a !important;
+}
+
+/* Iconos */
+.sidebar-menu-icon {
+    color: #64748b !important;
+}
+
+.sidebar-menu-link:hover .sidebar-menu-icon {
+    color: #1e3a8a !important;
+}
+
+.sidebar-menu-link.active .sidebar-menu-icon {
+    color: #1e3a8a !important;
+}
+
+/* Texto del menú */
+.sidebar-menu-text {
+    color: #0f172a !important;
+}
+
+.sidebar-menu-link:hover .sidebar-menu-text {
+    color: #1e3a8a !important;
+}
+
+.sidebar-menu-link.active .sidebar-menu-text {
+    color: #1e3a8a !important;
+}
+
+/* Badges */
+.sidebar-menu-badge {
+    background: #e2e8f0 !important;
+    color: #475569 !important;
+}
+
+.sidebar-menu-link.active .sidebar-menu-badge {
+    background: #1e3a8a !important;
+    color: #ffffff !important;
+}
+
+/* Footer del sidebar */
+.sidebar-footer {
+    background: #ffffff !important;
+    border-top: 1px solid #e2e8f0 !important;
+}
+
+.sidebar-footer-link {
+    color: #0f172a !important;
+}
+
+.sidebar-footer-link:hover {
+    background: #f8fafc !important;
+    color: #1e3a8a !important;
+}
+
+/* Navegación */
+.sidebar-nav {
+    background: #ffffff !important;
+}
+
+/* Secciones */
+.sidebar-section {
+    background: #ffffff !important;
+}
+
+/* Botón de toggle */
+.sidebar-toggle {
+    border-color: #e2e8f0 !important;
+    color: #64748b !important;
+}
+
+.sidebar-toggle:hover {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+}
+
+/* Scrollbar */
+.sidebar-nav::-webkit-scrollbar-thumb {
+    background: #cbd5e1 !important;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+    background: transparent !important;
+}

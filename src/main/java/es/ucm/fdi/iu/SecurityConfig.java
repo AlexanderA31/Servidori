@@ -57,12 +57,12 @@ public class SecurityConfig {
 	 */
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-	    http
+	    	    http
 			.csrf(csrf -> csrf
 				.ignoringRequestMatchers("/api/**")
 			)
-	        .authorizeHttpRequests(auth -> auth
-	                                    .requestMatchers("/css/**", "/js/**", "/img/**", "/", "/error").permitAll()
+	        	        	        .authorizeHttpRequests(auth -> auth
+	                                    .requestMatchers("/css/**", "/js/**", "/img/**", "/", "/index.html", "/error").permitAll()
 				.requestMatchers("/api/**").permitAll()             // <-- public api access
 				.requestMatchers("/login").permitAll()
 	            .requestMatchers("/admin/**").hasRole("ADMIN")		 // <-- administration

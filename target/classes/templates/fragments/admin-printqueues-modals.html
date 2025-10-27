@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+    <div th:fragment="modals">
+        <!-- Modal: Agregar Trabajo de Impresión -->
+        <div id="addJobModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-plus"></i> Agregar Trabajo de Impresión</h3>
+                    <button class="close-modal" onclick="closeModal('addJobModal')">×</button>
+                </div>
+                <form method="post" th:action="@{/admin/printqueues/add-job}" enctype="multipart/form-data">
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label class="form-label">Impresora *</label>
+                            <select name="printerId" class="form-control" required>
+                                <option value="">-- Seleccionar Impresora --</option>
+                                <option th:each="printer : ${allPrinters}" 
+                                        th:value="${printer.id}" 
+                                        th:text="${printer.alias + ' (' + printer.location + ')'}">
+                                    Impresora
+                                </option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Nombre del Archivo *</label>
+                            <input type="text" name="fileName" class="form-control" 
+                                   placeholder="ej: documento_importante.pdf" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Usuario/Propietario *</label>
+                            <input type="text" name="owner" class="form-control" 
+                                   placeholder="Nombre del usuario" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Archivo (Opcional)</label>
+                            <input type="file" name="file" class="form-control" 
+                                   accept=".pdf,.doc,.docx,.txt,.jpg,.png">
+                            <small class="form-text">Formatos soportados: PDF, DOC, DOCX, TXT, JPG, PNG</small>
+                        </div>
+                        
+                        <div class="modal-info-box">
+                            <i class="fas fa-info-circle"></i>
+                            <span>El trabajo se agregará al final de la cola de la impresora seleccionada.</span>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('addJobModal')">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Agregar Trabajo</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Modal: Ver Detalles del Trabajo -->
+        <div id="viewJobModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-info-circle"></i> Detalles del Trabajo</h3>
+                    <button class="close-modal" onclick="closeModal('viewJobModal')">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="job-detail-grid">
+                        <div class="job-detail-item">
+                            <span class="job-detail-label">ID:</span>
+                            <span id="jobDetailId" class="job-detail-value">--</span>
+                        </div>
+                        <div class="job-detail-item">
+                            <span class="job-detail-label">Archivo:</span>
+                            <span id="jobDetailFile" class="job-detail-value">--</span>
+                        </div>
+                        <div class="job-detail-item">
+                            <span class="job-detail-label">Usuario:</span>
+                            <span id="jobDetailUser" class="job-detail-value">--</span>
+                        </div>
+                        <div class="job-detail-item">
+                            <span class="job-detail-label">Impresora:</span>
+                            <span id="jobDetailPrinter" class="job-detail-value">--</span>
+                        </div>
+                        <div class="job-detail-item">
+                            <span class="job-detail-label">Posición en Cola:</span>
+                            <span id="jobDetailPosition" class="job-detail-value">--</span>
+                        </div>
+                        <div class="job-detail-item">
+                            <span class="job-detail-label">Estado:</span>
+                            <span id="jobDetailStatus" class="job-detail-value">--</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('viewJobModal')">Cerrar</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal: Confirmación de Limpieza -->
+        <div id="clearAllModal" class="modal">
+            <div class="modal-content modal-warning">
+                <div class="modal-header modal-warning-header">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Confirmar Limpieza</h3>
+                    <button class="close-modal" onclick="closeModal('clearAllModal')">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="warning-message">
+                        <i class="fas fa-exclamation-triangle warning-icon"></i>
+                        <p>¿Estás seguro de que deseas limpiar TODAS las colas de impresión?</p>
+                        <p class="warning-detail">Esta acción eliminará todos los trabajos pendientes de todas las impresoras y no se puede deshacer.</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('clearAllModal')">Cancelar</button>
+                    <form method="post" th:action="@{/admin/printqueues/clear-all}" class="d-inline">
+                        <button type="submit" class="btn btn-danger">Sí, Limpiar Todas</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

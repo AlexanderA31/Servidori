@@ -6,6 +6,8 @@ import es.ucm.fdi.iu.model.User;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import jakarta.persistence.EntityManager;
 import jakarta.servlet.http.HttpSession;
+import jakarta.transaction.Transactional;
+import java.util.List;
 
 /**
  *  Allows user management, and generating random values for
@@ -28,17 +32,10 @@ public class RootController {
 	@Autowired
 	private EntityManager entityManager;
 
-        @GetMapping("/")
+                @GetMapping("/")
     public String index(Model model, HttpSession session) {
-        User currentUser = (User) session.getAttribute("u");
-        
-        if (currentUser != null && currentUser.hasRole(User.Role.ADMIN)) {
-            // Si es admin, redirigir al panel de administración
-            return "redirect:/admin/";
-        }
-        
-        // Si no está logueado, mostrar página de login
-        return "redirect:/login";
+        // Simplemente servir el index.html estático (ya tiene todo lo necesario)
+        return "forward:/index.html";
     }
 
     @GetMapping("/login")

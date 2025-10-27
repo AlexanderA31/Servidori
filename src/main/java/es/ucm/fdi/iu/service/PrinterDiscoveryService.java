@@ -35,6 +35,14 @@ public class PrinterDiscoveryService {
     @PersistenceContext
     private EntityManager em;
     
+    private final IppPrintService ippService;
+    private final SmbShareService smbService;
+    
+    public PrinterDiscoveryService(IppPrintService ippService, SmbShareService smbService) {
+        this.ippService = ippService;
+        this.smbService = smbService;
+    }
+    
     // Estado del escaneo
     private volatile boolean scanning = false;
     private volatile int totalHosts = 0;
@@ -254,7 +262,7 @@ public class PrinterDiscoveryService {
 
     /**
      * Escanea una IP específica para ver si hay una impresora
-     * MEJORADO: Ahora intenta SNMP primero (funciona cross-VLAN)
+     * MEJORADO: Ahora intenta múltiples protocolos (SNMP, IPP, SMB)
      */
     private DiscoveredPrinter scanIPForPrinter(String ip) {
         // ESTRATEGIA 1: Intentar descubrimiento SNMP (MEJOR para cross-VLAN)
@@ -264,9 +272,22 @@ public class PrinterDiscoveryService {
             return snmpPrinter;
         }
         
-        // ESTRATEGIA 2: Verificar puertos de impresora directamente
-        // (Solo funciona en la misma VLAN, pero más rápido para redes locales)
-        for (int port : PRINTER_PORTS) {
+        // ESTRATEGIA 2: Intentar IPP (puerto 631)
+        DiscoveredPrinter ippPrinter = scanViaIPP(ip);
+        if (ippPrinter != null) {
+            log.debug("Impresora descubierta vía IPP en {}", ip);
+            return ippPrinter;
+        }
+        
+        // ESTRATEGIA 3: Intentar SMB (puerto 445) para impresoras compartidas Windows
+        DiscoveredPrinter smbPrinter = scanViaSMB(ip);
+        if (smbPrinter != null) {
+            log.debug("Impresora descubierta vía SMB en {}", ip);
+            return smbPrinter;
+        }
+        
+        // ESTRATEGIA 4: Verificar puertos RAW/LPD directamente
+        for (int port : new int[]{9100, 515}) { // RAW, LPD (ya probamos IPP)
             if (isPortOpen(ip, port, 200)) {
                 DiscoveredPrinter printer = new DiscoveredPrinter();
                 printer.setIp(ip);
@@ -281,6 +302,63 @@ public class PrinterDiscoveryService {
             }
         }
         
+        return null;
+    }
+    
+    /**
+     * Descubre impresoras usando protocolo IPP (Java puro, sin CUPS)
+     */
+    private DiscoveredPrinter scanViaIPP(String ip) {
+        try {
+            // Intentar varios endpoints IPP comunes
+            String[] endpoints = {"/ipp/print", "/ipp", "/"};
+            
+            for (String endpoint : endpoints) {
+                String ippUri = ippService.buildIppUri(ip, 631, endpoint);
+                IppPrintService.IppPrinterInfo info = ippService.getPrinterInfo(ippUri);
+                
+                if (info != null && info.getName() != null) {
+                    DiscoveredPrinter printer = new DiscoveredPrinter();
+                    printer.setIp(ip);
+                    printer.setName(info.getName());
+                    printer.setModel(info.getMakeModel() != null ? info.getMakeModel() : "IPP Printer");
+                    printer.setType("Red - IPP");
+                    printer.setStatus(info.isAccepting() ? "En línea" : "No acepta trabajos");
+                    printer.setConnectionType("IPP");
+                    printer.setPort(631);
+                    return printer;
+                }
+            }
+        } catch (Exception e) {
+            log.trace("IPP no disponible en {}: {}", ip, e.getMessage());
+        }
+        return null;
+    }
+    
+    /**
+     * Descubre impresoras compartidas vía SMB (Java puro, sin Samba)
+     */
+    private DiscoveredPrinter scanViaSMB(String ip) {
+        try {
+            // Intentar descubrimiento anónimo primero
+            List<SmbShareService.SmbShareInfo> printers = smbService.discoverPrinters(ip, null, null);
+            
+            if (!printers.isEmpty()) {
+                SmbShareService.SmbShareInfo smbInfo = printers.get(0);
+                
+                DiscoveredPrinter printer = new DiscoveredPrinter();
+                printer.setIp(ip);
+                printer.setName(smbInfo.getName());
+                printer.setModel("Impresora SMB");
+                printer.setType("Red - SMB/Windows");
+                printer.setStatus(smbInfo.isAvailable() ? "En línea" : "No disponible");
+                printer.setConnectionType("SMB");
+                printer.setPort(445);
+                return printer;
+            }
+        } catch (Exception e) {
+            log.trace("SMB no disponible en {}: {}", ip, e.getMessage());
+        }
         return null;
     }
     
@@ -556,33 +634,74 @@ public class PrinterDiscoveryService {
 
     /**
      * Registra una impresora descubierta en la base de datos
+     * @return Printer si se registró exitosamente, null si ya existía
      */
     @Transactional
     public Printer registerDiscoveredPrinter(DiscoveredPrinter discovered, es.ucm.fdi.iu.model.User user) {
-        // Verificar si ya existe
-        List<Printer> existing = em.createQuery(
-                "SELECT p FROM Printer p WHERE p.ip = :ip OR p.alias = :alias", Printer.class)
-                .setParameter("ip", discovered.getIp())
-                .setParameter("alias", discovered.getName())
-                .getResultList();
-        
-        if (!existing.isEmpty()) {
-            log.info("Impresora ya registrada: {}", discovered.getName());
-            return existing.get(0);
+        try {
+            // Generar IP para impresoras locales sin IP
+            String printerIp = discovered.getIp();
+            if (printerIp == null || printerIp.isEmpty()) {
+                printerIp = "LOCAL-" + Math.abs(discovered.getName().hashCode());
+            }
+            
+            // Verificar si ya existe por IP
+            List<Printer> existingByIp = em.createQuery(
+                    "SELECT p FROM Printer p WHERE p.ip = :ip", Printer.class)
+                    .setParameter("ip", printerIp)
+                    .getResultList();
+            
+            if (!existingByIp.isEmpty()) {
+                log.debug("❌ Impresora ya registrada (IP duplicada): {} - {}", 
+                    discovered.getName(), printerIp);
+                return null; // Retornar null para indicar que no se agregó
+            }
+            
+            // Verificar si ya existe por alias (nombre similar)
+            List<Printer> existingByAlias = em.createQuery(
+                    "SELECT p FROM Printer p WHERE LOWER(p.alias) = LOWER(:alias)", Printer.class)
+                    .setParameter("alias", discovered.getName())
+                    .getResultList();
+            
+            if (!existingByAlias.isEmpty()) {
+                log.debug("❌ Impresora ya registrada (nombre duplicado): {}", discovered.getName());
+                return null;
+            }
+            
+            // Crear nueva impresora
+            Printer printer = new Printer();
+            printer.setAlias(discovered.getName());
+            printer.setModel(discovered.getModel());
+            printer.setLocation(discovered.getConnectionType() + " - " + discovered.getType());
+            printer.setIp(printerIp);
+            printer.setInstance(user);
+            printer.setInk(100);
+            printer.setPaper(100);
+            
+            // Configurar protocolo y puerto si están disponibles
+            if (discovered.getConnectionType() != null) {
+                if (discovered.getConnectionType().contains("IPP")) {
+                    printer.setProtocol("IPP");
+                    printer.setPort(631);
+                } else if (discovered.getConnectionType().contains("SMB")) {
+                    printer.setProtocol("SMB");
+                    printer.setPort(445);
+                } else if (discovered.getPort() > 0) {
+                    printer.setPort(discovered.getPort());
+                }
+            }
+            
+            em.persist(printer);
+            em.flush(); // Asegurar que se persiste inmediatamente
+            log.info("✅ Impresora registrada: {} en {} ({})", 
+                printer.getAlias(), printer.getIp(), printer.getModel());
+            return printer;
+            
+        } catch (Exception e) {
+            log.error("❌ Error al registrar impresora {}: {}", 
+                discovered.getName(), e.getMessage());
+            return null;
         }
-        
-        Printer printer = new Printer();
-        printer.setAlias(discovered.getName());
-        printer.setModel(discovered.getModel());
-        printer.setLocation(discovered.getConnectionType() + " - " + discovered.getType());
-        printer.setIp(discovered.getIp() != null ? discovered.getIp() : "LOCAL-" + discovered.getName().hashCode());
-        printer.setInstance(user);
-        printer.setInk(100);
-        printer.setPaper(100);
-        
-        em.persist(printer);
-        log.info("Impresora registrada: {} en {}", printer.getAlias(), printer.getIp());
-        return printer;
     }
 
     /**

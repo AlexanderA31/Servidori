@@ -3,16 +3,13 @@
 	xmlns:th="http://www.thymeleaf.org">
 <head>
 	<title>Footer fragment - rest is empty</title>
+	<link rel="stylesheet" th:href="@{/css/footer.css}"/>
 </head>
 <body>
-		<footer th:fragment="footer" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; margin-top: 3rem; text-align: center;">
+		<footer th:fragment="footer">
 		<div class="container">
 			<p class="mb-2">🖨️ <strong>Sistema de Gestión de Impresoras</strong></p>
-			<p class="mb-0" style="font-size: 0.9rem; opacity: 0.9;">
-				Aplicación de gestión de impresoras y grupos | IU 2020-21<br>
-				<a href="https://www.apache.org/licenses/LICENSE-2.0" style="color: white; text-decoration: underline;">Código Abierto</a> | 
-				<a href="https://github.com/manuel-freire/iw1920" style="color: white; text-decoration: underline;">Repositorio</a>
-			</p>
+			
 		</div>
 	</footer>
 </body>

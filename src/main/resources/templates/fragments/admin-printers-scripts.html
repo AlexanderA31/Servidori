@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+    <script th:fragment="scripts">
+        function openEditPrinterModal(data) {
+            document.getElementById('editPrinterId').value = data.id;
+            document.getElementById('editPrinterAlias').value = data.alias;
+            document.getElementById('editPrinterModel').value = data.model;
+            document.getElementById('editPrinterLocation').value = data.location;
+            document.getElementById('editPrinterIp').value = data.ip;
+            openModal('editPrinterModal');
+        }
+        
+        function openEditNetworkModal(data) {
+            document.getElementById('editNetworkId').value = data.id;
+            document.getElementById('editNetworkName').value = data.name;
+            document.getElementById('editNetworkCidr').value = data.cidr;
+            document.getElementById('editNetworkDescription').value = data.description || '';
+            document.getElementById('editNetworkVlan').value = data.vlan || '';
+            document.getElementById('editNetworkActive').checked = data.active === 'true';
+            openModal('editNetworkModal');
+        }
+
+        // Auto-cerrar alertas
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    alert.style.opacity = '0';
+                    setTimeout(() => alert.remove(), 300);
+                }, 5000);
+            });
+            
+            // Verificar si hay escaneo en progreso
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('scanning') === 'true') {
+                startScanMonitoring();
+            }
+        });
+        
+        let scanInterval = null;
+        let lastProgress = 0;
+        let stuckCount = 0;
+        let isMinimized = false;
+        
+        // Guardar estado en sessionStorage para persistir entre páginas
+        function saveScanState(data) {
+            const state = {
+                isMinimized: isMinimized,
+                scanning: data.scanning,
+                progress: data.progress,
+                currentNetwork: data.currentNetwork,
+                foundPrinters: data.foundPrinters,
+                timestamp: Date.now()
+            };
+            sessionStorage.setItem('scanMinimizedState', JSON.stringify(state));
+        }
+        
+        function minimizeScanModal() {
+            isMinimized = true;
+            document.getElementById('scanProgressModal').style.display = 'none';
+            document.getElementById('scanProgressMinimized').style.display = 'block';
+            
+            // Guardar estado
+            const state = {
+                isMinimized: true,
+                scanning: true,
+                progress: lastProgress,
+                currentNetwork: document.getElementById('currentNetwork').textContent,
+                foundPrinters: parseInt(document.getElementById('foundPrinters').textContent) || 0
+            };
+            sessionStorage.setItem('scanMinimizedState', JSON.stringify(state));
+        }
+        
+        // Función directa para restaurar (usada cuando estamos en la misma página)
+        window.restoreScanModalDirect = function() {
+            isMinimized = false;
+            document.getElementById('scanProgressMinimized').style.display = 'none';
+            document.getElementById('scanProgressModal').style.display = 'block';
+            
+            // Actualizar estado
+            const state = JSON.parse(sessionStorage.getItem('scanMinimizedState') || '{}');
+            state.isMinimized = false;
+            sessionStorage.setItem('scanMinimizedState', JSON.stringify(state));
+        }
+        
+        function restoreScanModal() {
+            window.restoreScanModalDirect();
+        }
+        
+        function forceComplete() {
+            clearInterval(scanInterval);
+            document.getElementById('progressBar').style.width = '100%';
+            document.getElementById('scanProgress').textContent = '100%';
+            document.getElementById('scanMessage').innerHTML = 
+                '✅ <strong>Escaneo Finalizado</strong><br>Recargando página...';
+            setTimeout(() => {
+                window.location.href = '/admin/printers';
+            }, 2000);
+        }
+        
+        function startScanMonitoring() {
+            document.getElementById('scanProgressModal').style.display = 'block';
+            scanInterval = setInterval(updateScanProgress, 1000);
+            updateScanProgress();
+        }
+        
+        function updateScanProgress() {
+            fetch('/admin/scan-status')
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.scanning && data.progress === 0) {
+                        return;
+                    }
+                    
+                    // Guardar estado para persistencia entre páginas
+                    saveScanState(data);
+                    
+                    // Actualizar modal principal
+                    document.getElementById('progressBar').style.width = data.progress + '%';
+                    document.getElementById('scanProgress').textContent = data.progress + '%';
+                    document.getElementById('currentNetwork').textContent = data.currentNetwork || 'Iniciando...';
+                    document.getElementById('foundPrinters').textContent = data.foundPrinters;
+                    
+                    // Actualizar barra minimizada
+                    document.getElementById('scanProgressMinimizedBar').style.width = data.progress + '%';
+                    document.getElementById('scanProgressMinimizedPercent').textContent = data.progress + '%';
+                    document.getElementById('scanMinimizedNetwork').textContent = data.currentNetwork || 'Iniciando...';
+                    document.getElementById('scanMinimizedPrinters').textContent = data.foundPrinters + ' impresoras';
+                    
+                    if (data.progress === lastProgress && data.progress > 95 && data.progress < 100) {
+                        stuckCount++;
+                        if (stuckCount > 10) {
+                            document.getElementById('forceCompleteBtn').style.display = 'inline-block';
+                        }
+                    } else {
+                        stuckCount = 0;
+                        lastProgress = data.progress;
+                        document.getElementById('forceCompleteBtn').style.display = 'none';
+                    }
+                    
+                    if (data.scanning) {
+                        document.getElementById('scanDetails').textContent = 
+                            'Escaneando ' + data.currentNetwork + '...';
+                    } else if (data.progress >= 100 || (!data.scanning && data.progress > 0)) {
+                        document.getElementById('scanMessage').innerHTML = 
+                            '✅ <strong>Escaneo Completado!</strong><br>' +
+                            'Encontradas ' + data.foundPrinters + ' impresoras.<br>' +
+                            'Recargando página...';
+                        
+                        // Limpiar estado de sessionStorage
+                        sessionStorage.removeItem('scanMinimizedState');
+                        
+                        // Ocultar barra minimizada si está visible
+                        document.getElementById('scanProgressMinimized').style.display = 'none';
+                        
+                        // Si está minimizado, restaurar el modal para mostrar el mensaje
+                        if (isMinimized) {
+                            restoreScanModal();
+                        }
+                        
+                        clearInterval(scanInterval);
+                        setTimeout(() => {
+                            window.location.href = '/admin/printers';
+                        }, 3000);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al obtener estado del escaneo:', error);
+                });
+        }
+    </script>
+</body>
+</html>

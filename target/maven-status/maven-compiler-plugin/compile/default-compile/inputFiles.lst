@@ -1,7 +1,10 @@
 C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\service\PrinterDiscoveryService.java
+C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\service\SmbShareService.java
 C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\control\ApiController.java
 C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\model\Computer.java
 C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\service\PrinterAutoConfigService.java
+C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\service\IppServerService.java
+C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\service\PrinterShareService.java
 C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\service\SambaService.java
 C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\IwUserDetailsService.java
 C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\control\RootController.java
@@ -19,11 +22,16 @@ C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\control\AdminController.java
 C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\PasswordTester.java
 C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\AuthenticationLogger.java
 C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\client\PrintClient.java
+C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\repository\PrinterRepository.java
+C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\service\PrintQueueService.java
 C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\DataInitializer.java
 C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\model\NetworkRange.java
+C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\service\SambaAutoConfigService.java
 C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\StartupConfig.java
+C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\control\PrinterServerController.java
 C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\model\Job.java
 C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\service\CupsService.java
 C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\util\NetworkUtils.java
 C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\control\DepartmentController.java
 C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\model\PGroup.java
+C:\UEB\iu2021\src\main\java\es\ucm\fdi\iu\service\IppPrintService.java

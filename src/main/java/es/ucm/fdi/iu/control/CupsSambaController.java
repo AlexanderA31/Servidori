@@ -29,14 +29,18 @@ import java.util.Map;
 /**
  * Controlador para integración CUPS + Samba
  * 
- * Proporciona endpoints para:
- * - Sincronizar impresoras entre sistema, CUPS y Samba
- * - Gestionar trabajos de impresión
- * - Configurar compartidos Samba
- * - Monitorear estado del sistema
+ * DEPRECADO: Este controlador NO se usa en el enfoque actual.
+ * El sistema ahora usa solo el servidor IPP embebido (IppServerService).
+ * 
+ * Para gestionar el servidor de impresión, usa:
+ * - /print-server - Panel de servidor IPP
+ * - /admin - Panel de administración
+ * 
+ * Este controlador se mantiene deshabilitado para evitar conflictos.
  */
-@Controller
-@RequestMapping("/cups-samba")
+@Deprecated
+// @Controller - DESHABILITADO
+// @RequestMapping("/cups-samba")
 public class CupsSambaController {
 
     private static final Logger log = LogManager.getLogger(CupsSambaController.class);

@@ -18,13 +18,13 @@ import java.util.regex.Pattern;
 /**
  * Servicio para interactuar con CUPS (Common Unix Printing System)
  * 
- * Este servicio proporciona métodos para:
- * - Listar impresoras desde CUPS
- * - Obtener estado de trabajos de impresión
- * - Enviar trabajos a CUPS
- * - Gestionar configuración de impresoras
- * - Obtener estadísticas de uso
+ * DEPRECADO: Este servicio NO se usa en el enfoque actual.
+ * El sistema usa un servidor IPP embebido en Java (IppServerService).
+ * 
+ * Este servicio se mantiene solo para referencia o integración futura opcional.
+ * Si deseas usarlo, debes detener CUPS del sistema o cambiar el puerto del servidor IPP.
  */
+@Deprecated
 @Service
 public class CupsService {
 

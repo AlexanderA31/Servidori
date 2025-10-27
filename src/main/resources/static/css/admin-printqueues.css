@@ -1,0 +1,486 @@
+/* ========================================
+   GESTIÓN DE COLAS DE IMPRESIÓN - ADMIN
+   ======================================== */
+
+/* Estado del Servicio */
+.queue-service-status {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1rem;
+}
+
+.status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.status-running {
+    background: #10b981;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
+}
+
+.status-stopped {
+    background: #ef4444;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
+    animation: none;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.status-info {
+    display: flex;
+    gap: 2rem;
+    font-size: 0.95rem;
+}
+
+.status-info span {
+    opacity: 0.95;
+}
+
+.status-info strong {
+    font-weight: 700;
+}
+
+.text-success {
+    color: #10b981 !important;
+}
+
+.text-danger {
+    color: #ef4444 !important;
+}
+
+/* Estadísticas específicas de colas */
+.queue-stat-total {
+    border-left-color: #1e3a8a;
+}
+
+.queue-stat-total .dept-stat-icon {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+}
+
+.queue-stat-active {
+    border-left-color: #059669;
+}
+
+.queue-stat-active .dept-stat-icon {
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+}
+
+.queue-stat-pending {
+    border-left-color: #d97706;
+}
+
+.queue-stat-pending .dept-stat-icon {
+    background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+}
+
+/* Tarjeta de Impresora con Cola */
+.queue-printer-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+}
+
+.queue-printer-header {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    color: white;
+    padding: 1.5rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.queue-printer-info {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex: 1;
+}
+
+.printer-icon-large {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    flex-shrink: 0;
+}
+
+.queue-printer-details h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.queue-printer-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    font-size: 0.9rem;
+    opacity: 0.95;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.meta-item i {
+    opacity: 0.8;
+}
+
+.queue-printer-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.queue-count-badge {
+    background: rgba(255, 255, 255, 0.25);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+/* Tabla de Trabajos */
+.queue-table-wrapper {
+    padding: 1.5rem 2rem;
+}
+
+.queue-table {
+    width: 100%;
+}
+
+.queue-table thead {
+    background: #f9fafb;
+}
+
+.queue-table th {
+    font-weight: 600;
+    color: #374151;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    padding: 1rem;
+}
+
+.queue-table td {
+    padding: 1rem;
+    vertical-align: middle;
+}
+
+.queue-table tbody tr {
+    border-bottom: 1px solid #e5e7eb;
+    transition: background-color 0.2s;
+}
+
+.queue-table tbody tr:hover {
+    background-color: #f9fafb;
+}
+
+.queue-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+/* Posición en la cola */
+.job-position {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    color: white;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+/* Información del archivo */
+.job-file-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.job-file-info i {
+    color: #1e3a8a;
+    font-size: 1.2rem;
+}
+
+.job-file-info span {
+    font-weight: 500;
+    color: #1f2937;
+}
+
+/* Información del usuario */
+.job-user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.job-user-info i {
+    color: #6b7280;
+    font-size: 1rem;
+}
+
+.job-user-info span {
+    color: #4b5563;
+}
+
+/* Badges de estado */
+.job-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.status-printing {
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    color: white;
+}
+
+.status-queued {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.status-paused {
+    background: #e2e8f0;
+    color: #475569;
+}
+
+.status-completed {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-error {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* Detalles del trabajo (modal) */
+.job-detail-grid {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.job-detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.job-detail-label {
+    font-size: 0.875rem;
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.job-detail-value {
+    font-size: 1rem;
+    color: #1f2937;
+    font-weight: 500;
+}
+
+/* Modal de información */
+.modal-info-box {
+    background: #eff6ff;
+    border-left: 4px solid #1e40af;
+    padding: 1rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.modal-info-box i {
+    color: #1e40af;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.modal-info-box span {
+    color: #1e3a8a;
+    font-size: 0.9rem;
+}
+
+/* Modal de advertencia */
+.modal-warning .modal-content {
+    border-top: 4px solid #ef4444;
+}
+
+.modal-warning-header {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+}
+
+.warning-message {
+    text-align: center;
+    padding: 2rem;
+}
+
+.warning-icon {
+    font-size: 4rem;
+    color: #ef4444;
+    margin-bottom: 1rem;
+}
+
+.warning-message p {
+    font-size: 1.1rem;
+    color: #1f2937;
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+}
+
+.warning-detail {
+    font-size: 0.95rem !important;
+    color: #6b7280 !important;
+    font-weight: 400 !important;
+}
+
+/* Formulario de archivo */
+.form-control[type="file"] {
+    padding: 0.75rem;
+    border: 2px dashed #d1d5db;
+    background: #f9fafb;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.form-control[type="file"]:hover {
+    border-color: #1e40af;
+    background: white;
+}
+
+.form-text {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .queue-printer-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .queue-printer-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    
+    .printer-icon-large {
+        width: 50px;
+        height: 50px;
+        font-size: 1.5rem;
+    }
+    
+    .queue-printer-details h3 {
+        font-size: 1.25rem;
+    }
+    
+    .queue-printer-meta {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .queue-printer-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .queue-table-wrapper {
+        padding: 1rem;
+        overflow-x: auto;
+    }
+    
+    .queue-table {
+        min-width: 600px;
+    }
+    
+    .job-detail-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.queue-printer-card {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Efecto de actualización */
+.updating {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.updating::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

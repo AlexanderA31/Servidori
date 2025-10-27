@@ -1,21 +1,24 @@
 // Admin Panel JavaScript
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Tab switching
-    const tabs = document.querySelectorAll('.admin-tab');
+    // Sidebar navigation switching
+    const navLinks = document.querySelectorAll('.sidebar-nav-link, .admin-tab');
     const tabContents = document.querySelectorAll('.tab-content');
     
-    tabs.forEach(tab => {
-        tab.addEventListener('click', function() {
+    navLinks.forEach(link => {
+        link.addEventListener('click', function() {
             const target = this.dataset.tab;
             
-            // Remove active class from all tabs and contents
-            tabs.forEach(t => t.classList.remove('active'));
+            // Remove active class from all links and contents
+            navLinks.forEach(l => l.classList.remove('active'));
             tabContents.forEach(tc => tc.classList.remove('active'));
             
-            // Add active class to clicked tab and corresponding content
+            // Add active class to clicked link and corresponding content
             this.classList.add('active');
-            document.getElementById(target).classList.add('active');
+            const targetElement = document.getElementById(target);
+            if (targetElement) {
+                targetElement.classList.add('active');
+            }
         });
     });
     

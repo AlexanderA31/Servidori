@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!-- Barra de Progreso Minimizada GLOBAL (persiste entre secciones) -->
+    <div th:fragment="minimized-bar">
+        <div id="scanProgressMinimized" class="scan-minimized-bar" style="display: none;">
+            <div class="scan-minimized-content" onclick="restoreScanModal()">
+                <div class="scan-minimized-header">
+                    <i class="fas fa-sync fa-spin"></i>
+                    <span>Escaneando Red...</span>
+                    <span id="scanProgressMinimizedPercent" class="scan-minimized-percent">0%</span>
+                </div>
+                <div class="scan-minimized-progress-bar">
+                    <div id="scanProgressMinimizedBar" class="scan-minimized-progress-fill"></div>
+                </div>
+                <div class="scan-minimized-info">
+                    <span id="scanMinimizedNetwork" class="scan-minimized-network">--</span>
+                    <span id="scanMinimizedPrinters" class="scan-minimized-printers">0 impresoras</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Script para mantener el estado del escaneo entre páginas -->
+        <script th:inline="javascript">
+            // Restaurar estado de escaneo minimizado desde sessionStorage
+            document.addEventListener('DOMContentLoaded', function() {
+                const scanState = sessionStorage.getItem('scanMinimizedState');
+                
+                if (scanState) {
+                    const state = JSON.parse(scanState);
+                    
+                    // Si está minimizado, mostrar la barra
+                    if (state.isMinimized && state.scanning) {
+                        document.getElementById('scanProgressMinimized').style.display = 'block';
+                        
+                        // Restaurar progreso visual
+                        if (state.progress !== undefined) {
+                            document.getElementById('scanProgressMinimizedBar').style.width = state.progress + '%';
+                            document.getElementById('scanProgressMinimizedPercent').textContent = state.progress + '%';
+                        }
+                        
+                        if (state.currentNetwork) {
+                            document.getElementById('scanMinimizedNetwork').textContent = state.currentNetwork;
+                        }
+                        
+                        if (state.foundPrinters !== undefined) {
+                            document.getElementById('scanMinimizedPrinters').textContent = state.foundPrinters + ' impresoras';
+                        }
+                        
+                        // Continuar monitoreando el escaneo
+                        if (typeof updateScanProgressGlobal !== 'undefined') {
+                            updateScanProgressGlobal();
+                        }
+                    }
+                }
+            });
+            
+            // Función global para restaurar modal (debe existir en todas las páginas)
+            function restoreScanModal() {
+                // Guardar que queremos restaurar el modal
+                sessionStorage.setItem('restoreScanModal', 'true');
+                
+                // Si estamos en la página de impresoras, restaurar directamente
+                if (window.location.pathname.includes('/printers') && typeof window.restoreScanModalDirect === 'function') {
+                    window.restoreScanModalDirect();
+                } else {
+                    // Si no, redirigir a la página de impresoras
+                    window.location.href = '/admin/printers?scanning=true';
+                }
+            }
+        </script>
+    </div>
+</body>
+</html>

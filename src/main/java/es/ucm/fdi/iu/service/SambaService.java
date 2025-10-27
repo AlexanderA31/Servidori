@@ -18,12 +18,13 @@ import java.util.regex.Pattern;
 /**
  * Servicio para interactuar con Samba
  * 
- * Este servicio proporciona métodos para:
- * - Compartir impresoras vía Samba
- * - Gestionar usuarios y permisos
- * - Configurar acceso a impresoras compartidas
- * - Sincronizar con CUPS
+ * DEPRECADO: Este servicio NO se usa en el enfoque actual.
+ * El sistema usa un servidor IPP embebido que funciona directamente con clientes Windows.
+ * 
+ * Para conectarse a impresoras compartidas Windows, usa SmbShareService (cliente SMB en Java puro).
+ * Este servicio se mantiene solo para referencia o integración futura opcional.
  */
+@Deprecated
 @Service
 public class SambaService {
 

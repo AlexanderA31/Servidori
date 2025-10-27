@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Admin Sidebar</title>
+</head>
+<body>
+    <aside th:fragment="sidebar" class="admin-sidebar" id="adminSidebar" style="width: 240px !important; min-width: 240px !important; max-width: 240px !important;">
+        <!-- Header del Sidebar -->
+        <div class="sidebar-header">
+            <span class="sidebar-title">Panel Admin</span>
+        
+        </div>
+        
+        <!-- Navegación -->
+        <nav class="sidebar-nav">
+            <!-- Sección: Inicio -->
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Inicio</div>
+                <ul class="sidebar-menu">
+                    <li class="sidebar-menu-item">
+                        <a href="/admin/" class="sidebar-menu-link" th:classappend="${currentUri != null and currentUri == '/admin/' ? 'active' : ''}">
+                            <span class="sidebar-menu-icon">
+                                <i class="fas fa-home"></i>
+                            </span>
+                            <span class="sidebar-menu-text">Dashboard</span>
+                            <span class="sidebar-tooltip">Dashboard</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            
+            <!-- Sección: Gestión -->
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Gestión</div>
+                <ul class="sidebar-menu">
+                    <!-- Departamentos -->
+                    <li class="sidebar-menu-item">
+                        <a href="/admin/departments" class="sidebar-menu-link" th:classappend="${currentUri != null and #strings.contains(currentUri, 'department') ? 'active' : ''}">
+                            <span class="sidebar-menu-icon">
+                                <i class="fas fa-building"></i>
+                            </span>
+                            <span class="sidebar-menu-text">Departamentos</span>
+                            <span class="sidebar-menu-badge" th:text="${departments != null ? #lists.size(departments) : 0}">0</span>
+                            <span class="sidebar-tooltip">Departamentos</span>
+                        </a>
+                    </li>
+                    
+                    <!-- Impresoras -->
+                    <li class="sidebar-menu-item">
+                        <a href="/admin/printers" class="sidebar-menu-link" th:classappend="${currentUri != null and #strings.contains(currentUri, 'printer') ? 'active' : ''}">
+                            <span class="sidebar-menu-icon">
+                                <i class="fas fa-print"></i>
+                            </span>
+                            <span class="sidebar-menu-text">Impresoras</span>
+                            <span class="sidebar-menu-badge" th:text="${allPrinters != null ? #lists.size(allPrinters) : 0}">0</span>
+                            <span class="sidebar-tooltip">Impresoras</span>
+                        </a>
+                    </li>
+                    
+                    <!-- Computadoras -->
+                    <li class="sidebar-menu-item">
+                        <a href="/admin/computers" class="sidebar-menu-link" th:classappend="${currentUri != null and #strings.contains(currentUri, 'computer') ? 'active' : ''}">
+                            <span class="sidebar-menu-icon">
+                                <i class="fas fa-desktop"></i>
+                            </span>
+                            <span class="sidebar-menu-text">Computadoras</span>
+                            <span class="sidebar-menu-badge" th:text="${unassignedComputers != null ? #lists.size(unassignedComputers) : 0}">0</span>
+                            <span class="sidebar-tooltip">Computadoras</span>
+                        </a>
+                    </li>
+                    
+                    <!-- Colas de Impresión -->
+                    <li class="sidebar-menu-item">
+                        <a href="/admin/printqueues" class="sidebar-menu-link" th:classappend="${currentUri != null and #strings.contains(currentUri, 'printqueue') ? 'active' : ''}">
+                            <span class="sidebar-menu-icon">
+                                <i class="fas fa-list-ol"></i>
+                            </span>
+                            <span class="sidebar-menu-text">Colas de Impresión</span>
+                            <span class="sidebar-menu-badge" th:text="${totalJobs != null ? totalJobs : 0}">0</span>
+                            <span class="sidebar-tooltip">Colas de Impresión</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            
+
+        </nav>
+        
+        <!-- Footer del Sidebar -->
+        <div class="sidebar-footer">
+            <a href="/" class="sidebar-footer-link">
+                <span class="sidebar-menu-icon">
+                    <i class="fas fa-arrow-left"></i>
+                </span>
+                <span class="sidebar-menu-text">Volver al Inicio</span>
+                <span class="sidebar-tooltip">Volver al Inicio</span>
+            </a>
+        </div>
+    </aside>
+    
+    <!-- Overlay para móvil -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+    
+    <!-- Botón menú móvil -->
+    <button class="mobile-menu-btn" onclick="openSidebar()">
+        <i class="fas fa-bars"></i>
+    </button>
+    
+    <script>
+        // Toggle sidebar (sin guardar estado)
+        function toggleSidebar() {
+            const sidebar = document.getElementById('adminSidebar');
+            sidebar.classList.toggle('collapsed');
+            // NO guardamos el estado en localStorage
+        }
+        
+        // Abrir sidebar en móvil
+        function openSidebar() {
+            const sidebar = document.getElementById('adminSidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.add('open');
+            overlay.classList.add('active');
+        }
+        
+        // Cerrar sidebar en móvil
+        function closeSidebar() {
+            const sidebar = document.getElementById('adminSidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+        }
+        
+        // Inicializar sidebar siempre expandido
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.getElementById('adminSidebar');
+            
+            // Limpiar cualquier estado anterior guardado
+            localStorage.removeItem('sidebarCollapsed');
+            
+            // Forzar que el sidebar esté expandido
+            sidebar.classList.remove('collapsed');
+            
+            // Forzar ancho con inline style como respaldo
+            sidebar.style.width = '240px';
+            sidebar.style.minWidth = '240px';
+            sidebar.style.maxWidth = '240px';
+            
+            console.log('Sidebar inicializado: expandido');
+            console.log('Ancho del sidebar:', window.getComputedStyle(sidebar).width);
+            console.log('Clases del sidebar:', sidebar.className);
+        });
+        
+        // Cerrar sidebar en móvil al hacer clic en un enlace
+        document.querySelectorAll('.sidebar-menu-link').forEach(link => {
+            link.addEventListener('click', function() {
+                if (window.innerWidth <= 1024) {
+                    closeSidebar();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

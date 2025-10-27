@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+    <div th:fragment="modals">
+        <!-- Modal: Agregar Computadora -->
+        <div id="addComputerModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-desktop"></i> Agregar Nueva Computadora</h3>
+                    <button class="close-modal" onclick="closeModal('addComputerModal')">×</button>
+                </div>
+                <form method="post" th:action="@{/admin/add-computer}">
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label class="form-label">Dirección MAC *</label>
+                            <input type="text" name="macAddress" class="form-control" 
+                                   placeholder="AA:BB:CC:DD:EE:FF" 
+                                   pattern="([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})" required>
+                            <small>Formato: XX:XX:XX:XX:XX:XX</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Nombre *</label>
+                            <input type="text" name="name" class="form-control" 
+                                   placeholder="PC-Ventas-01" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Hostname</label>
+                            <input type="text" name="hostname" class="form-control" 
+                                   placeholder="pc-ventas-01">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Departamento (Opcional)</label>
+                            <select name="departmentId" class="form-control">
+                                <option value="">-- Sin asignar --</option>
+                                <option th:each="dept : ${departments}" 
+                                        th:value="${dept.id}" 
+                                        th:text="${dept.name}">
+                                    Departamento
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('addComputerModal')">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Agregar Computadora</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Modal: Editar Computadora -->
+        <div id="editComputerModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-edit"></i> Editar Computadora</h3>
+                    <button class="close-modal" onclick="closeModal('editComputerModal')">×</button>
+                </div>
+                <form method="post" th:action="@{/admin/edit-computer}">
+                    <div class="modal-body">
+                        <input type="hidden" id="editComputerId" name="id">
+                        
+                        <div class="form-group">
+                            <label class="form-label">Dirección MAC *</label>
+                            <input type="text" id="editComputerMac" name="macAddress" class="form-control" 
+                                   pattern="([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Nombre *</label>
+                            <input type="text" id="editComputerName" name="name" class="form-control" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Hostname</label>
+                            <input type="text" id="editComputerHostname" name="hostname" class="form-control">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('editComputerModal')">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal: Asignar a Departamento -->
+        <div id="assignComputerModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-building"></i> Asignar a Departamento</h3>
+                    <button class="close-modal" onclick="closeModal('assignComputerModal')">×</button>
+                </div>
+                <form method="post" th:action="@{/admin/assign-computer-to-dept}">
+                    <div class="modal-body">
+                        <input type="hidden" id="assignComputerId" name="computerId">
+                        
+                        <div class="modal-dept-info">
+                            <strong>Computadora:</strong> <span id="assignComputerName"></span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Departamento *</label>
+                            <select name="departmentId" class="form-control" required>
+                                <option value="">-- Seleccione un departamento --</option>
+                                <option th:each="dept : ${departments}" 
+                                        th:value="${dept.id}" 
+                                        th:text="${dept.name}">
+                                    Departamento
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('assignComputerModal')">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Asignar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

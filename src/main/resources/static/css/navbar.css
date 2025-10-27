@@ -1,0 +1,300 @@
+/* Navbar Estilo Empresarial Premium */
+
+.navbar-enterprise {
+    background: #ffffff;
+    padding: 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    margin-bottom: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    z-index: 1000;
+    border-bottom: 1px solid #e5e7eb;
+    height: 65px;
+}
+
+.navbar-container {
+    width: 100%;
+    margin: 0;
+    padding: 0.75rem 2rem;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 2rem;
+}
+
+.navbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: #111827;
+    transition: all 0.2s ease;
+    grid-column: 1;
+}
+
+.navbar-brand:hover {
+    opacity: 0.85;
+}
+
+.navbar-logo {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    color: white;
+    box-shadow: 0 2px 4px rgba(30, 64, 175, 0.15);
+    transition: all 0.3s ease;
+}
+
+.navbar-brand:hover .navbar-logo {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(30, 64, 175, 0.25);
+}
+
+.navbar-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    color: #111827;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    white-space: nowrap;
+}
+
+.navbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    grid-column: 3;
+    justify-content: flex-end;
+}
+
+.nav-btn {
+    background: #f9fafb;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+    padding: 0.5rem 1.125rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    white-space: nowrap;
+    line-height: 1.5;
+}
+
+.nav-btn:hover {
+    background: #e5e7eb;
+    color: #111827;
+    border-color: #d1d5db;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.nav-btn-primary {
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 2px 4px rgba(30, 64, 175, 0.2);
+}
+
+.nav-btn-primary:hover {
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+    box-shadow: 0 4px 8px rgba(30, 64, 175, 0.3);
+    transform: translateY(-1px);
+}
+
+.nav-btn-danger {
+    background: #ffffff;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
+.nav-btn-danger:hover {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fca5a5;
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    background: #ffffff;
+    padding: 0.375rem 0.75rem;
+    border-radius: 6px;
+    color: #111827;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    border: 1px solid #e5e7eb;
+}
+
+.user-profile:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    color: white;
+    box-shadow: 0 2px 4px rgba(30, 64, 175, 0.2);
+    transition: all 0.3s ease;
+}
+
+.user-profile:hover .user-avatar {
+    transform: scale(1.05);
+    box-shadow: 0 4px 6px rgba(30, 64, 175, 0.3);
+}
+
+.user-name {
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: #374151;
+}
+
+.logout-form {
+    margin: 0;
+}
+
+/* Iconos dentro de botones */
+.nav-btn i {
+    font-size: 0.875rem;
+}
+
+.user-avatar i {
+    font-size: 0.875rem;
+}
+
+.nav-btn-primary i {
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+/* Separador visual entre acciones */
+.navbar-actions > *:not(:last-child) {
+    position: relative;
+}
+
+/* Animación suave para todos los elementos interactivos */
+.navbar-enterprise * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.debug-section {
+    display: flex;
+    gap: 0.5rem;
+    padding-left: 0.75rem;
+    border-left: 1px solid #e5e7eb;
+    margin-left: 0.75rem;
+}
+
+.debug-section form {
+    margin: 0;
+}
+
+.debug-section button {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    padding: 0.375rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.debug-section button:hover {
+    background: #fde68a;
+    border-color: #fcd34d;
+    transform: translateY(-1px);
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+    .navbar-container {
+        padding: 0.75rem 1.5rem;
+        gap: 1.5rem;
+    }
+    
+    .navbar-title {
+        font-size: 1.1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .navbar-container {
+        padding: 0 1rem;
+        min-height: 64px;
+    }
+    
+    .navbar-title {
+        font-size: 1rem;
+    }
+    
+    .navbar-actions {
+        gap: 0.5rem;
+    }
+    
+    .nav-btn {
+        padding: 0.5rem 0.875rem;
+        font-size: 0.85rem;
+    }
+    
+    .nav-btn span {
+        display: none;
+    }
+    
+    .user-name {
+        display: none;
+    }
+    
+    .debug-section {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .navbar-container {
+        padding: 0 1rem;
+    }
+    
+    .navbar-logo {
+        width: 36px;
+        height: 36px;
+        font-size: 1.25rem;
+    }
+    
+    .navbar-title {
+        font-size: 0.9rem;
+    }
+    
+    .nav-btn {
+        padding: 0.5rem;
+    }
+    
+    .user-avatar {
+        width: 32px;
+        height: 32px;
+    }
+}

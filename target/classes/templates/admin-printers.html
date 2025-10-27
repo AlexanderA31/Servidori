@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="fragments/head :: header"/>
+    <title>Gestión de Impresoras</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <link rel="stylesheet" th:href="@{/css/admin-sidebar.css}"/>
+    <link rel="stylesheet" th:href="@{/css/admin-modern.css}"/>
+    <link rel="stylesheet" th:href="@{/css/admin-departments.css}"/>
+    <link rel="stylesheet" th:href="@{/css/admin-printers.css}"/>
+    <link rel="stylesheet" th:href="@{/css/admin-sidebar-override.css}"/>
+</head>
+<body>
+    <nav th:replace="fragments/nav.html :: nav"></nav>
+    
+    <div th:if="${success}" class="alert alert-success alert-fixed">
+        <span th:text="${success}"></span>
+    </div>
+    <div th:if="${error}" class="alert alert-error alert-fixed">
+        <span th:text="${error}"></span>
+    </div>
+    <div th:if="${warning}" class="alert alert-warning alert-fixed">
+        <span th:text="${warning}"></span>
+    </div>
+    <div th:if="${info}" class="alert alert-info alert-fixed">
+        <span th:text="${info}"></span>
+    </div>
+
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside th:replace="fragments/admin-sidebar.html :: sidebar"></aside>
+        
+        <!-- Contenido Principal -->
+        <div class="admin-content">
+            <div class="departments-container">
+                <!-- Header -->
+                <div class="departments-header">
+                    <h1><i class="fas fa-print"></i> Gestión de Impresoras</h1>
+                    <p>Administra todas las impresoras del sistema</p>
+                </div>
+                
+                <!-- Acciones -->
+                <div class="departments-actions">
+                    <button class="btn btn-primary" onclick="openModal('configureNetworksModal')">
+                        <i class="fas fa-cog"></i> Configurar Redes
+                    </button>
+                    <form method="post" th:action="@{/admin/discover-printers}" class="d-inline">
+                        <button type="submit" class="btn btn-primary" 
+                                onclick="return confirm('✅ Escanear la red en busca de impresoras:\n\n🌐 Redes (VLANs): 192.168.x.x, 10.0.x.x\n🖨️ USB y Compartidas\n\n⏱️ Tiempo estimado: 2-5 minutos\n\n¿Continuar?')">
+                            <i class="fas fa-sync"></i> Escanear Red
+                        </button>
+                    </form>
+                    <button class="btn btn-primary" onclick="openModal('addPrinterModal')">
+                        <i class="fas fa-plus"></i> Agregar Impresora
+                    </button>
+                </div>
+                
+                <!-- Estadísticas -->
+                <div class="departments-stats">
+                    <div class="dept-stat-card">
+                        <div class="dept-stat-icon">
+                            <i class="fas fa-print"></i>
+                        </div>
+                        <div class="dept-stat-value" th:text="${allPrinters != null ? #lists.size(allPrinters) : 0}">0</div>
+                        <div class="dept-stat-label">Total de Impresoras</div>
+                    </div>
+                    <div class="dept-stat-card">
+                        <div class="dept-stat-icon">
+                            <i class="fas fa-network-wired"></i>
+                        </div>
+                        <div class="dept-stat-value" th:text="${networkRanges != null ? #lists.size(networkRanges) : 0}">0</div>
+                        <div class="dept-stat-label">Redes Configuradas</div>
+                    </div>
+                </div>
+
+                <!-- Tabla de Impresoras -->
+                <div class="departments-table-card">
+                    <div class="card-header">
+                        <span><i class="fas fa-list"></i> Todas las Impresoras</span>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${allPrinters == null || #lists.isEmpty(allPrinters)}" class="empty-state">
+                            <div class="empty-state-icon"><i class="fas fa-print"></i></div>
+                            <p>No hay impresoras registradas en el sistema</p>
+                            <button class="btn btn-primary" onclick="openModal('addPrinterModal')">
+                                <i class="fas fa-plus"></i> Agregar Primera Impresora
+                            </button>
+                        </div>
+                        
+                        <div th:unless="${allPrinters == null || #lists.isEmpty(allPrinters)}">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Impresora</th>
+                                        <th>Modelo</th>
+                                        <th>Ubicación</th>
+                                        <th>Dirección IP</th>
+                                        <th>URI</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="printer : ${allPrinters}">
+                                        <td>
+                                            <div class="dept-name-cell">
+                                                <div class="printer-icon-mini">
+                                                    <i class="fas fa-print"></i>
+                                                </div>
+                                                <strong th:text="${printer.alias}">Impresora</strong>
+                                            </div>
+                                        </td>
+                                        <td th:text="${printer.model}">Modelo</td>
+                                        <td th:text="${printer.location}">Ubicación</td>
+                                        <td>
+                                            <span class="ip-badge" th:text="${printer.ip}">IP</span>
+                                        </td>
+                                        <td>
+                                            <code th:if="${printer.deviceUri}" th:text="${printer.deviceUri}">URI</code>
+                                            <span th:unless="${printer.deviceUri}" class="text-muted">--</span>
+                                        </td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                <button class="btn btn-sm btn-primary" 
+                                                        th:attr="data-id=${printer.id}, data-alias=${printer.alias}, data-model=${printer.model}, data-location=${printer.location}, data-ip=${printer.ip}"
+                                                        onclick="openEditPrinterModal(this.dataset)"
+                                                        title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <form method="post" th:action="@{/admin/test-printer(id=${printer.id})}" 
+                                                      class="d-inline" 
+                                                      onsubmit="return confirm('🖨️ ¿Enviar página de prueba a: ' + this.dataset.name + '?')" 
+                                                      th:attr="data-name=${printer.alias}">
+                                                    <button type="submit" class="btn btn-sm btn-primary" title="Probar">
+                                                        <i class="fas fa-vial"></i>
+                                                    </button>
+                                                </form>
+                                                <form method="post" th:action="@{/admin/delete-printer(id=${printer.id})}" 
+                                                      class="d-inline" 
+                                                      onsubmit="return confirm('⚠️ ¿Eliminar impresora: ' + this.dataset.name + '?')" 
+                                                      th:attr="data-name=${printer.alias}">
+                                                    <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALES -->
+    <div th:replace="fragments/admin-printers-modals :: modals"></div>
+    
+    <!-- Barra de progreso minimizada GLOBAL -->
+    <div th:replace="fragments/scan-progress-minimized.html :: minimized-bar"></div>
+
+    <footer th:replace="fragments/footer.html :: footer"></footer>
+
+    <script th:src="@{/js/admin.js}"></script>
+    <script th:src="@{/js/scan-monitor-global.js}"></script>
+    <script th:replace="fragments/admin-printers-scripts :: scripts"></script>
+</body>
+</html>

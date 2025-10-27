@@ -3,47 +3,70 @@
 	xmlns:th="http://www.thymeleaf.org"
 	xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
-	<title>Nav fragment - rest intentionally left empty</title>
+	<title>Nav fragment</title>
 </head>
 <body>
-			<nav th:fragment="nav" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 2rem;">
-	<!-- Logo que redirige a admin si eres admin, sino a inicio -->
-	<a class="logo" href="" 
-	   th:href="${session.u != null and session.u.hasRole('ADMIN')} ? @{/admin/} : @{/}" 
-	   style="width: 40px; height: 40px; background: white; border-radius: 50%; display: inline-block;"></a>
-	<span class="sitename" style="color: white; font-size: 1.5rem; font-weight: bold; flex-grow: 1; margin-left: 1rem;">🖨️ Sistema de Gestión de Impresoras</span>
-
-				<div class="logx" th:if="${session.u}" style="display: flex; align-items: center; gap: 1rem;">
-									<a th:if="${session.u.hasRole('ADMIN')}" th:href="@{/admin/}" style="color: white; text-decoration: none; padding: 0.5rem 1rem; border-radius: 5px; transition: background 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='transparent'">🏢 Administrar</a>
-			<form th:action="@{/logout}" method="post" style="margin: 0;">
-				<button type="submit" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid white; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer; transition: all 0.3s;" onmouseover="this.style.background='white'; this.style.color='#667eea'" onmouseout="this.style.background='rgba(255,255,255,0.2)'; this.style.color='white'">🚪 Cerrar sesión</button>
-			</form>
-						<a th:href="@{/user/{id}(id=${session.u.id})}" style="color: white; text-decoration: none; display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 5px; transition: background 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='transparent'">
-				<div style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.3); border: 2px solid white; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
-					👤
+	<nav th:fragment="nav" class="navbar-enterprise">
+		<div class="navbar-container">
+			<!-- Brand/Logo -->
+			<a class="navbar-brand" 
+			   th:href="${session.u != null and session.u.hasRole('ADMIN')} ? @{/admin/} : @{/}">
+				<div class="navbar-logo">
+					<i class="fas fa-print"></i>
 				</div>
-				<span th:text="${session.u.username}">Pepe</span></a>						
+				<span class="navbar-title">Sistema de Gestión de Impresoras</span>
+			</a>
+			
+			<!-- Actions: Usuario autenticado -->
+			<div class="navbar-actions" th:if="${session.u}">
+				<!-- Botón Admin (solo para admins) -->
+				<a th:if="${session.u.hasRole('ADMIN')}" 
+				   th:href="@{/admin/}" 
+				   class="nav-btn">
+					<i class="fas fa-cog"></i>
+					<span>Administrar</span>
+				</a>
+				
+				<!-- Perfil de usuario -->
+				<a th:href="@{/user/{id}(id=${session.u.id})}" 
+				   class="user-profile">
+					<div class="user-avatar">
+						<i class="fas fa-user"></i>
+					</div>
+					<span class="user-name" th:text="${session.u.username}">Usuario</span>
+				</a>
+				
+				<!-- Cerrar sesión -->
+				<form th:action="@{/logout}" method="post" class="logout-form">
+					<button type="submit" class="nav-btn nav-btn-danger">
+						<i class="fas fa-sign-out-alt"></i>
+						<span>Salir</span>
+					</button>
+				</form>
+			</div>
+			
+			<!-- Actions: Usuario no autenticado -->
+			<div class="navbar-actions" th:unless="${session.u}">
+				<a th:href="@{/login}" class="nav-btn nav-btn-primary">
+					<i class="fas fa-sign-in-alt"></i>
+					<span>Iniciar sesión</span>
+				</a>
+				
+				<!-- Debug buttons (solo en modo debug) -->
+				<div class="debug-section" th:if="${application.debug}">
+					<form th:action="@{/login}" method="post">
+						<input type="hidden" name="username" value="a">
+						<input type="hidden" name="password" value="aa">
+						<button type="submit">Dev: a</button>
+					</form>
+					<form th:action="@{/login}" method="post">
+						<input type="hidden" name="username" value="b">
+						<input type="hidden" name="password" value="aa">
+						<button type="submit">Dev: b</button>
+					</form>
+				</div>
+			</div>
 		</div>
-		<div class="logx" th:unless="${session.u}" style="display: flex; align-items: center; gap: 1rem;">
-			<a th:href="@{/login}" href="/login" style="color: white; text-decoration: none; padding: 0.5rem 1rem; border: 1px solid white; border-radius: 5px; transition: all 0.3s;" onmouseover="this.style.background='white'; this.style.color='#667eea'" onmouseout="this.style.background='transparent'; this.style.color='white'">🔒 Iniciar sesión</a>
-			<!--/*
-				Esto es un comentario "thymeleaf" - no se verá en el HTML
-				El bloque de "debug" sólo está activado si application.properties tiene debug a "true"
-				(ver StartupConfig.java para ver cómo se lee el atributo y se pone en ${application.debug})
-			*/-->
-			<div class="debug" th:if="${application.debug}">
-				<form th:action="@{/login}" method="post">
-					<input type="hidden" name="username" value="a">
-					<input type="hidden" name="password" value="aa">
-					<button type="submit">a</button>
-  				</form>				
-				<form th:action="@{/login}" method="post">
-					<input type="hidden" name="username" value="b">
-					<input type="hidden" name="password" value="aa">
-					<button type="submit">b</button>
-  				</form>
-  			</div>
-		</div>		
 	</nav>
 </body>
 </html>

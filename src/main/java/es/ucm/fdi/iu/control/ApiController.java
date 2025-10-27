@@ -720,12 +720,149 @@ public class ApiController {
         return generateUserList();
     }
 
-    private List<User.AdminTransfer> generateUserList() {
+        private List<User.AdminTransfer> generateUserList() {
         List<User.AdminTransfer> result = new ArrayList<>();
         for (User o : entityManager.createQuery(
                 "SELECT u FROM User u", User.class).getResultList()) {
             result.add(o.toTransfer());
         }
         return result;
+    }
+    
+            /**
+     * Endpoint público para registrar impresoras compartidas automáticamente
+     * desde scripts de clientes (sin autenticación)
+     */
+    @PostMapping("/register-shared-printer")
+    @Transactional
+    public Map<String, Object> registerSharedPrinter(@RequestBody Map<String, String> printerData) {
+        Map<String, Object> response = new HashMap<>();
+                try {
+            // Buscar cualquier usuario administrador
+            List<User> adminUsers = entityManager.createQuery(
+                "SELECT u FROM User u WHERE u.roles LIKE '%ADMIN%'", User.class)
+                .setMaxResults(1)
+                .getResultList();
+            
+            User user = null;
+            if (!adminUsers.isEmpty()) {
+                user = adminUsers.get(0);
+            } else {
+                // Si no hay admin, buscar cualquier usuario
+                List<User> anyUser = entityManager.createQuery(
+                    "SELECT u FROM User u", User.class)
+                    .setMaxResults(1)
+                    .getResultList();
+                if (!anyUser.isEmpty()) {
+                    user = anyUser.get(0);
+                }
+            }
+            
+            if (user == null) {
+                response.put("success", false);
+                response.put("error", "No hay usuarios en el sistema");
+                return response;
+            }
+            
+            String alias = printerData.get("alias");
+            String model = printerData.get("model");
+            String ip = printerData.get("ip");
+            String location = printerData.getOrDefault("location", "Computadora compartida");
+            String protocol = printerData.getOrDefault("protocol", "IPP");
+            Integer port = Integer.parseInt(printerData.getOrDefault("port", "631"));
+            
+            // Verificar si ya existe una impresora con esa IP
+            List<Printer> existing = entityManager.createQuery(
+                "SELECT p FROM Printer p WHERE p.ip = :ip", Printer.class)
+                .setParameter("ip", ip)
+                .getResultList();
+            
+            if (!existing.isEmpty()) {
+                response.put("success", false);
+                response.put("error", "Ya existe una impresora registrada con esa IP");
+                response.put("existingPrinter", existing.get(0).getAlias());
+                return response;
+            }
+            
+            // Crear nueva impresora
+            Printer printer = new Printer();
+            printer.setAlias(alias);
+            printer.setModel(model);
+            printer.setLocation(location);
+            printer.setIp(ip);
+            printer.setProtocol(protocol);
+            printer.setPort(port);
+            printer.setDeviceUri("ipp://" + ip + ":" + port + "/printers/" + alias.replace(" ", "_"));
+            printer.setInstance(user);
+            printer.setInk(100);
+            printer.setPaper(100);
+            
+            entityManager.persist(printer);
+            entityManager.flush();
+            
+            response.put("success", true);
+            response.put("message", "Impresora registrada exitosamente");
+            response.put("printerId", printer.getId());
+            response.put("printerName", printer.getAlias());
+            
+            log.info("✅ Impresora compartida registrada automáticamente: {} (IP: {})", alias, ip);
+            
+        } catch (Exception e) {
+            log.error("❌ Error registrando impresora compartida", e);
+            response.put("success", false);
+            response.put("error", e.getMessage());
+        }
+        return response;
+    }
+    
+    /**
+     * Endpoint público para obtener todas las impresoras del sistema
+     * Para usar en el landing page (sin autenticación)
+     * Devuelve la IP del servidor (fija) y el nombre de cada impresora
+     */
+    @GetMapping("/printers")
+    public Map<String, Object> getAllPrinters() {
+        log.info("Public API: /api/printers");
+        
+        // Obtener IP del servidor (FIJA para todas las impresoras)
+        String serverIp = "localhost";
+        try {
+            serverIp = java.net.InetAddress.getLocalHost().getHostAddress();
+        } catch (Exception e) {
+            log.warn("No se pudo obtener la IP del servidor: {}", e.getMessage());
+        }
+        
+        List<Map<String, String>> printersList = new ArrayList<>();
+        List<Printer> printers = entityManager.createQuery(
+                "SELECT p FROM Printer p ORDER BY p.alias", Printer.class)
+                .getResultList();
+        
+        for (Printer p : printers) {
+            Map<String, String> printerData = new HashMap<>();
+            printerData.put("id", String.valueOf(p.getId()));
+            printerData.put("alias", p.getAlias());
+            printerData.put("model", p.getModel() != null ? p.getModel() : "");
+            printerData.put("location", p.getLocation() != null ? p.getLocation() : "");
+            
+            // IP física de la impresora (solo para información, NO para conexión)
+            printerData.put("printerIp", p.getIp() != null ? p.getIp() : "");
+            
+                        // URI IPP correcto (usa la IP del SERVIDOR, no de la impresora)
+            String safeName = p.getAlias().replace(" ", "_");
+            String ippUri = String.format("ipp://%s:8631/printers/%s", serverIp, safeName);
+            printerData.put("ippUri", ippUri);
+            
+            printersList.add(printerData);
+        }
+        
+                // Construir respuesta completa
+        Map<String, Object> response = new HashMap<>();
+        response.put("serverIp", serverIp);
+        response.put("port", 8631);
+        response.put("printers", printersList);
+        response.put("total", printersList.size());
+        
+        log.info("Returning {} printers (server IP: {})", printersList.size(), serverIp);
+        return response;
     }
 }

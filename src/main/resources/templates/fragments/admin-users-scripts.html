@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+    <script th:fragment="scripts">
+        function openEditUserModal(data) {
+            document.getElementById('editUserId').value = data.id;
+            document.getElementById('editUserUsername').value = data.username;
+            document.getElementById('editUserPassword').value = '';
+            document.getElementById('editUserRoles').value = data.roles;
+            openModal('editUserModal');
+        }
+
+        // Auto-cerrar alertas
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    alert.style.opacity = '0';
+                    setTimeout(() => alert.remove(), 300);
+                }, 5000);
+            });
+        });
+    </script>
+</body>
+</html>
