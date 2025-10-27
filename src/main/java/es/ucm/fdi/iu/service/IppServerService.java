@@ -192,20 +192,13 @@ public class IppServerService {
     private IppResponse printJob(IppRequest request) {
         String printerName = extractPrinterName(request.printerUri);
         
-        Optional<Printer> printerOpt;
-        
-        if (printerName != null && !printerName.isEmpty()) {
-            printerOpt = printerRepository.findByAlias(printerName);
-        } else {
-            // Si no hay nombre de impresora, usar la primera disponible
-            List<Printer> printers = printerRepository.findAll();
-            printerOpt = printers.isEmpty() ? Optional.empty() : Optional.of(printers.get(0));
-            log.info("  ℹ️  Sin nombre de impresora, usando: {}", 
-                printerOpt.map(Printer::getAlias).orElse("ninguna"));
-        }
+        Optional<Printer> printerOpt = findPrinterByName(printerName);
         
         if (printerOpt.isEmpty()) {
-            log.error("  ❌ No se encontró impresora para: {}", printerName);
+            log.error("  ❌ No se encontró impresora para: '{}'", printerName);
+            log.error("  🔍 Impresoras disponibles:");
+            printerRepository.findAll().forEach(p -> 
+                log.error("     - '{}' (alias)", p.getAlias()));
             return createErrorResponse("client-error-not-found");
         }
         
@@ -310,7 +303,9 @@ public class IppServerService {
     }
 
     private String extractPrinterName(String uri) {
-        // ipp://servidor:631/printers/HP_LaserJet → HP_LaserJet
+        // ipp://servidor:631/printers/HP_LaserJet → HP LaserJet
+        // ipp://servidor:631/printers/MP_501 → MP 501
+        // ipp://servidor:631/printers/EPSON264A53 → EPSON264A53
         if (uri == null || uri.isEmpty()) {
             return null;
         }
@@ -323,7 +318,9 @@ public class IppServerService {
             }
             String[] parts = path.split("/");
             if (parts.length > 0) {
-                return parts[parts.length - 1];
+                String name = parts[parts.length - 1];
+                // Convertir guiones bajos de vuelta a espacios
+                return name.replace("_", " ");
             }
             return null;
         } catch (Exception e) {
@@ -594,6 +591,58 @@ public class IppServerService {
             log.error("  ❌ Error procesando trabajo RAW: {}", e.getMessage());
             return null;
         }
+    }
+    
+    /**
+     * Busca una impresora por nombre con múltiples variaciones
+     */
+    private Optional<Printer> findPrinterByName(String name) {
+        if (name == null || name.isEmpty()) {
+            // Si no hay nombre, usar la primera disponible
+            List<Printer> printers = printerRepository.findAll();
+            Optional<Printer> opt = printers.isEmpty() ? Optional.empty() : Optional.of(printers.get(0));
+            opt.ifPresent(p -> log.info("  ℹ️  Sin nombre de impresora, usando: {}", p.getAlias()));
+            return opt;
+        }
+        
+        log.debug("  🔍 Buscando impresora: '{}'", name);
+        
+        // 1. Buscar exacto
+        Optional<Printer> printer = printerRepository.findByAlias(name);
+        if (printer.isPresent()) {
+            log.debug("  ✓ Encontrada (exacto): {}", name);
+            return printer;
+        }
+        
+        // 2. Buscar sin guiones bajos (MP_501 -> MP 501)
+        String nameWithSpaces = name.replace("_", " ");
+        printer = printerRepository.findByAlias(nameWithSpaces);
+        if (printer.isPresent()) {
+            log.debug("  ✓ Encontrada (con espacios): {}", nameWithSpaces);
+            return printer;
+        }
+        
+        // 3. Buscar con guiones bajos (MP 501 -> MP_501)
+        String nameWithUnderscores = name.replace(" ", "_");
+        printer = printerRepository.findByAlias(nameWithUnderscores);
+        if (printer.isPresent()) {
+            log.debug("  ✓ Encontrada (con guiones bajos): {}", nameWithUnderscores);
+            return printer;
+        }
+        
+        // 4. Búsqueda insensitiva a mayúsculas
+        List<Printer> allPrinters = printerRepository.findAll();
+        for (Printer p : allPrinters) {
+            if (p.getAlias().equalsIgnoreCase(name) || 
+                p.getAlias().equalsIgnoreCase(nameWithSpaces) ||
+                p.getAlias().equalsIgnoreCase(nameWithUnderscores)) {
+                log.debug("  ✓ Encontrada (case-insensitive): {}", p.getAlias());
+                return Optional.of(p);
+            }
+        }
+        
+        log.warn("  ⚠ No se encontró impresora con nombre: '{}'", name);
+        return Optional.empty();
     }
     
     // Método auxiliar para debugging
