@@ -109,7 +109,7 @@ function downloadWindowsClientScript() {
 
 // Generar el script PowerShell completo
 function generatePowerShellScript(serverIp, serverPort, printerName, printerPath, ippUrl, smbPath) {
-    return '# Script de instalacion de impresora via SMB/IPP\n' +
+    return '# Script de instalacion de impresora via TCP/IP\n' +
 '# Impresora: ' + printerName + '\n' +
 '# Servidor: ' + serverIp + '\n' +
 '\n' +
@@ -117,8 +117,8 @@ function generatePowerShellScript(serverIp, serverPort, printerName, printerPath
 '\n' +
 '$ServerIP = "' + serverIp + '"\n' +
 '$ServerPort = ' + serverPort + '\n' +
-'$IppUrl = "' + ippUrl + '"\n' +
-'$SmbPath = "' + smbPath + '"\n' +
+'$PrinterName = "' + printerName + '"\n' +
+
 '\n' +
 'Write-Host "========================================" -ForegroundColor Cyan\n' +
 'Write-Host "  Instalador de Impresora" -ForegroundColor Cyan\n' +
@@ -147,54 +147,61 @@ function generatePowerShellScript(serverIp, serverPort, printerName, printerPath
 'Write-Host "  Servicio OK" -ForegroundColor Green\n' +
 'Write-Host ""\n' +
 '\n' +
-'# Verificar conectividad\n' +
-'Write-Host "Verificando servidor..." -ForegroundColor Yellow\n' +
-'$test = Test-NetConnection -ComputerName $ServerIP -Port 445 -WarningAction SilentlyContinue\n' +
-'if ($test.TcpTestSucceeded) {\n' +
-'    Write-Host "  Servidor accesible via SMB" -ForegroundColor Green\n' +
-'} else {\n' +
-'    Write-Host "  Advertencia: Puerto SMB (445) no accesible" -ForegroundColor Yellow\n' +
+'# Verificar conectividad IPP\n' +
+'Write-Host "Verificando servidor IPP..." -ForegroundColor Yellow\n' +
+'try {\n' +
+'    $tcpClient = New-Object System.Net.Sockets.TcpClient\n' +
+'    $tcpClient.Connect($ServerIP, $ServerPort)\n' +
+'    $tcpClient.Close()\n' +
+'    Write-Host "  Servidor IPP accesible en puerto $ServerPort" -ForegroundColor Green\n' +
+'} catch {\n' +
+'    Write-Host "  ERROR: No se puede conectar al puerto IPP $ServerPort" -ForegroundColor Red\n' +
+'    Write-Host "  Verifica que el servidor este encendido" -ForegroundColor Yellow\n' +
+'    Read-Host "Presiona Enter para salir"\n' +
+'    exit 1\n' +
 '}\n' +
 'Write-Host ""\n' +
 '\n' +
 '# Limpiar instalaciones previas\n' +
 'Write-Host "Limpiando instalaciones previas..." -ForegroundColor Yellow\n' +
-'Get-Printer | Where-Object { $_.Name -like "*$DisplayName*" } | Remove-Printer -Confirm:$false -ErrorAction SilentlyContinue\n' +
+'Get-Printer -Name $PrinterName -ErrorAction SilentlyContinue | Remove-Printer -Confirm:$false\n' +
 'Write-Host ""\n' +
 '\n' +
 '$success = $false\n' +
 '\n' +
-'# METODO 1: SMB con WScript.Network\n' +
-'Write-Host "Metodo 1: WScript.Network + SMB..." -ForegroundColor Cyan\n' +
+'# METODO CORRECTO: Puerto TCP/IP con driver generico\n' +
+'Write-Host "Instalando impresora via TCP/IP..." -ForegroundColor Cyan\n' +
+'\n' +
+'# Crear puerto TCP/IP\n' +
+'$portName = "IP_${ServerIP}_${PrinterName}"\n' +
+'Write-Host "  Creando puerto TCP/IP..." -ForegroundColor Yellow\n' +
+'Get-PrinterPort -Name $portName -ErrorAction SilentlyContinue | Remove-PrinterPort -Confirm:$false\n' +
+'\n' +
 'try {\n' +
-'    $network = New-Object -ComObject WScript.Network\n' +
-'    $network.AddWindowsPrinterConnection($SmbPath)\n' +
-'    Start-Sleep -Seconds 5\n' +
-'    $printer = Get-Printer | Where-Object { $_.Type -eq "Connection" } | Select-Object -Last 1\n' +
-'    if ($printer) {\n' +
-'        Write-Host "  Impresora instalada!" -ForegroundColor Green\n' +
-'        Write-Host "  Nombre: $($printer.Name)" -ForegroundColor White\n' +
-'        $success = $true\n' +
-'    }\n' +
+'    Add-PrinterPort -Name $portName -PrinterHostAddress $ServerIP -PortNumber $ServerPort -ErrorAction Stop\n' +
+'    Write-Host "  Puerto creado: $portName" -ForegroundColor Green\n' +
 '} catch {\n' +
-'    Write-Host "  Fallo SMB: $_" -ForegroundColor Yellow\n' +
+'    Write-Host "  Error creando puerto: $_" -ForegroundColor Red\n' +
+'    Read-Host "Presiona Enter para salir"\n' +
+'    exit 1\n' +
 '}\n' +
 '\n' +
-'# METODO 2: IPP Fallback\n' +
-'if (-not $success) {\n' +
-'    Write-Host ""\n' +
-'    Write-Host "Metodo 2: IPP (fallback)..." -ForegroundColor Cyan\n' +
+'# Agregar impresora con driver generico\n' +
+'Write-Host "  Agregando impresora..." -ForegroundColor Yellow\n' +
+'\n' +
+'try {\n' +
+'    # Intentar con driver generico Text Only\n' +
+'    Add-Printer -Name $PrinterName -PortName $portName -DriverName "Generic / Text Only" -ErrorAction Stop\n' +
+'    $success = $true\n' +
+'    Write-Host "  Impresora instalada con driver generico" -ForegroundColor Green\n' +
+'} catch {\n' +
+'    # Si falla, intentar con Microsoft Print To PDF como fallback\n' +
 '    try {\n' +
-'        $network = New-Object -ComObject WScript.Network\n' +
-'        $network.AddWindowsPrinterConnection($IppUrl)\n' +
-'        Start-Sleep -Seconds 5\n' +
-'        $printer = Get-Printer | Where-Object { $_.Type -eq "Connection" } | Select-Object -Last 1\n' +
-'        if ($printer) {\n' +
-'            Write-Host "  Impresora instalada con IPP!" -ForegroundColor Green\n' +
-'            $success = $true\n' +
-'        }\n' +
+'        Add-Printer -Name $PrinterName -PortName $portName -DriverName "Microsoft Print To PDF" -ErrorAction Stop\n' +
+'        $success = $true\n' +
+'        Write-Host "  Impresora instalada con driver alternativo" -ForegroundColor Yellow\n' +
 '    } catch {\n' +
-'        Write-Host "  Fallo IPP: $_" -ForegroundColor Yellow\n' +
+'        Write-Host "  Error: $_" -ForegroundColor Red\n' +
 '    }\n' +
 '}\n' +
 '\n' +
@@ -207,28 +214,28 @@ function generatePowerShellScript(serverIp, serverPort, printerName, printerPath
 '    $printers = Get-Printer | Where-Object { $_.Name -like "*$DisplayName*" -or $_.Name -like "*$ServerIP*" }\n' +
 '    foreach ($p in $printers) {\n' +
 '        Write-Host ""\n' +
-'        Write-Host "  Nombre: $($p.Name)" -ForegroundColor White\n' +
+'    Write-Host "  Nombre: $($p.Name)" -ForegroundColor White\n' +
 '        Write-Host "  Puerto: $($p.PortName)" -ForegroundColor White\n' +
 '        Write-Host "  Driver: $($p.DriverName)" -ForegroundColor White\n' +
 '    }\n' +
+'    Write-Host ""\n' +
+'    Write-Host "NOTA IMPORTANTE:" -ForegroundColor Yellow\n' +
+'    Write-Host "  - Instalada con driver generico" -ForegroundColor White\n' +
+'    Write-Host "  - Para mejor calidad, instala drivers del fabricante" -ForegroundColor White\n' +
+'    Write-Host "  - La impresora esta lista para usar" -ForegroundColor White\n' +
 '} else {\n' +
 '    Write-Host "========================================" -ForegroundColor Red\n' +
 '    Write-Host "  ERROR EN INSTALACION" -ForegroundColor Red\n' +
 '    Write-Host "========================================" -ForegroundColor Red\n' +
 '    Write-Host ""\n' +
-'    Write-Host "INSTALACION MANUAL (SMB):" -ForegroundColor Yellow\n' +
+'    Write-Host "INSTALACION MANUAL (TCP/IP):" -ForegroundColor Yellow\n' +
 '    Write-Host "1. Panel de Control -> Dispositivos e impresoras" -ForegroundColor White\n' +
 '    Write-Host "2. Agregar impresora" -ForegroundColor White\n' +
-'    Write-Host "3. Seleccionar impresora compartida por nombre" -ForegroundColor White\n' +
-'    Write-Host "4. Pegar: $SmbPath" -ForegroundColor Cyan\n' +
-'    Write-Host ""\n' +
-'    Write-Host "INSTALACION MANUAL (IPP alternativa):" -ForegroundColor Yellow\n' +
-'    Write-Host "1. Panel de Control -> Dispositivos e impresoras" -ForegroundColor White\n' +
-'    Write-Host "2. Agregar impresora" -ForegroundColor White\n' +
-'    Write-Host "3. Seleccionar impresora compartida por nombre" -ForegroundColor White\n' +
-'    Write-Host "4. Pegar: $IppUrl" -ForegroundColor Cyan\n' +
-'    Write-Host ""\n' +
-'    Write-Host "NOTA: Asegurate que Samba este activo en el servidor" -ForegroundColor Yellow\n' +
+'    Write-Host "3. La impresora no esta en la lista" -ForegroundColor White\n' +
+'    Write-Host "4. Agregar mediante direccion TCP/IP" -ForegroundColor White\n' +
+'    Write-Host "5. Direccion: $ServerIP" -ForegroundColor Cyan\n' +
+'    Write-Host "6. Puerto: $ServerPort" -ForegroundColor Cyan\n' +
+'    Write-Host "7. Personalizado -> LPR -> Cola: printers/$PrinterName" -ForegroundColor White\n' +
 '}\n' +
 '\n' +
 'Write-Host ""\n' +
