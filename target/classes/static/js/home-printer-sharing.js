@@ -185,57 +185,41 @@ Write-Host ""
 
 $success = $false
 
-# METODO 1: Intentar instalacion via IPP (recomendado)
-Write-Host "Metodo 1: Instalando via IPP..." -ForegroundColor Cyan
+# Instalando via TCP/IP RAW (metodo compatible)
+Write-Host "Instalando impresora via TCP/IP..." -ForegroundColor Cyan
 
-# Normalizar nombre de impresora para URL (sin espacios)
-$PrinterNameUrl = $PrinterName -replace ' ', '_'
-$ippUrl = "http://" + $ServerIP + ":" + $ServerPort + "/printers/" + $PrinterNameUrl
-Write-Host "  URL IPP: $ippUrl" -ForegroundColor White
+# Crear puerto TCP/IP unico por impresora
+Write-Host "  Creando puerto TCP/IP: $portName" -ForegroundColor Yellow
 
 try {
-    Add-Printer -ConnectionName $ippUrl -ErrorAction Stop
-    $success = $true
-    Write-Host "  [OK] Impresora instalada via IPP" -ForegroundColor Green
+    Add-PrinterPort -Name $portName -PrinterHostAddress $ServerIP -PortNumber $ServerPort -ErrorAction Stop
+    Write-Host "  [OK] Puerto creado" -ForegroundColor Green
 } catch {
-    Write-Host "  [!] Metodo IPP fallo: $($_.Exception.Message)" -ForegroundColor Yellow
-    Write-Host "" 
-    Write-Host "Metodo 2: Instalando via TCP/IP RAW..." -ForegroundColor Cyan
-    
-    # METODO 2: Puerto TCP/IP con nombre de impresora incluido
-    # Crear puerto TCP/IP unico por impresora
-    Write-Host "  Creando puerto TCP/IP: $portName" -ForegroundColor Yellow
-    
-    try {
-        Add-PrinterPort -Name $portName -PrinterHostAddress $ServerIP -PortNumber $ServerPort -ErrorAction Stop
-        Write-Host "  [OK] Puerto creado" -ForegroundColor Green
-    } catch {
-        if ($_.Exception.Message -like "*already exists*") {
-            Write-Host "  [!] Puerto ya existe" -ForegroundColor Yellow
-        } else {
-            Write-Host "  [ERROR] Error creando puerto: $_" -ForegroundColor Red
-            Read-Host "Presiona Enter para salir"
-            exit 1
-        }
+    if ($_.Exception.Message -like "*already exists*") {
+        Write-Host "  [!] Puerto ya existe" -ForegroundColor Yellow
+    } else {
+        Write-Host "  [ERROR] Error creando puerto: $_" -ForegroundColor Red
+        Read-Host "Presiona Enter para salir"
+        exit 1
     }
-    
-    # Agregar impresora con driver generico
-    Write-Host "  Agregando impresora..." -ForegroundColor Yellow
-    
+}
+
+# Agregar impresora con driver generico
+Write-Host "  Agregando impresora..." -ForegroundColor Yellow
+
+try {
+    # Intentar con driver generico Text Only
+    Add-Printer -Name $PrinterName -PortName $portName -DriverName "Generic / Text Only" -ErrorAction Stop
+    $success = $true
+    Write-Host "  [OK] Impresora instalada con driver generico" -ForegroundColor Green
+} catch {
+    # Si falla, intentar con Microsoft Print To PDF como fallback
     try {
-        # Intentar con driver generico Text Only
-        Add-Printer -Name $PrinterName -PortName $portName -DriverName "Generic / Text Only" -ErrorAction Stop
+        Add-Printer -Name $PrinterName -PortName $portName -DriverName "Microsoft Print To PDF" -ErrorAction Stop
         $success = $true
-        Write-Host "  [OK] Impresora instalada con driver generico" -ForegroundColor Green
+        Write-Host "  [OK] Impresora instalada con driver alternativo" -ForegroundColor Yellow
     } catch {
-        # Si falla, intentar con Microsoft Print To PDF como fallback
-        try {
-            Add-Printer -Name $PrinterName -PortName $portName -DriverName "Microsoft Print To PDF" -ErrorAction Stop
-            $success = $true
-            Write-Host "  [OK] Impresora instalada con driver alternativo" -ForegroundColor Yellow
-        } catch {
-            Write-Host "  [ERROR] $_" -ForegroundColor Red
-        }
+        Write-Host "  [ERROR] $_" -ForegroundColor Red
     }
 }
 
