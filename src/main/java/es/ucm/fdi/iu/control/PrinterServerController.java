@@ -10,6 +10,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import es.ucm.fdi.iu.util.NetworkUtils;
 import java.net.InetAddress;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -37,7 +38,7 @@ public class PrinterServerController {
     @GetMapping
     public String printServerIndex(Model model) {
         try {
-            String serverIp = InetAddress.getLocalHost().getHostAddress();
+            String serverIp = NetworkUtils.getServerIpAddress();
             model.addAttribute("serverIp", serverIp);
             
             List<Printer> printers = entityManager.createQuery(
@@ -77,7 +78,7 @@ public class PrinterServerController {
     @ResponseBody
     public ResponseEntity<Map<String, Object>> listPrinters() {
         try {
-            String serverIp = InetAddress.getLocalHost().getHostAddress();
+            String serverIp = NetworkUtils.getServerIpAddress();
             List<Printer> printers = entityManager.createQuery(
                 "SELECT p FROM Printer p ORDER BY p.alias", Printer.class).getResultList();
             
@@ -112,7 +113,7 @@ public class PrinterServerController {
     @GetMapping("/download/windows-script/{printerName}")
     public ResponseEntity<String> downloadWindowsScriptForPrinter(@PathVariable String printerName) {
         try {
-            String serverIp = InetAddress.getLocalHost().getHostAddress();
+            String serverIp = NetworkUtils.getServerIpAddress();
             String script = generateWindowsScriptForPrinter(serverIp, printerName);
             
             log.info("Generando script Windows personalizado para impresora: {}", printerName);
@@ -133,7 +134,7 @@ public class PrinterServerController {
     @GetMapping("/download/linux-script/{printerName}")
     public ResponseEntity<String> downloadLinuxScriptForPrinter(@PathVariable String printerName) {
         try {
-            String serverIp = InetAddress.getLocalHost().getHostAddress();
+            String serverIp = NetworkUtils.getServerIpAddress();
             String script = generateLinuxScriptForPrinter(serverIp, printerName);
             
             log.info("Generando script Linux personalizado para impresora: {}", printerName);
@@ -206,7 +207,7 @@ public class PrinterServerController {
     @ResponseBody
     public ResponseEntity<Map<String, String>> getInstallCommand(@PathVariable String printerName) {
         try {
-            String serverIp = InetAddress.getLocalHost().getHostAddress();
+            String serverIp = NetworkUtils.getServerIpAddress();
             
             Map<String, String> commands = new HashMap<>();
             commands.put("windows", buildWindowsCommand(serverIp, printerName));

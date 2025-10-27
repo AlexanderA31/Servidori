@@ -101,14 +101,100 @@ public class NetworkUtils {
     }
 
     /**
-     * Obtiene la dirección IP local
+     * Obtiene la dirección IP local (método antiguo - puede devolver 127.0.x.x)
+     * @deprecated Usar getServerIpAddress() en su lugar
      */
+    @Deprecated
     public static String getLocalIpAddress() {
         try {
             return InetAddress.getLocalHost().getHostAddress();
         } catch (UnknownHostException e) {
             log.error("Error al obtener IP: {}", e.getMessage());
             return "0.0.0.0";
+        }
+    }
+
+    /**
+     * Obtiene la dirección IP real del servidor (evita 127.0.x.x)
+     * Prioriza interfaces Ethernet sobre WiFi
+     */
+    public static String getServerIpAddress() {
+        try {
+            // Primero intentar obtener IP no-loopback de todas las interfaces
+            Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+            
+            // Lista de IPs encontradas, priorizando ethX sobre wlanX
+            String firstEthernet = null;
+            String firstWireless = null;
+            String firstOther = null;
+            
+            while (networkInterfaces.hasMoreElements()) {
+                NetworkInterface netInterface = networkInterfaces.nextElement();
+                
+                // Saltar interfaces down o loopback
+                if (!netInterface.isUp() || netInterface.isLoopback()) {
+                    continue;
+                }
+                
+                Enumeration<InetAddress> inetAddresses = netInterface.getInetAddresses();
+                while (inetAddresses.hasMoreElements()) {
+                    InetAddress inetAddress = inetAddresses.nextElement();
+                    
+                    // Solo IPv4, no loopback, no link-local
+                    if (!inetAddress.isLoopbackAddress() && 
+                        !inetAddress.isLinkLocalAddress() && 
+                        inetAddress.getAddress().length == 4) {
+                        
+                        String ip = inetAddress.getHostAddress();
+                        String interfaceName = netInterface.getName().toLowerCase();
+                        
+                        // Priorizar Ethernet (eth, ens, enp)
+                        if (interfaceName.startsWith("eth") || 
+                            interfaceName.startsWith("ens") || 
+                            interfaceName.startsWith("enp")) {
+                            if (firstEthernet == null) {
+                                firstEthernet = ip;
+                            }
+                        }
+                        // WiFi (wlan, wlp)
+                        else if (interfaceName.startsWith("wlan") || 
+                                 interfaceName.startsWith("wlp")) {
+                            if (firstWireless == null) {
+                                firstWireless = ip;
+                            }
+                        }
+                        // Otras interfaces
+                        else {
+                            if (firstOther == null) {
+                                firstOther = ip;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Devolver la mejor IP encontrada
+            if (firstEthernet != null) {
+                log.info("IP del servidor detectada (Ethernet): {}", firstEthernet);
+                return firstEthernet;
+            }
+            if (firstWireless != null) {
+                log.info("IP del servidor detectada (WiFi): {}", firstWireless);
+                return firstWireless;
+            }
+            if (firstOther != null) {
+                log.info("IP del servidor detectada (Otra interfaz): {}", firstOther);
+                return firstOther;
+            }
+            
+            // Fallback al método tradicional
+            String fallbackIp = InetAddress.getLocalHost().getHostAddress();
+            log.warn("No se encontró IP de red, usando fallback: {}", fallbackIp);
+            return fallbackIp;
+            
+        } catch (Exception e) {
+            log.error("Error al obtener IP del servidor: {}", e.getMessage());
+            return "localhost";
         }
     }
 
