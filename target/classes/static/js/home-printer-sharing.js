@@ -109,157 +109,157 @@ function downloadWindowsClientScript() {
 
 // Generar el script PowerShell completo
 function generatePowerShellScript(serverIp, serverPort, printerName, printerPath, ippUrl, smbPath) {
-    return '# Script de instalacion de impresora via TCP/IP\n' +
-'# Impresora: ' + printerName + '\n' +
-'# Servidor: ' + serverIp + '\n' +
-'\n' +
-'param([string]$DisplayName = "' + printerName + '")\n' +
-'\n' +
-'$ServerIP = "' + serverIp + '"\n' +
-'$ServerPort = ' + serverPort + '\n' +
-'$PrinterName = "' + printerName + '"\n' +
+    const script = `# Script de instalacion de impresora via TCP/IP
+# Impresora: ${printerName}
+# Servidor: ${serverIp}
 
-'\n' +
-'Write-Host "========================================" -ForegroundColor Cyan\n' +
-'Write-Host "  Instalador de Impresora" -ForegroundColor Cyan\n' +
-'Write-Host "========================================" -ForegroundColor Cyan\n' +
-'Write-Host ""\n' +
-'Write-Host "Impresora: $DisplayName" -ForegroundColor Green\n' +
-'Write-Host "Servidor: $ServerIP" -ForegroundColor Green\n' +
-'Write-Host "Ruta SMB: $SmbPath" -ForegroundColor Cyan\n' +
-'Write-Host ""\n' +
-'\n' +
-'# Verificar permisos de admin\n' +
-'$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")\n' +
-'if (-NOT $isAdmin) {\n' +
-'    Write-Host "ERROR: Requiere permisos de administrador" -ForegroundColor Red\n' +
-'    Read-Host "Presiona Enter para salir"\n' +
-'    exit 1\n' +
-'}\n' +
-'\n' +
-'# Verificar servicio Spooler\n' +
-'Write-Host "Verificando servicio Spooler..." -ForegroundColor Yellow\n' +
-'$spooler = Get-Service -Name "Spooler"\n' +
-'if ($spooler.Status -ne "Running") {\n' +
-'    Start-Service -Name "Spooler"\n' +
-'    Start-Sleep -Seconds 2\n' +
-'}\n' +
-'Write-Host "  Servicio OK" -ForegroundColor Green\n' +
-'Write-Host ""\n' +
-'\n' +
-'# Verificar conectividad IPP\n' +
-'Write-Host "Verificando servidor IPP..." -ForegroundColor Yellow\n' +
-'try {\n' +
-'    $tcpClient = New-Object System.Net.Sockets.TcpClient\n' +
-'    $tcpClient.Connect($ServerIP, $ServerPort)\n' +
-'    $tcpClient.Close()\n' +
-'    Write-Host "  Servidor IPP accesible en puerto $ServerPort" -ForegroundColor Green\n' +
-'} catch {\n' +
-'    Write-Host "  ERROR: No se puede conectar al puerto IPP $ServerPort" -ForegroundColor Red\n' +
-'    Write-Host "  Verifica que el servidor este encendido" -ForegroundColor Yellow\n' +
-'    Read-Host "Presiona Enter para salir"\n' +
-'    exit 1\n' +
-'}\n' +
-'Write-Host ""\n' +
-'\n' +
-'# Limpiar instalaciones previas\n' +
-'Write-Host "Limpiando instalaciones previas..." -ForegroundColor Yellow\n' +
-'\n' +
-'# Primero eliminar impresoras existentes\n' +
-'$existingPrinters = Get-Printer -Name "*$PrinterName*" -ErrorAction SilentlyContinue\n' +
-'foreach ($printer in $existingPrinters) {\n' +
-'    Write-Host "  Eliminando impresora: $($printer.Name)" -ForegroundColor Yellow\n' +
-'    Remove-Printer -Name $printer.Name -Confirm:$false -ErrorAction SilentlyContinue\n' +
-'}\n' +
-'\n' +
-'# Esperar a que se liberen los puertos\n' +
-'Start-Sleep -Seconds 3\n' +
-'\n' +
-'# Ahora eliminar puertos huérfanos\n' +
-'$portName = "IP_${ServerIP}_${PrinterName}"\n' +
-'$existingPort = Get-PrinterPort -Name $portName -ErrorAction SilentlyContinue\n' +
-'if ($existingPort) {\n' +
-'    Write-Host "  Eliminando puerto existente: $portName" -ForegroundColor Yellow\n' +
-'    Remove-PrinterPort -Name $portName -Confirm:$false -ErrorAction SilentlyContinue\n' +
-'    Start-Sleep -Seconds 2\n' +
-'}\n' +
-'Write-Host ""\n' +
-'\n' +
-'$success = $false\n' +
-'\n' +
-'# METODO CORRECTO: Puerto TCP/IP con driver generico\n' +
-'Write-Host "Instalando impresora via TCP/IP..." -ForegroundColor Cyan\n' +
-'\n' +
-'# Crear puerto TCP/IP\n' +
-'Write-Host "  Creando puerto TCP/IP: $portName" -ForegroundColor Yellow\n' +
-'\n' +
-'try {\n' +
-'    Add-PrinterPort -Name $portName -PrinterHostAddress $ServerIP -PortNumber $ServerPort -ErrorAction Stop\n' +
-'    Write-Host "  ✓ Puerto creado correctamente" -ForegroundColor Green\n' +
-'} catch {\n' +
-'    if ($_.Exception.Message -like "*already exists*") {\n' +
-'        Write-Host "  ! Puerto ya existe, continuando..." -ForegroundColor Yellow\n' +
-'    } else {\n' +
-'        Write-Host "  ✗ Error creando puerto: $_" -ForegroundColor Red\n' +
-'        Read-Host "Presiona Enter para salir"\n' +
-'        exit 1\n' +
-'    }\n' +
-'}\n' +
-'\n' +
-'# Agregar impresora con driver generico\n' +
-'Write-Host "  Agregando impresora..." -ForegroundColor Yellow\n' +
-'\n' +
-'try {\n' +
-'    # Intentar con driver generico Text Only\n' +
-'    Add-Printer -Name $PrinterName -PortName $portName -DriverName "Generic / Text Only" -ErrorAction Stop\n' +
-'    $success = $true\n' +
-'    Write-Host "  Impresora instalada con driver generico" -ForegroundColor Green\n' +
-'} catch {\n' +
-'    # Si falla, intentar con Microsoft Print To PDF como fallback\n' +
-'    try {\n' +
-'        Add-Printer -Name $PrinterName -PortName $portName -DriverName "Microsoft Print To PDF" -ErrorAction Stop\n' +
-'        $success = $true\n' +
-'        Write-Host "  Impresora instalada con driver alternativo" -ForegroundColor Yellow\n' +
-'    } catch {\n' +
-'        Write-Host "  Error: $_" -ForegroundColor Red\n' +
-'    }\n' +
-'}\n' +
-'\n' +
-'# Resultado\n' +
-'Write-Host ""\n' +
-'if ($success) {\n' +
-'    Write-Host "========================================" -ForegroundColor Green\n' +
-'    Write-Host "  INSTALACION EXITOSA" -ForegroundColor Green\n' +
-'    Write-Host "========================================" -ForegroundColor Green\n' +
-'    $printers = Get-Printer | Where-Object { $_.Name -like "*$DisplayName*" -or $_.Name -like "*$ServerIP*" }\n' +
-'    foreach ($p in $printers) {\n' +
-'        Write-Host ""\n' +
-'    Write-Host "  Nombre: $($p.Name)" -ForegroundColor White\n' +
-'        Write-Host "  Puerto: $($p.PortName)" -ForegroundColor White\n' +
-'        Write-Host "  Driver: $($p.DriverName)" -ForegroundColor White\n' +
-'    }\n' +
-'    Write-Host ""\n' +
-'    Write-Host "NOTA IMPORTANTE:" -ForegroundColor Yellow\n' +
-'    Write-Host "  - Instalada con driver generico" -ForegroundColor White\n' +
-'    Write-Host "  - Para mejor calidad, instala drivers del fabricante" -ForegroundColor White\n' +
-'    Write-Host "  - La impresora esta lista para usar" -ForegroundColor White\n' +
-'} else {\n' +
-'    Write-Host "========================================" -ForegroundColor Red\n' +
-'    Write-Host "  ERROR EN INSTALACION" -ForegroundColor Red\n' +
-'    Write-Host "========================================" -ForegroundColor Red\n' +
-'    Write-Host ""\n' +
-'    Write-Host "INSTALACION MANUAL (TCP/IP):" -ForegroundColor Yellow\n' +
-'    Write-Host "1. Panel de Control -> Dispositivos e impresoras" -ForegroundColor White\n' +
-'    Write-Host "2. Agregar impresora" -ForegroundColor White\n' +
-'    Write-Host "3. La impresora no esta en la lista" -ForegroundColor White\n' +
-'    Write-Host "4. Agregar mediante direccion TCP/IP" -ForegroundColor White\n' +
-'    Write-Host "5. Direccion: $ServerIP" -ForegroundColor Cyan\n' +
-'    Write-Host "6. Puerto: $ServerPort" -ForegroundColor Cyan\n' +
-'    Write-Host "7. Personalizado -> LPR -> Cola: printers/$PrinterName" -ForegroundColor White\n' +
-'}\n' +
-'\n' +
-'Write-Host ""\n' +
-'Read-Host "Presiona Enter para salir"';
+param([string]$DisplayName = "${printerName}")
+
+$ServerIP = "${serverIp}"
+$ServerPort = ${serverPort}
+$PrinterName = "${printerName}"
+
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "  Instalador de Impresora" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Impresora: $DisplayName" -ForegroundColor Green
+Write-Host "Servidor: $ServerIP" -ForegroundColor Green
+Write-Host ""
+
+# Verificar permisos de admin
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
+if (-NOT $isAdmin) {
+    Write-Host "ERROR: Requiere permisos de administrador" -ForegroundColor Red
+    Read-Host "Presiona Enter para salir"
+    exit 1
+}
+
+# Verificar servicio Spooler
+Write-Host "Verificando servicio Spooler..." -ForegroundColor Yellow
+$spooler = Get-Service -Name "Spooler"
+if ($spooler.Status -ne "Running") {
+    Start-Service -Name "Spooler"
+    Start-Sleep -Seconds 2
+}
+Write-Host "  Servicio OK" -ForegroundColor Green
+Write-Host ""
+
+# Verificar conectividad IPP
+Write-Host "Verificando servidor IPP..." -ForegroundColor Yellow
+try {
+    $tcpClient = New-Object System.Net.Sockets.TcpClient
+    $tcpClient.Connect($ServerIP, $ServerPort)
+    $tcpClient.Close()
+    Write-Host "  Servidor IPP accesible en puerto $ServerPort" -ForegroundColor Green
+} catch {
+    Write-Host "  ERROR: No se puede conectar al puerto IPP $ServerPort" -ForegroundColor Red
+    Write-Host "  Verifica que el servidor este encendido" -ForegroundColor Yellow
+    Read-Host "Presiona Enter para salir"
+    exit 1
+}
+Write-Host ""
+
+# Limpiar instalaciones previas
+Write-Host "Limpiando instalaciones previas..." -ForegroundColor Yellow
+
+# Primero eliminar impresoras existentes
+$existingPrinters = Get-Printer -Name "*$PrinterName*" -ErrorAction SilentlyContinue
+foreach ($printer in $existingPrinters) {
+    Write-Host "  Eliminando impresora: $($printer.Name)" -ForegroundColor Yellow
+    Remove-Printer -Name $printer.Name -Confirm:$false -ErrorAction SilentlyContinue
+}
+
+# Esperar a que se liberen los puertos
+Start-Sleep -Seconds 3
+
+# Ahora eliminar puertos huerfanos
+$portName = "IP_$($ServerIP)_$($PrinterName)"
+$existingPort = Get-PrinterPort -Name $portName -ErrorAction SilentlyContinue
+if ($existingPort) {
+    Write-Host "  Eliminando puerto existente: $portName" -ForegroundColor Yellow
+    Remove-PrinterPort -Name $portName -Confirm:$false -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+}
+Write-Host ""
+
+$success = $false
+
+# METODO CORRECTO: Puerto TCP/IP con driver generico
+Write-Host "Instalando impresora via TCP/IP..." -ForegroundColor Cyan
+
+# Crear puerto TCP/IP
+Write-Host "  Creando puerto TCP/IP: $portName" -ForegroundColor Yellow
+
+try {
+    Add-PrinterPort -Name $portName -PrinterHostAddress $ServerIP -PortNumber $ServerPort -ErrorAction Stop
+    Write-Host "  [OK] Puerto creado correctamente" -ForegroundColor Green
+} catch {
+    if ($_.Exception.Message -like "*already exists*") {
+        Write-Host "  [!] Puerto ya existe, continuando..." -ForegroundColor Yellow
+    } else {
+        Write-Host "  [ERROR] Error creando puerto: $_" -ForegroundColor Red
+        Read-Host "Presiona Enter para salir"
+        exit 1
+    }
+}
+
+# Agregar impresora con driver generico
+Write-Host "  Agregando impresora..." -ForegroundColor Yellow
+
+try {
+    # Intentar con driver generico Text Only
+    Add-Printer -Name $PrinterName -PortName $portName -DriverName "Generic / Text Only" -ErrorAction Stop
+    $success = $true
+    Write-Host "  Impresora instalada con driver generico" -ForegroundColor Green
+} catch {
+    # Si falla, intentar con Microsoft Print To PDF como fallback
+    try {
+        Add-Printer -Name $PrinterName -PortName $portName -DriverName "Microsoft Print To PDF" -ErrorAction Stop
+        $success = $true
+        Write-Host "  Impresora instalada con driver alternativo" -ForegroundColor Yellow
+    } catch {
+        Write-Host "  Error: $_" -ForegroundColor Red
+    }
+}
+
+# Resultado
+Write-Host ""
+if ($success) {
+    Write-Host "========================================" -ForegroundColor Green
+    Write-Host "  INSTALACION EXITOSA" -ForegroundColor Green
+    Write-Host "========================================" -ForegroundColor Green
+    $printers = Get-Printer | Where-Object { $_.Name -like "*$DisplayName*" -or $_.Name -like "*$ServerIP*" }
+    foreach ($p in $printers) {
+        Write-Host ""
+        Write-Host "  Nombre: $($p.Name)" -ForegroundColor White
+        Write-Host "  Puerto: $($p.PortName)" -ForegroundColor White
+        Write-Host "  Driver: $($p.DriverName)" -ForegroundColor White
+    }
+    Write-Host ""
+    Write-Host "NOTA IMPORTANTE:" -ForegroundColor Yellow
+    Write-Host "  - Instalada con driver generico" -ForegroundColor White
+    Write-Host "  - Para mejor calidad, instala drivers del fabricante" -ForegroundColor White
+    Write-Host "  - La impresora esta lista para usar" -ForegroundColor White
+} else {
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host "  ERROR EN INSTALACION" -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "INSTALACION MANUAL (TCP/IP):" -ForegroundColor Yellow
+    Write-Host "1. Panel de Control -> Dispositivos e impresoras" -ForegroundColor White
+    Write-Host "2. Agregar impresora" -ForegroundColor White
+    Write-Host "3. La impresora no esta en la lista" -ForegroundColor White
+    Write-Host "4. Agregar mediante direccion TCP/IP" -ForegroundColor White
+    Write-Host "5. Direccion: $ServerIP" -ForegroundColor Cyan
+    Write-Host "6. Puerto: $ServerPort" -ForegroundColor Cyan
+    Write-Host "7. Personalizado -> LPR -> Cola: printers/${printerName}" -ForegroundColor White
+}
+
+Write-Host ""
+Read-Host "Presiona Enter para salir"`;
+    
+    return script;
 }
 
 // Función auxiliar para descargar archivo
