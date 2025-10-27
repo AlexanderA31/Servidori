@@ -450,8 +450,9 @@
                     <option value="">-- Selecciona una impresora --</option>
                     <option th:each="printer : ${printerInfos}" 
                             th:value="${printer.name}" 
-                            th:text="${printer.name} + ' (Servidor: ' + ${serverIp} + ')'">
-                        EPSON264A53 (Servidor: 10.1.1.79)
+                            th:attr="data-port=${printer.port}, data-ippuri=${printer.ippUri}"
+                            th:text="${printer.name} + ' (Puerto: ' + ${printer.port} + ')'">
+                      
                     </option>
                 </select>
             </div>
@@ -759,15 +760,21 @@ sudo yum install cups</div>
                 return;
             }
             
+            // Obtener puerto de la opción seleccionada
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            const port = selectedOption.dataset.port || serverPort;
+            const ippUri = selectedOption.dataset.ippuri;
+            
+            console.log('Impresora seleccionada:', { printerName, port, ippUri });
+            
             // Mostrar información de la impresora
             printerInfo.style.display = 'block';
             
             // Actualizar URL IPP
-            const ippUrl = `http://${serverIp}:${serverPort}/printers/${printerName}`;
-            document.getElementById('printerUrl').textContent = ippUrl;
+            document.getElementById('printerUrl').textContent = ippUri;
             document.getElementById('macosQueue').textContent = `/printers/${printerName}`;
             
-            // Configurar botones de descarga
+            // Configurar botones de descarga (los scripts ya usarán el puerto correcto del URI)
             document.getElementById('downloadWindowsBtn').onclick = function() {
                 window.location.href = `/print-server/download/windows-script/${printerName}`;
             };

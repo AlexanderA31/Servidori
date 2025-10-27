@@ -49,16 +49,20 @@ public class PrinterServerController {
             model.addAttribute("printers", printers);
             model.addAttribute("totalPrinters", printers.size());
             
-            // Generar URIs IPP para cada impresora
+            // Generar URIs IPP para cada impresora con su puerto dedicado
             List<PrinterInfo> printerInfos = printers.stream()
-                .map(p -> new PrinterInfo(
-                    p.getAlias(),
-                    p.getModel(),
-                    p.getLocation(),
-                    buildIppUri(serverIp, p.getAlias()),
-                    buildWindowsCommand(serverIp, p.getAlias()),
-                    buildLinuxCommand(serverIp, p.getAlias())
-                ))
+                .map(p -> {
+                    int port = multiPortIppService.getPortForPrinter(p);
+                    return new PrinterInfo(
+                        p.getAlias(),
+                        p.getModel(),
+                        p.getLocation(),
+                        buildIppUriWithPort(serverIp, p.getAlias(), port),
+                        buildWindowsCommand(serverIp, p.getAlias()),
+                        buildLinuxCommand(serverIp, p.getAlias()),
+                        port
+                    );
+                })
                 .collect(Collectors.toList());
             
             model.addAttribute("printerInfos", printerInfos);
@@ -620,15 +624,17 @@ public class PrinterServerController {
         public String ippUri;
         public String windowsCommand;
         public String linuxCommand;
+        public int port;
         
         public PrinterInfo(String name, String model, String location, 
-                          String ippUri, String windowsCommand, String linuxCommand) {
+                          String ippUri, String windowsCommand, String linuxCommand, int port) {
             this.name = name;
             this.model = model;
             this.location = location;
             this.ippUri = ippUri;
             this.windowsCommand = windowsCommand;
             this.linuxCommand = linuxCommand;
+            this.port = port;
         }
     }
 }
