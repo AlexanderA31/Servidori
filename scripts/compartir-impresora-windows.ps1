@@ -7,6 +7,7 @@ param(
     [int]$ServerPort = 8080,
     [switch]$Install,
     [switch]$Uninstall,
+    [switch]$Reset,
     [switch]$Silent
 )
 
@@ -98,32 +99,52 @@ function Register-PrinterWithServer {
         [Parameter(Mandatory=$true)]$ComputerInfo
     )
     
-    Write-Log "Registrando impresora en el servidor"
+    Write-Log "Registrando impresora en el servidor central"
+    Write-Host "  Impresora: $($Printer.Name)" -ForegroundColor White
+    Write-Host "  Host: $($ComputerInfo.hostname)" -ForegroundColor White
+    Write-Host "  IP: $($ComputerInfo.ip)" -ForegroundColor White
+    Write-Host ""
     
     $data = @{
-        alias = "$($Printer.Name)@$($ComputerInfo.hostname)"
+        alias = "$($Printer.Name)_$($ComputerInfo.hostname)"
         model = $Printer.DriverName
         ip = $ComputerInfo.ip
-        location = "USB - $($ComputerInfo.hostname) ($($ComputerInfo.username))"
-        protocol = "SMB"
-        port = 445
+        location = "Compartida-USB - $($ComputerInfo.hostname) - Usuario: $($ComputerInfo.username)"
+        protocol = "IPP"
+        port = 631
     } | ConvertTo-Json
     
-    $url = "http://${ServerIP}:${ServerPort}/api/register-shared-printer"
+    $url = "http://${ServerIP}:${ServerPort}/admin/api/register-shared-printer"
+    
+    Write-Host "Conectando al servidor: $url" -ForegroundColor Yellow
     
     try {
-        $response = Invoke-RestMethod -Uri $url -Method Post -Body $data -ContentType "application/json" -TimeoutSec 10
+        $response = Invoke-RestMethod -Uri $url -Method Post -Body $data -ContentType "application/json" -TimeoutSec 15
         
         if ($response.success) {
-            Write-Log "Impresora registrada exitosamente" "SUCCESS"
+            Write-Log "Impresora registrada en el servidor" "SUCCESS"
+            Write-Host ""
+            Write-Host "  Puerto IPP asignado: $($response.ippPort)" -ForegroundColor Green
+            Write-Host "  ID en servidor: $($response.printerId)" -ForegroundColor Green
+            Write-Host "  Nombre registrado: $($response.printerName)" -ForegroundColor Green
+            Write-Host ""
             return $response
         } else {
-            Write-Log "Error al registrar: $($response.error)" "ERROR"
+            Write-Log "Error del servidor: $($response.error)" "ERROR"
+            if ($response.existingPrinter) {
+                Write-Host "  Ya existe una impresora con ese nombre: $($response.existingPrinter)" -ForegroundColor Yellow
+            }
             return $null
         }
     } catch {
         Write-Log "Error de conexion con el servidor" "ERROR"
         Write-Log $_.Exception.Message "ERROR"
+        Write-Host ""
+        Write-Host "POSIBLES CAUSAS:" -ForegroundColor Red
+        Write-Host "  1. El servidor no esta accesible en ${ServerIP}:${ServerPort}" -ForegroundColor Yellow
+        Write-Host "  2. Firewall bloqueando la conexion" -ForegroundColor Yellow
+        Write-Host "  3. Servidor de impresoras no esta ejecutandose" -ForegroundColor Yellow
+        Write-Host ""
         return $null
     }
 }
@@ -192,22 +213,60 @@ function Uninstall-ScheduledTask {
 function Start-PrinterSharingService {
     param(
         [Parameter(Mandatory=$true)]$Printer,
-        [Parameter(Mandatory=$true)][int]$Port
+        [Parameter(Mandatory=$true)][int]$IppPort
     )
     
-    Write-Log "Compartiendo impresora via SMB"
+    Write-Log "Configurando comparticion de impresora"
     
     try {
-        $shareName = $Printer.Name -replace '[^a-zA-Z0-9]', ''
-        $existingShare = Get-Printer -Name $Printer.Name | Where-Object {$_.Shared -eq $true}
+        $shareName = ($Printer.Name -replace '[^a-zA-Z0-9_]', '_').Substring(0, [Math]::Min(($Printer.Name -replace '[^a-zA-Z0-9_]', '_').Length, 80))
+        $existingShare = Get-Printer -Name $Printer.Name
         
-        if (-not $existingShare) {
+        if (-not $existingShare.Shared) {
             Set-Printer -Name $Printer.Name -Shared $true -ShareName $shareName
-            Write-Log "Impresora compartida como: \\$env:COMPUTERNAME\$shareName" "SUCCESS"
+            Write-Log "Compartida via SMB: \\$env:COMPUTERNAME\$shareName" "SUCCESS"
+            Write-Host "  SMB Share: \\$env:COMPUTERNAME\$shareName" -ForegroundColor Green
+        } else {
+            Write-Log "Ya estaba compartida via SMB" "SUCCESS"
         }
+        
+        Write-Log "Configurando regla de firewall para puerto $IppPort"
+        
+        $ruleName = "PrinterShare_IPP_$IppPort"
+        $existingRule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
+        
+        if (-not $existingRule) {
+            New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort $IppPort -Action Allow -Profile Any -Description "Permite acceso IPP a impresora compartida" | Out-Null
+            Write-Log "Regla de firewall creada para puerto $IppPort" "SUCCESS"
+            Write-Host "  Firewall: Puerto $IppPort abierto" -ForegroundColor Green
+        } else {
+            Write-Log "Regla de firewall ya existe" "SUCCESS"
+        }
+        
+        Write-Host ""
+        Write-Host "===================================================================" -ForegroundColor Cyan
+        Write-Host "  INFORMACION DE CONEXION" -ForegroundColor Cyan
+        Write-Host "===================================================================" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  Otras computadoras pueden conectarse usando:" -ForegroundColor White
+        Write-Host ""
+        Write-Host "  Desde el Servidor de Impresoras:" -ForegroundColor Yellow
+        Write-Host "     - La impresora aparecera automaticamente en la tabla" -ForegroundColor White
+        Write-Host "     - Puerto IPP asignado: $IppPort" -ForegroundColor White
+        Write-Host ""
+        Write-Host "  Conexion directa SMB (Windows):" -ForegroundColor Yellow
+        Write-Host "     \\$env:COMPUTERNAME\$shareName" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  IMPORTANTE:" -ForegroundColor Red
+        Write-Host "     - Esta computadora debe estar ENCENDIDA" -ForegroundColor White
+        Write-Host "     - La impresora debe estar CONECTADA" -ForegroundColor White
+        Write-Host "     - No suspender la computadora" -ForegroundColor White
+        Write-Host ""
+        
         return $true
     } catch {
-        Write-Log "Error al compartir impresora" "ERROR"
+        Write-Log "Error al configurar comparticion" "ERROR"
+        Write-Log $_.Exception.Message "ERROR"
         return $false
     }
 }
@@ -241,15 +300,33 @@ function Main {
         exit 0
     }
     
+    if ($Reset) {
+        if (Test-Path $ConfigFile) {
+            Remove-Item $ConfigFile -Force
+            Write-Log "Configuracion eliminada - se seleccionara nueva impresora" "SUCCESS"
+        }
+        Write-Host ""
+        Write-Host "Configuracion reiniciada" -ForegroundColor Green
+        Write-Host "Ahora puedes seleccionar una nueva impresora" -ForegroundColor Green
+        Write-Host ""
+    }
+    
     $computerInfo = Get-ComputerInfo
     Write-Log "Computadora: $($computerInfo.hostname) ($($computerInfo.ip))"
     
     $config = Load-Configuration
     
-    if (-not $config -or $Install) {
-        if (-not $PrinterName) {
+    # SIEMPRE permitir seleccionar impresora si NO se especificó PrinterName
+    $forceSelection = [string]::IsNullOrEmpty($PrinterName)
+    
+    if (-not $config -or $Install -or $forceSelection) {
+        # Si no especificó PrinterName o si forzamos selección, mostrar menú
+        if ([string]::IsNullOrEmpty($PrinterName) -or $forceSelection) {
             $selectedPrinter = Select-Printer
             if (-not $selectedPrinter) {
+                Write-Host ""
+                Write-Host "Presiona Enter para salir" -ForegroundColor Yellow
+                Read-Host
                 exit 1
             }
             $PrinterName = $selectedPrinter.Name
@@ -271,17 +348,25 @@ function Main {
         
         if (-not $response) {
             Write-Host ""
+            Write-Host "No se pudo registrar la impresora en el servidor" -ForegroundColor Red
+            Write-Host "Verifica la conexion y que el servidor este funcionando" -ForegroundColor Yellow
+            Write-Host ""
             Write-Host "Presiona Enter para salir" -ForegroundColor Yellow
             Read-Host
             exit 1
         }
         
-        $serviceStarted = Start-PrinterSharingService -Printer $selectedPrinter -Port 445
+        $assignedPort = if ($response.ippPort) { $response.ippPort } else { 631 }
+        Write-Log "Puerto IPP asignado por el servidor: $assignedPort"
+        
+        $serviceStarted = Start-PrinterSharingService -Printer $selectedPrinter -IppPort $assignedPort
         
         $config = @{
             printerName = $PrinterName
             serverIP = $ServerIP
             serverPort = $ServerPort
+            ippPort = $assignedPort
+            printerId = if ($response.printerId) { $response.printerId } else { $null }
             registeredAt = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
         }
         Save-Configuration -Config $config
@@ -303,16 +388,21 @@ function Main {
         $response = Register-PrinterWithServer -Printer $selectedPrinter -ComputerInfo $computerInfo
         
         if ($response) {
-            Start-PrinterSharingService -Printer $selectedPrinter -Port 445
+            $assignedPort = if ($response.ippPort) { $response.ippPort } else { if ($config.ippPort) { $config.ippPort } else { 631 } }
+            Start-PrinterSharingService -Printer $selectedPrinter -IppPort $assignedPort
         }
     }
     
     Write-Host ""
     Write-Host "====================================================================" -ForegroundColor Green
-    Write-Host "  CONFIGURACION COMPLETADA" -ForegroundColor Green
+    Write-Host "  CONFIGURACION COMPLETADA EXITOSAMENTE" -ForegroundColor Green
     Write-Host "====================================================================" -ForegroundColor Green
     Write-Host ""
-    Write-Host "La impresora esta compartida con el servidor" -ForegroundColor White
+    Write-Host "La impresora USB esta ahora compartida y registrada en el servidor" -ForegroundColor White
+    Write-Host "Otras computadoras pueden conectarse a traves del servidor" -ForegroundColor White
+    Write-Host ""
+    Write-Host "Para ver el estado, accede al panel de administracion:" -ForegroundColor Cyan
+    Write-Host "   http://${ServerIP}:${ServerPort}/admin/printers" -ForegroundColor Cyan
     Write-Host ""
     
     if (-not $Silent) {

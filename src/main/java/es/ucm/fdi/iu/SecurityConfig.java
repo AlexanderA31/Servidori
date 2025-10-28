@@ -61,11 +61,18 @@ public class SecurityConfig {
 			.csrf(csrf -> csrf
 				.ignoringRequestMatchers("/api/**")
 			)
-	        	        	        .authorizeHttpRequests(auth -> auth
+	        	        	        	        	        	        .authorizeHttpRequests(auth -> auth
 	                                    .requestMatchers("/css/**", "/js/**", "/img/**", "/", "/index.html", "/error").permitAll()
 				.requestMatchers("/api/**").permitAll()             // <-- public api access
 				.requestMatchers("/login").permitAll()
-	            .requestMatchers("/admin/**").hasRole("ADMIN")		 // <-- administration
+	            // Dashboard - accesible para ADMIN y TECNICO
+	            .requestMatchers("/admin/", "/admin").hasAnyRole("ADMIN", "TECNICO")
+	            // Colas de Impresión - accesible para ADMIN y TECNICO
+	            .requestMatchers("/admin/printqueues/**").hasAnyRole("ADMIN", "TECNICO")
+	            // Compartir Impresoras - accesible para ADMIN y TECNICO
+	            .requestMatchers("/admin/share-printers/**").hasAnyRole("ADMIN", "TECNICO")
+	            // Resto de rutas admin - solo ADMIN
+	            .requestMatchers("/admin/**").hasRole("ADMIN")
 	            .requestMatchers("/departments/**").hasRole("ADMIN") // <-- departments management
 	            .anyRequest().authenticated()
 	        )

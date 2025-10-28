@@ -88,7 +88,7 @@ function copyToClipboard(elementId) {
 
 // ==================== SCRIPTS DE DESCARGA ====================
 
-// Descargar script para cliente Windows - SMB + IPP Fallback
+// Descargar script PS1 para cliente Windows (RECOMENDADO - con doble clic)
 function downloadWindowsClientScript() {
     const printerSelect = document.getElementById('printerSelect');
     const selectedOption = printerSelect.options[printerSelect.selectedIndex];
@@ -101,19 +101,33 @@ function downloadWindowsClientScript() {
     const ippUrl = selectedOption.dataset.ippuri;
     const printerName = selectedOption.dataset.name;
     
-    // Extraer puerto del URI IPP
+    // Extraer puerto del URI IPP - CADA IMPRESORA TIENE SU PUERTO ÚNICO
     const urlParts = ippUrl.match(/ipp:\/\/([^:]+):(\d+)\/printers\/(.+)/);
-    const serverIp = urlParts ? urlParts[1] : 'servidor';
+    const serverIp = urlParts ? urlParts[1] : '10.1.16.31';
     const serverPort = urlParts ? parseInt(urlParts[2]) : 8631;
     const printerPath = urlParts ? urlParts[3] : printerName.replace(/\s/g, '_');
     const safeFileName = printerName.replace(/[^a-zA-Z0-9_-]/g, '_');
     const smbPath = '\\\\\\\\' + serverIp + '\\\\' + printerName.replace(/\s/g, '_');
     
-    console.log('Descargando script para:', { printerName, serverIp, serverPort });
-    console.log('Puerto especifico detectado:', serverPort);
     
-    const scriptContent = generatePowerShellScript(serverIp, serverPort, printerName, printerPath, ippUrl, smbPath, safeFileName);
-    downloadFile(scriptContent, 'instalar-' + safeFileName + '.ps1', 'text/plain');
+    const batContent = generateBatWithEmbeddedPS(serverIp, serverPort, printerName, safeFileName);
+    downloadFile(batContent, 'instalar-' + safeFileName + '.bat', 'text/plain');
+    
+    // Mostrar instrucciones
+    setTimeout(() => {
+        showSuccess('Script BAT descargado: instalar-' + safeFileName + '.bat', 'Descarga Completa');
+        setTimeout(() => {
+            showInfo(
+                '<strong>✅ DOBLE CLIC Y LISTO!</strong><br><br>' +
+                '1. Haz <strong>DOBLE CLIC</strong> en el archivo BAT descargado<br>' +
+                '2. Se solicitarán permisos de administrador automáticamente<br>' +
+                '3. La impresora se instalará automáticamente<br><br>' +
+                '<strong>Puerto asignado: ' + serverPort + '</strong> (FIJO)<br><br>' +
+                '<strong>⚠️ Nota:</strong> Este puerto es exclusivo y nunca cambia',
+                'Instrucciones Simples'
+            );
+        }, 800);
+    }, 500);
 }
 
 // Generar el script PowerShell completo
@@ -343,7 +357,7 @@ function downloadFile(content, filename, mimeType) {
 
 // Descargar script para compartir impresora en Windows
 function downloadWindowsScript() {
-    console.log('Descargando script para compartir impresora USB/Local...');
+
     
     // Redirigir al endpoint que sirve el archivo
     window.location.href = '/print-server/download/share-windows-script';
@@ -376,3 +390,81 @@ function downloadLinuxScript() {
         '🐧 Compartir en Linux'
     );
 }
+
+// Generar BAT con PowerShell embebido (para doble clic)
+function generateBatWithEmbeddedPS(serverIp, serverPort, printerName, safeFileName) {
+    // Escapar el nombre de la impresora para PowerShell
+    const printerNameEscaped = printerName.replace(/'/g, "''");
+    
+    const bat = `@echo off
+REM ====================================================================
+REM Instalador de Impresora: ${printerName}
+REM Puerto dedicado: ${serverPort} (PUERTO UNICO Y FIJO)
+REM Servidor: ${serverIp}
+REM ====================================================================
+
+REM Verificar permisos de administrador
+net session >nul 2>&1
+if %errorLevel% neq 0 (
+    echo.
+    echo Solicitando permisos de administrador...
+    powershell -Command "Start-Process '%~f0' -Verb RunAs"
+    exit /b
+)
+
+title Instalador de Impresora - ${printerName}
+
+echo.
+echo ====================================================================
+echo   INSTALADOR DE IMPRESORA
+echo ====================================================================
+echo.
+echo   Impresora: ${printerName}
+echo   Servidor: ${serverIp}
+echo   Puerto: ${serverPort} (PUERTO UNICO FIJO)
+echo.
+echo ====================================================================
+echo.
+echo Instalando impresora, por favor espera...
+echo.
+
+REM Ejecutar PowerShell inline directamente
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ServerIP='${serverIp}'; $ServerPort=${serverPort}; $PrinterName='${printerNameEscaped}'; $DisplayName='${printerNameEscaped}'; Write-Host 'Verificando servicio Spooler...' -ForegroundColor Yellow; $spooler=Get-Service -Name 'Spooler'; if($spooler.Status -ne 'Running'){Start-Service -Name 'Spooler'; Start-Sleep -Seconds 2}; Write-Host 'Verificando conexion al servidor...' -ForegroundColor Yellow; try{$tcp=New-Object System.Net.Sockets.TcpClient; $tcp.Connect($ServerIP,$ServerPort); $tcp.Close(); Write-Host 'Servidor accesible' -ForegroundColor Green}catch{Write-Host 'ERROR: No se puede conectar al servidor' -ForegroundColor Red; exit 1}; Write-Host 'Limpiando instalaciones previas...' -ForegroundColor Yellow; $existing=Get-Printer | Where-Object {$_.Name -like ('*'+$PrinterName+'*')}; foreach($p in $existing){Remove-Printer -Name $p.Name -Confirm:$false -ErrorAction SilentlyContinue}; Start-Sleep -Seconds 2; $portName=[string]::Format('IP_{0}_{1}',$ServerIP,$PrinterName); $existPort=Get-PrinterPort -Name $portName -ErrorAction SilentlyContinue; if($existPort){Remove-PrinterPort -Name $portName -Confirm:$false -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1}; Write-Host 'Creando puerto de impresora...' -ForegroundColor Yellow; try{Add-PrinterPort -Name $portName -PrinterHostAddress $ServerIP -PortNumber $ServerPort -ErrorAction Stop; Write-Host 'Puerto creado correctamente' -ForegroundColor Green}catch{if($_.Exception.Message -notlike '*already exists*'){Write-Host 'ERROR al crear puerto' -ForegroundColor Red; exit 1}}; Write-Host 'Instalando impresora...' -ForegroundColor Yellow; $success=$false; try{Add-Printer -Name $DisplayName -PortName $portName -DriverName 'Generic / Text Only' -ErrorAction Stop; $success=$true; Write-Host 'Impresora instalada correctamente' -ForegroundColor Green}catch{try{Add-Printer -Name $DisplayName -PortName $portName -DriverName 'Microsoft Print To PDF' -ErrorAction Stop; $success=$true; Write-Host 'Impresora instalada con driver alternativo' -ForegroundColor Yellow}catch{Write-Host 'ERROR: No se pudo instalar la impresora' -ForegroundColor Red; exit 1}}; if($success){Write-Host ''; Write-Host 'INSTALACION EXITOSA' -ForegroundColor Green; Write-Host 'Puerto asignado:' $ServerPort '(FIJO)' -ForegroundColor Cyan; Write-Host 'La impresora esta lista para usar' -ForegroundColor White; exit 0}else{exit 1}"
+
+set ERROR_CODE=%ERRORLEVEL%
+
+echo.
+echo ====================================================================
+if %ERROR_CODE% EQU 0 (
+    echo   INSTALACION COMPLETADA EXITOSAMENTE
+    echo ====================================================================
+    echo.
+    echo La impresora ha sido instalada correctamente.
+    echo Puerto asignado: ${serverPort} (FIJO para esta impresora^)
+    echo.
+    echo Ahora puedes imprimir desde cualquier aplicacion.
+) else (
+    echo   ERROR EN LA INSTALACION
+    echo ====================================================================
+    echo.
+    echo Codigo de error: %ERROR_CODE%
+    echo.
+    echo Posibles causas:
+    echo - El servidor no esta accesible
+    echo - No hay permisos de administrador
+    echo - Problema con el servicio de impresion
+)
+echo.
+echo ====================================================================
+echo.
+echo Presiona cualquier tecla para cerrar esta ventana...
+pause >nul
+`;
+    
+    return bat;
+}
+
+
+
+
+

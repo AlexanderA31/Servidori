@@ -1,6 +1,20 @@
 /* Admin Printers - Gestión de Impresoras */
 /* Este archivo hereda la mayoría de estilos de departments.css */
 
+/* Celda de información de usuario */
+.user-info-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #475569;
+    font-size: 0.875rem;
+}
+
+.user-info-cell i {
+    color: #64748b;
+    font-size: 0.875rem;
+}
+
 /* Estilos específicos para impresoras (si los hay en el futuro) */
 .printer-status-online {
     display: inline-block;

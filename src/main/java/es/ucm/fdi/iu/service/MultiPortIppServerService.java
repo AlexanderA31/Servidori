@@ -35,12 +35,16 @@ public class MultiPortIppServerService {
     
     private final IppPrintService ippPrintService;
     private final PrinterRepository printerRepository;
+    private final PrintQueueService printQueueService;
     
     private static final int BASE_PORT = 8631;
     
-    public MultiPortIppServerService(IppPrintService ippPrintService, PrinterRepository printerRepository) {
+    public MultiPortIppServerService(IppPrintService ippPrintService, 
+                                      PrinterRepository printerRepository,
+                                      PrintQueueService printQueueService) {
         this.ippPrintService = ippPrintService;
         this.printerRepository = printerRepository;
+        this.printQueueService = printQueueService;
     }
 
     @PostConstruct
@@ -167,25 +171,30 @@ public class MultiPortIppServerService {
             log.info("  📦 Datos recibidos: {} bytes", totalBytes);
             log.info("  🖨️  Impresora destino: {}", printer.getAlias());
             
-            // Guardar datos temporalmente
-            File tempFile = File.createTempFile("print_", ".dat");
-            try (FileOutputStream fos = new FileOutputStream(tempFile)) {
-                fos.write(data);
+            // Determinar nombre de archivo y usuario
+            String fileName = extractFileName(data, clientSocket);
+            String ownerName = extractOwner(data, clientSocket);
+            
+            log.info("  👤 Usuario: {}", ownerName);
+            log.info("  📄 Archivo: {}", fileName);
+            
+            // Registrar trabajo en la cola de impresión
+            boolean success = false;
+            try {
+                printQueueService.addJob(printer, fileName, ownerName, printer.getInstance(), data);
+                log.info("  ✅ Trabajo registrado en cola de impresión");
+                success = true;
+            } catch (Exception e) {
+                log.error("  ❌ Error registrando trabajo en cola: {}", e.getMessage());
             }
-            
-            // Enviar a la impresora real
-            boolean success = sendToPrinter(printer, tempFile);
-            
-            // Limpiar
-            tempFile.delete();
             
             // Responder al cliente
             if (success) {
-                log.info("  ✅ Trabajo enviado correctamente");
+                log.info("  ✅ Trabajo aceptado en cola");
                 // Respuesta IPP: success
                 out.write(new byte[]{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03});
             } else {
-                log.error("  ❌ Error enviando trabajo");
+                log.error("  ❌ Error aceptando trabajo");
                 // Respuesta IPP: server-error
                 out.write(new byte[]{0x01, 0x01, 0x05, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03});
             }
@@ -302,5 +311,89 @@ public class MultiPortIppServerService {
         Optional<Printer> printer = printerRepository.findById(printerId);
         return printer.map(p -> p.getIppPort() != null ? p.getIppPort() : BASE_PORT)
                       .orElse(BASE_PORT);
+    }
+    
+    /**
+     * Extrae el nombre del archivo desde los datos IPP
+     */
+    private String extractFileName(byte[] data, Socket clientSocket) {
+        try {
+            String dataStr = new String(data, "UTF-8");
+            
+            // Buscar "job-name" en los datos IPP
+            int jobNameIndex = dataStr.indexOf("job-name");
+            if (jobNameIndex > 0) {
+                int start = jobNameIndex + 8;
+                int end = Math.min(start + 100, dataStr.length());
+                String substr = dataStr.substring(start, end);
+                
+                // Buscar primer string imprimible
+                StringBuilder fileName = new StringBuilder();
+                boolean collecting = false;
+                for (char c : substr.toCharArray()) {
+                    if (Character.isLetterOrDigit(c) || c == '.' || c == '-' || c == '_' || c == ' ') {
+                        fileName.append(c);
+                        collecting = true;
+                    } else if (collecting) {
+                        break;
+                    }
+                }
+                
+                if (fileName.length() > 0) {
+                    return fileName.toString().trim();
+                }
+            }
+        } catch (Exception e) {
+            log.trace("No se pudo extraer nombre de archivo: {}", e.getMessage());
+        }
+        
+        // Nombre por defecto
+        return "Documento_" + System.currentTimeMillis() + ".dat";
+    }
+    
+    /**
+     * Extrae el nombre del usuario desde los datos IPP
+     */
+    private String extractOwner(byte[] data, Socket clientSocket) {
+        try {
+            String dataStr = new String(data, "UTF-8");
+            
+            // Buscar "requesting-user-name" o "job-originating-user-name"
+            String[] patterns = {"requesting-user-name", "job-originating-user-name", "originating-user-name"};
+            
+            for (String pattern : patterns) {
+                int index = dataStr.indexOf(pattern);
+                if (index > 0) {
+                    int start = index + pattern.length();
+                    int end = Math.min(start + 100, dataStr.length());
+                    String substr = dataStr.substring(start, end);
+                    
+                    // Buscar primer string imprimible
+                    StringBuilder userName = new StringBuilder();
+                    boolean collecting = false;
+                    for (char c : substr.toCharArray()) {
+                        if (Character.isLetterOrDigit(c) || c == '.' || c == '-' || c == '_' || c == '@') {
+                            userName.append(c);
+                            collecting = true;
+                        } else if (collecting && userName.length() > 2) {
+                            break;
+                        }
+                    }
+                    
+                    if (userName.length() > 2) {
+                        return userName.toString().trim();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.trace("No se pudo extraer nombre de usuario: {}", e.getMessage());
+        }
+        
+        // Usuario por defecto (usar IP del cliente)
+        try {
+            return clientSocket.getInetAddress().getHostName();
+        } catch (Exception e) {
+            return "Usuario_Desconocido";
+        }
     }
 }

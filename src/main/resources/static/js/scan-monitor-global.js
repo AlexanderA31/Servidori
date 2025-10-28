@@ -37,6 +37,7 @@
                 const state = {
                     isMinimized: true,
                     scanning: data.scanning,
+                    cancelled: data.cancelled,
                     progress: data.progress,
                     currentNetwork: data.currentNetwork,
                     foundPrinters: data.foundPrinters,
@@ -44,7 +45,22 @@
                 };
                 sessionStorage.setItem('scanMinimizedState', JSON.stringify(state));
                 
-                // Si el escaneo terminó
+                // Si el escaneo fue CANCELADO
+                if (data.cancelled && !data.scanning) {
+                
+                    stopGlobalMonitoring();
+                    sessionStorage.removeItem('scanMinimizedState');
+                    
+                    // Ocultar barra con animación
+                    minimizedBar.style.opacity = '0';
+                    setTimeout(() => {
+                        minimizedBar.style.display = 'none';
+                        minimizedBar.style.opacity = '1';
+                    }, 300);
+                    return;
+                }
+                
+                // Si el escaneo terminó normalmente
                 if (data.progress >= 100 || (!data.scanning && data.progress > 0)) {
                     stopGlobalMonitoring();
                     sessionStorage.removeItem('scanMinimizedState');
@@ -57,7 +73,7 @@
                     }, 300);
                     
                     // Notificar al usuario
-                    console.log('✅ Escaneo completado: ' + data.foundPrinters + ' impresoras encontradas');
+                
                 }
             })
             .catch(error => {

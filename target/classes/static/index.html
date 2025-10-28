@@ -141,7 +141,7 @@
             width: 80px;
             height: 80px;
             margin: 0 auto 1rem;
-            background: linear-gradient(135deg, #0B283F 0%, #0ea5e9 100%);
+            background: #0B283F;
             border-radius: 16px;
             display: flex;
             align-items: center;
@@ -349,145 +349,176 @@
                 </div>
                 <h1 class="hero-title">Sistema de Gestión de Impresoras</h1>
                 <p class="hero-subtitle">
-                    Comparte impresoras locales y configura clientes IPP de forma sencilla.
+
+                    Administra impresoras, departamentos y usuarios desde un panel centralizado.
                 </p>
             </div>
-        </div>
-    </div>
-    
-    <!-- Sección de Compartir Impresoras -->
-    <div class="hero" style="padding-top: 0;">
-        <div class="section-card full-width" style="background: white; border-radius: 16px; box-shadow: var(--shadow-lg); border: 1px solid var(--border-color);">
-            <div class="section-header" style="padding: 1.5rem 2rem; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-bottom: 2px solid var(--border-color); font-size: 1.5rem; font-weight: 700;">
-                <i class="fas fa-share-alt"></i> Compartir Impresoras Locales
-            </div>
-            <div class="section-body" style="padding: 2rem;">
-                <div class="sharing-tools">
-                    <div class="tool-section">
-                        <h3><i class="fas fa-desktop"></i> Compartir Impresora USB/Local</h3>
-                        <p>Comparte una impresora conectada localmente a tu computadora con la red</p>
-                        
-                        <div class="os-tabs">
-                            <button class="os-tab active" data-os="windows"><i class="fab fa-windows"></i> Windows</button>
-                            <button class="os-tab" data-os="linux"><i class="fab fa-linux"></i> Linux</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            
+            <!-- Features Grid -->
+            <div class="features">
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-print"></i>
                         </div>
-                        
-                        <div class="os-content active" id="windows-share">
-                            <div class="instructions">
-                                <h4>Instrucciones para Windows:</h4>
-                                <ol>
-                                    <li>Descarga el script PowerShell</li>
-                                    <li>Haz clic derecho en el archivo descargado y selecciona <strong>"Ejecutar con PowerShell"</strong></li>
-                                    <li>Si aparece un mensaje de seguridad, selecciona <strong>"Abrir"</strong> o <strong>"Ejecutar de todas formas"</strong></li>
-                                    <li>Selecciona la impresora local que deseas compartir</li>
-                                    <li>El script compartirá la impresora vía IPP automáticamente</li>
-                                </ol>
-                                <p style="margin-top: 1rem; padding: 0.75rem; background: #fff3cd; border-left: 3px solid #ffc107; border-radius: 4px; font-size: 0.85rem;">
-                                    <strong>⚠️ Importante:</strong> Abre PowerShell como Administrador y ejecuta:<br>
-                                    <code style="background: white; padding: 0.3rem 0.5rem; border-radius: 3px; display: inline-block; margin-top: 0.5rem;">powershell -ExecutionPolicy Bypass -File .\compartir-impresora-windows.ps1</code>
-                                </p>
-                            </div>
-                            <a href="/api/download/share-windows-script" class="btn btn-download" style="display: inline-block; text-decoration: none;"><i class="fas fa-download"></i> Descargar Script Windows</a>
-                        </div>
-                        
-                        <div class="os-content" id="linux-share">
-                            <div class="instructions">
-                                <h4>Instrucciones para Linux:</h4>
-                                <ol>
-                                    <li>Descarga el script bash</li>
-                                    <li>Dale permisos de ejecución: <code>chmod +x share-printer.sh</code></li>
-                                    <li>Ejecuta con sudo: <code>sudo ./share-printer.sh</code></li>
-                                    <li>El script configurará CUPS para compartir la impresora</li>
-                                </ol>
-                            </div>
-                            <button class="btn btn-download" onclick="alert('🐧 Script para Linux en desarrollo')"><i class="fas fa-download"></i> Descargar Script Linux</button>
-                        </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                        <div class="feature-title">Gestión de Impresoras</div>
+                        <div class="feature-description">Administra y configura impresoras de red</div>
                     </div>
-                    
-                    <div class="tool-section">
-                        <h3><i class="fas fa-network-wired"></i> Configurar Impresora IPP en Cliente</h3>
-                        <p>Configura una computadora cliente para usar las impresoras compartidas</p>
-                        
-                        <div class="ipp-config">
-                            <label>Selecciona la impresora:</label>
-                            <select id="printerSelect" class="form-control">
-                                <option value="">-- Selecciona una impresora --</option>
-                            </select>
-                            
-                            <div id="ippInstructions" style="display:none; margin-top: 1rem;">
-                                <div class="info-box">
-                                    <strong>URL IPP:</strong>
-                                    <code id="ippUrl" class="selectable"></code>
-                                    <button class="btn-copy" onclick="copyToClipboard('ippUrl')"><i class="fas fa-copy"></i> Copiar</button>
-                                </div>
-                                
-                                <div class="client-tabs">
-                                    <button class="client-tab active" data-client="windows-client"><i class="fab fa-windows"></i> Windows</button>
-                                    <button class="client-tab" data-client="linux-client"><i class="fab fa-linux"></i> Linux</button>
-                                    <button class="client-tab" data-client="macos-client"><i class="fab fa-apple"></i> macOS</button>
-                                </div>
-                                
-                                <div class="client-content active" id="windows-client">
-                                    <h4>Windows:</h4>
-                                    <ol>
-                                        <li>Abre "Configuración" → "Dispositivos" → "Impresoras y escáneres"</li>
-                                        <li>Haz clic en "Agregar impresora o escáner"</li>
-                                        <li>Selecciona "La impresora que deseo no está en la lista"</li>
-                                        <li>Selecciona "Seleccionar una impresora compartida por nombre"</li>
-                                        <li>Ingresa la URL IPP mostrada arriba</li>
-                                        <li>Instala los controladores cuando se solicite</li>
-                                    </ol>
-                                    <button class="btn btn-download" onclick="downloadWindowsClientScript()"><i class="fas fa-download"></i> Script Automático Windows</button>
-                                    
-                                    <p style="margin-top: 1rem; padding: 0.75rem; background: #fff3cd; border-left: 3px solid #ffc107; border-radius: 4px; font-size: 0.85rem;">
-                                        <strong>📋 Cómo ejecutar el script:</strong><br><br>
-                                        <strong>1. Abre PowerShell como Administrador</strong><br>
-                                        <span style="margin-left: 1.5rem; display: inline-block; margin-top: 0.25rem;">Haz clic derecho en el botón de Windows → <strong>"Windows PowerShell (Administrador)"</strong></span><br><br>
-                                        <strong>2. Navega a la carpeta de descargas:</strong><br>
-                                        <code style="background: white; padding: 0.3rem 0.5rem; border-radius: 3px; display: inline-block; margin-top: 0.25rem; margin-left: 1.5rem;">cd $env:USERPROFILE\Downloads</code><br><br>
-                                        <strong>3. Ejecuta el script con este comando:</strong><br>
-                                        <code style="background: white; padding: 0.3rem 0.5rem; border-radius: 3px; display: inline-block; margin-top: 0.25rem; margin-left: 1.5rem;">powershell -ExecutionPolicy Bypass -File .\instalar-impresora-[nombre].ps1</code><br>
-                                        <small style="color: #856404; margin-left: 1.5rem; display: inline-block; margin-top: 0.25rem;">(Reemplaza [nombre] con el nombre real del archivo)</small>
-                                    </p>
-                                </div>
-                                
-                                <div class="client-content" id="linux-client">
-                                    <h4>Linux:</h4>
-                                    <ol>
-                                        <li>Abre "Configuración del sistema" → "Impresoras"</li>
-                                        <li>Haz clic en "Agregar" o "+"</li>
-                                        <li>Selecciona "Impresora de red" → "Impresora IPP"</li>
-                                        <li>Ingresa la URL IPP mostrada arriba</li>
-                                    </ol>
-                                    <p><strong>O usa este comando:</strong></p>
-                                    <code class="command-block selectable" id="linuxCommand"></code>
-                                    <button class="btn-copy" onclick="copyToClipboard('linuxCommand')"><i class="fas fa-copy"></i> Copiar</button>
-                                </div>
-                                
-                                <div class="client-content" id="macos-client">
-                                    <h4>macOS:</h4>
-                                    <ol>
-                                        <li>Abre "Preferencias del Sistema" → "Impresoras y Escáneres"</li>
-                                        <li>Haz clic en el botón "+" para agregar una impresora</li>
-                                        <li>Mantén presionada la tecla "Option" y haz clic en "Avanzado"</li>
-                                        <li>Selecciona "Impresora de Internet - IPP"</li>
-                                        <li>Ingresa la URL IPP mostrada arriba</li>
-                                        <li>Selecciona el controlador apropiado</li>
-                                    </ol>
-                                </div>
-                            </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-building"></i>
                         </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                        <div class="feature-title">Departamentos</div>
+                        <div class="feature-description">Organiza impresoras por departamento</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-share-alt"></i>
+                        </div>
+                        <div class="feature-title">Compartir Impresoras</div>
+                        <div class="feature-description">Comparte impresoras locales en la red</div>
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="feature-title">Usuarios</div>
+                        <div class="feature-description">Gestiona usuarios y permisos</div>
                     </div>
                 </div>
             </div>
             
-            <!-- CTA Section dentro del card -->
+
+            <!-- CTA Section -->
             <div class="cta-section">
                 <a href="/login" class="btn-cta">
                     <i class="fas fa-sign-in-alt"></i>
                     <span>Iniciar Sesión</span>
                 </a>
-              
+
+                <div class="cta-note">
+                    <i class="fas fa-lock"></i> Acceso seguro para administradores
+                </div>
             </div>
         </div>
     </div>
@@ -496,49 +527,49 @@
     <footer>
         <div class="container">
             <p><strong>Sistema de Gestión de Impresoras</strong></p>
-            <p class="footer-info">UEB - Dirección de Tics &copy; <span id="currentYear">2024</span></p>
+            <p class="footer-info">UEB - Dirección de TiCs &copy; <span id="currentYear">2024</span></p>
         </div>
     </footer>
     
-    <!-- JavaScript para compartir impresoras -->
-    <script src="/js/notifications.js"></script>
-    <script src="/js/home-printer-sharing.js"></script>
+
+
+
     <script>
-        // Cargar impresoras desde la API al cargar la página
-        document.addEventListener('DOMContentLoaded', function() {
-            loadPrinters();
-        });
-        
-        async function loadPrinters() {
-            try {
-                const response = await fetch('/api/printers');
-                const data = await response.json();
-                
-                const serverIp = data.serverIp;
-                const printers = data.printers;
-                
-                const select = document.getElementById('printerSelect');
-                select.innerHTML = '<option value="">-- Selecciona una impresora --</option>';
-                
-                printers.forEach(printer => {
-                    const option = document.createElement('option');
-                    // El value ahora es el ID de la impresora
-                    option.value = printer.id;
-                    // Mostrar solo el nombre/alias de la impresora
-                    option.textContent = printer.alias;
-                    // Guardar la URI IPP ya construida correctamente
-                    option.dataset.ippuri = printer.ippUri;
-                    option.dataset.name = printer.alias;
-                    select.appendChild(option);
-                });
-                
-                console.log(`✅ Cargadas ${printers.length} impresoras desde el servidor ${serverIp}`);
-                console.log('Todas las impresoras usan la IP del servidor:', serverIp);
-            } catch (error) {
-                console.error('❌ Error cargando impresoras:', error);
-            }
-        }
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         // Actualizar año automáticamente
         document.getElementById('currentYear').textContent = new Date().getFullYear();
     </script>

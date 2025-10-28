@@ -234,4 +234,4 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-console.log('✅ Sistema de notificaciones cargado');
+

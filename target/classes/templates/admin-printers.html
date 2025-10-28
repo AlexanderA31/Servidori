@@ -96,7 +96,7 @@
                                         <th>Ubicación</th>
                                         <th>Dirección IP</th>
                                         <th>Puerto IPP</th>
-                                        <th>URI</th>
+                                        <th>Creada por</th>
                                         <th>Acciones</th>
                                     </tr>
                                 </thead>
@@ -120,13 +120,16 @@
                                             <span th:unless="${printer.ippPort}" class="text-muted">--</span>
                                         </td>
                                         <td>
-                                            <code th:if="${printer.deviceUri}" th:text="${printer.deviceUri}">URI</code>
-                                            <span th:unless="${printer.deviceUri}" class="text-muted">--</span>
+                                            <div th:if="${printer.instance != null}" class="user-info-cell">
+                                                <i class="fas fa-user"></i>
+                                                <span th:text="${printer.instance.username}">admin</span>
+                                            </div>
+                                            <span th:unless="${printer.instance != null}" class="text-muted">--</span>
                                         </td>
                                         <td>
                                             <div class="action-buttons">
                                                 <button class="btn btn-sm btn-primary" 
-                                                        th:attr="data-id=${printer.id}, data-alias=${printer.alias}, data-model=${printer.model}, data-location=${printer.location}, data-ip=${printer.ip}"
+                                                        th:attr="data-id=${printer.id}, data-alias=${printer.alias}, data-model=${printer.model}, data-location=${printer.location}, data-ip=${printer.ip}, data-deviceuri=${printer.deviceUri}, data-protocol=${printer.protocol}, data-port=${printer.port}, data-ippport=${printer.ippPort}"
                                                         onclick="openEditPrinterModal(this.dataset)"
                                                         title="Editar">
                                                     <i class="fas fa-edit"></i>

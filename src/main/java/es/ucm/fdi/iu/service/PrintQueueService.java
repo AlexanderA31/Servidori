@@ -61,6 +61,9 @@ public class PrintQueueService {
     
     // Estado del servicio
     private volatile boolean running = false;
+    
+    // Cache de último conteo de trabajos para optimización
+    private volatile long lastJobCount = -1;
 
     @PostConstruct
     public void init() {
@@ -228,6 +231,8 @@ public class PrintQueueService {
             
             if (success) {
                 log.info("✅ Trabajo {} completado exitosamente", job.getId());
+                // Esperar 5 segundos antes de eliminar para que sea visible en la interfaz
+                Thread.sleep(5000);
                 removeJob(job);
             } else {
                 log.error("❌ Trabajo {} falló después de {} intentos", job.getId(), MAX_RETRIES);
@@ -380,16 +385,41 @@ public class PrintQueueService {
             
             while (running) {
                 try {
-                    // Obtener todas las impresoras con trabajos pendientes
-                    @SuppressWarnings("unchecked")
-                    List<Printer> printersWithJobs = entityManager.createQuery(
-                        "SELECT DISTINCT p FROM Printer p JOIN p.queue j")
-                        .getResultList();
+                    // Primero verificar si hay trabajos pendientes con una consulta ligera
+                    Long jobCount = (Long) entityManager.createQuery(
+                        "SELECT COUNT(j) FROM Job j")
+                        .getSingleResult();
                     
-                    // Procesar cola de cada impresora
-                    for (Printer printer : printersWithJobs) {
-                        if (!running) break;
-                        processQueue(printer);
+                    // Solo consultar las impresoras si hay trabajos
+                    if (jobCount > 0) {
+                        // Log solo cuando cambia el estado
+                        if (lastJobCount <= 0) {
+                            log.debug("📋 Detectados {} trabajos en cola, iniciando procesamiento", jobCount);
+                        }
+                        lastJobCount = jobCount;
+                        
+                        // Obtener solo los IDs de impresoras con trabajos (más eficiente)
+                        @SuppressWarnings("unchecked")
+                        List<Long> printerIds = entityManager.createQuery(
+                            "SELECT DISTINCT j.printer.id FROM Job j")
+                            .getResultList();
+                        
+                        // Procesar cola de cada impresora
+                        for (Long printerId : printerIds) {
+                            if (!running) break;
+                            
+                            // Obtener impresora y procesar
+                            Printer printer = entityManager.find(Printer.class, printerId);
+                            if (printer != null) {
+                                processQueue(printer);
+                            }
+                        }
+                    } else {
+                        // Log solo cuando cambia el estado a vacío
+                        if (lastJobCount > 0) {
+                            log.debug("✅ Cola vacía, esperando nuevos trabajos...");
+                        }
+                        lastJobCount = 0;
                     }
                     
                     // Esperar antes del siguiente ciclo

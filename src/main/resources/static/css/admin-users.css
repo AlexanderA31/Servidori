@@ -1,0 +1,105 @@
+/* ========== ADMIN USERS CSS ========== */
+/* Este CSS extiende los estilos de admin-departments.css */
+
+/* Celda de Usuario - Estilos específicos */
+.user-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: #0B283F;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.user-icon-admin {
+    background: #0B283F !important;
+}
+
+.user-icon-tech {
+    background: #0B283F !important;
+}
+
+/* Badges de Rol - Estilos específicos */
+.role-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.role-badge-admin {
+    background: #f3f4f6;
+    color: #0B283F;
+}
+
+.role-badge-tech {
+    background: #f3f4f6;
+    color: #0B283F;
+}
+
+/* Badges de estado */
+.status-badge.status-active {
+    background: #dcfce7;
+    color: #166534;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    display: inline-block;
+}
+
+.status-badge.status-inactive {
+    background: #fee2e2;
+    color: #991b1b;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    display: inline-block;
+    opacity: 0.8;
+}
+
+/* Ayudas de formulario */
+.form-group small {
+    display: block;
+    margin-top: 6px;
+    color: #718096;
+    font-size: 0.85rem;
+}
+
+/* Responsive específico de usuarios */
+@media (max-width: 768px) {
+    .user-name-cell {
+        gap: 8px;
+    }
+    
+    .user-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+    }
+    
+    .role-badge {
+        font-size: 0.75rem;
+        padding: 4px 10px;
+    }
+    
+    /* Ocultar columna ID en móvil */
+    .data-table thead th:nth-child(4),
+    .data-table tbody td:nth-child(4) {
+        display: none;
+    }
+}

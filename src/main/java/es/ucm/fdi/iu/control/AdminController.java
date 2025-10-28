@@ -548,33 +548,72 @@ public class AdminController {
     }
     */
     
-    // ========== SECCIÓN: USUARIOS ========== (DESHABILITADA)
+        // ========== SECCIÓN: COMPARTIR IMPRESORAS ==========
     
-        /*
+    @GetMapping("/share-printers")
+    @Transactional
+    public String sharePrinters(Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
+        try {
+            User currentUser = (User) session.getAttribute("u");
+            model.addAttribute("currentUri", request.getRequestURI());
+            
+            log.info("Share printers section loaded");
+            return "admin-share-printers";
+        } catch (Exception e) {
+            log.error("Error loading share printers section", e);
+            model.addAttribute("error", "Error al cargar la sección: " + e.getMessage());
+            return "error";
+        }
+    }
+    
+    // ========== SECCIÓN: USUARIOS ==========
+    
     @GetMapping("/users")
     @Transactional
-    public String users(Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
+    public String users(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
         try {
             User currentUser = (User) session.getAttribute("u");
             
-            // Cargar todos los usuarios
-            List<User> allUsers = entityManager.createQuery(
+            Pageable pageable = PageRequest.of(page, size);
+            
+            // Cargar todos los usuarios con paginación
+            List<User> allUsersList = entityManager.createQuery(
                     "SELECT u FROM User u ORDER BY u.username", User.class)
                     .getResultList();
             
+            // Aplicar paginación
+            int start = Math.min((int) pageable.getOffset(), allUsersList.size());
+            int end = Math.min((start + pageable.getPageSize()), allUsersList.size());
+            List<User> usersPage = start < allUsersList.size() ? allUsersList.subList(start, end) : java.util.Collections.emptyList();
+            Page<User> allUsers = new PageImpl<>(usersPage, pageable, allUsersList.size());
+            
+            // Contar usuarios por rol
+            long totalUsers = allUsersList.size();
+            long adminUsers = allUsersList.stream()
+                    .filter(u -> u.getRoles() != null && u.getRoles().contains("ADMIN"))
+                    .count();
+            long techUsers = allUsersList.stream()
+                    .filter(u -> u.getRoles() != null && !u.getRoles().contains("ADMIN"))
+                    .count();
+            
             model.addAttribute("allUsers", allUsers);
+            model.addAttribute("totalUsers", totalUsers);
+            model.addAttribute("adminUsers", adminUsers);
+            model.addAttribute("techUsers", techUsers);
             model.addAttribute("currentUserId", currentUser != null ? currentUser.getId() : -1);
             model.addAttribute("currentUri", request.getRequestURI());
             
-            log.info("Users section loaded with {} users", allUsers.size());
+            log.info("Users section loaded with {} users", totalUsers);
             return "admin-users";
         } catch (Exception e) {
             log.error("Error loading users section", e);
             model.addAttribute("error", "Error al cargar usuarios: " + e.getMessage());
-                        return "error";
+            return "error";
         }
     }
-    */
 
     // ========== GESTIÓN DE DEPARTAMENTOS ==========
     
@@ -832,25 +871,39 @@ public class AdminController {
         return "redirect:/admin/departments";
     }
     
-        // ========== GESTIÓN DE USUARIOS ========== (DESHABILITADA)
+            // ========== GESTIÓN DE USUARIOS ==========
     
-    /*
-    @PostMapping("/adduser")
+    @PostMapping("/add-user")
     @Transactional
     public String addUser(
             @RequestParam String username,
             @RequestParam String password,
-            @RequestParam(required = false) String roles,
+            @RequestParam String role,
+            HttpSession session,
             RedirectAttributes ra) {
         try {
+            // Verificar que el usuario no exista
+            Long count = entityManager.createNamedQuery("User.hasUsername", Long.class)
+                    .setParameter("username", username)
+                    .getSingleResult();
+            
+            if (count > 0) {
+                ra.addFlashAttribute("error", "El nombre de usuario ya existe");
+                return "redirect:/admin/users";
+            }
+            
             User user = new User();
             user.setUsername(username);
             user.setPassword(passwordEncoder.encode(password));
             user.setEnabled(true);
-            user.setRoles(roles != null && !roles.isEmpty() ? roles : "USER");
+            user.setRoles(role);
             
-                        entityManager.persist(user);
-            ra.addFlashAttribute("success", "Usuario creado exitosamente");
+            entityManager.persist(user);
+            
+            String roleName = role.equals("ADMIN") ? "Administrador" : "Técnico";
+            ra.addFlashAttribute("success", "Usuario creado exitosamente: " + username + " (" + roleName + ")");
+            
+            log.info("✅ Usuario creado: {} con rol {}", username, role);
         } catch (Exception e) {
             log.error("Error creating user", e);
             ra.addFlashAttribute("error", "Error al crear usuario: " + e.getMessage());
@@ -858,13 +911,13 @@ public class AdminController {
         return "redirect:/admin/users";
     }
 
-    @PostMapping("/edituser")
+    @PostMapping("/edit-user")
     @Transactional
     public String editUser(
             @RequestParam Long id,
             @RequestParam String username,
             @RequestParam(required = false) String password,
-            @RequestParam String roles,
+            @RequestParam String role,
             RedirectAttributes ra) {
         try {
             User user = entityManager.find(User.class, id);
@@ -872,9 +925,16 @@ public class AdminController {
                 user.setUsername(username);
                 if (password != null && !password.isEmpty()) {
                     user.setPassword(passwordEncoder.encode(password));
+                    log.info("🔐 Contraseña actualizada para usuario: {}", username);
                 }
-                                user.setRoles(roles);
-                ra.addFlashAttribute("success", "Usuario actualizado exitosamente");
+                user.setRoles(role);
+                
+                String roleName = role.equals("ADMIN") ? "Administrador" : "Técnico";
+                ra.addFlashAttribute("success", "Usuario actualizado: " + username + " (" + roleName + ")");
+                
+                log.info("✅ Usuario editado: {} con rol {}", username, role);
+            } else {
+                ra.addFlashAttribute("error", "Usuario no encontrado");
             }
         } catch (Exception e) {
             log.error("Error editing user", e);
@@ -883,7 +943,7 @@ public class AdminController {
         return "redirect:/admin/users";
     }
 
-    @PostMapping("/deleteuser")
+    @PostMapping("/delete-user")
     @Transactional
     public String deleteUser(@RequestParam Long id, RedirectAttributes ra) {
         try {
@@ -893,9 +953,13 @@ public class AdminController {
                 if (user.getId() == 1) {
                     ra.addFlashAttribute("error", "No se puede eliminar el administrador principal");
                 } else {
+                    String username = user.getUsername();
                     entityManager.remove(user);
-                    ra.addFlashAttribute("success", "Usuario eliminado exitosamente");
-                                }
+                    ra.addFlashAttribute("success", "Usuario eliminado: " + username);
+                    log.info("✅ Usuario eliminado: {}", username);
+                }
+            } else {
+                ra.addFlashAttribute("error", "Usuario no encontrado");
             }
         } catch (Exception e) {
             log.error("Error deleting user", e);
@@ -904,22 +968,30 @@ public class AdminController {
         return "redirect:/admin/users";
     }
 
-    @PostMapping("/toggleuser")
+    @PostMapping("/toggle-user")
     @Transactional
     public String toggleUser(@RequestParam Long id, RedirectAttributes ra) {
         try {
             User user = entityManager.find(User.class, id);
             if (user != null) {
-                user.setEnabled(!user.isEnabled());
-                                ra.addFlashAttribute("success", "Estado del usuario actualizado");
+                // No permitir desactivar al admin principal
+                if (user.getId() == 1 && user.isEnabled()) {
+                    ra.addFlashAttribute("error", "No se puede desactivar el administrador principal");
+                } else {
+                    user.setEnabled(!user.isEnabled());
+                    String status = user.isEnabled() ? "activado" : "desactivado";
+                    ra.addFlashAttribute("success", "Usuario " + status + ": " + user.getUsername());
+                    log.info("✅ Usuario {}: {}", status, user.getUsername());
+                }
+            } else {
+                ra.addFlashAttribute("error", "Usuario no encontrado");
             }
         } catch (Exception e) {
             log.error("Error toggling user", e);
             ra.addFlashAttribute("error", "Error al cambiar estado: " + e.getMessage());
         }
-                return "redirect:/admin/users";
+        return "redirect:/admin/users";
     }
-    */
 
     // ========== DESCUBRIMIENTO DE IMPRESORAS ==========
     
@@ -990,10 +1062,27 @@ public class AdminController {
         return "redirect:/admin/printers?scanning=true";
     }
     
-            @GetMapping("/scan-status")
+                        @GetMapping("/scan-status")
     @ResponseBody
     public PrinterDiscoveryService.ScanStatus getScanStatus() {
         return printerDiscoveryService.getScanStatus();
+    }
+    
+    @PostMapping("/cancel-scan")
+    @ResponseBody
+    public Map<String, Object> cancelScan() {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            printerDiscoveryService.cancelScan();
+            response.put("success", true);
+            response.put("message", "Escaneo cancelado exitosamente");
+            log.info("✅ Escaneo cancelado por el usuario");
+        } catch (Exception e) {
+            log.error("❌ Error al cancelar escaneo", e);
+            response.put("success", false);
+            response.put("error", e.getMessage());
+        }
+        return response;
     }
     
     @GetMapping("/printqueues/stats")
@@ -1179,7 +1268,7 @@ public class AdminController {
         return "redirect:/admin/printers";
     }
 
-                @PostMapping("/edit-printer")
+                                @PostMapping("/edit-printer")
     @Transactional
     public String editPrinter(
             @RequestParam Long id,
@@ -1187,6 +1276,9 @@ public class AdminController {
             @RequestParam String model,
             @RequestParam String location,
             @RequestParam String ip,
+            @RequestParam(required = false) String deviceUri,
+            @RequestParam(required = false) String protocol,
+            @RequestParam(required = false) Integer port,
             @RequestParam(defaultValue = "false") boolean shareViaSamba,
             RedirectAttributes ra) {
         try {
@@ -1199,6 +1291,9 @@ public class AdminController {
                 printer.setModel(model);
                 printer.setLocation(location);
                 printer.setIp(ip);
+                printer.setDeviceUri(deviceUri);
+                printer.setProtocol(protocol);
+                printer.setPort(port);
                 
                 log.info("========================================");
                 log.info("IMPRESORA ACTUALIZADA");

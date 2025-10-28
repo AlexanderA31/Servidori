@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="scripts">
+        <script>
+            // Abrir modal de editar usuario
+            function openEditUserModal(data) {
+                document.getElementById('editUserId').value = data.id;
+                document.getElementById('editUserUsername').value = data.username;
+                document.getElementById('editUserPassword').value = '';
+                
+                // Determinar el rol basado en los roles del usuario
+                const roles = data.roles || '';
+                const role = roles.includes('ADMIN') ? 'ADMIN' : 'USER';
+                document.getElementById('editUserRole').value = role;
+                
+                openModal('editUserModal');
+            }
+        </script>
+    </th:block>
+</body>
+</html>

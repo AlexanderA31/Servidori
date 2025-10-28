@@ -45,11 +45,14 @@ public class PrinterDiscoveryService {
     
     // Estado del escaneo
     private volatile boolean scanning = false;
+    private volatile boolean cancelRequested = false;
     private volatile int totalHosts = 0;
     private volatile int scannedHosts = 0;
     private volatile int foundPrinters = 0;
     private volatile String currentNetwork = "";
     private volatile long scanStartTime = 0;
+    private ExecutorService currentExecutor = null;
+    private Thread scanThread = null; // Referencia al hilo principal de escaneo
 
     // Puertos comunes para impresoras de red
     private static final int[] PRINTER_PORTS = {9100, 631, 515}; // RAW, IPP, LPD
@@ -102,7 +105,11 @@ public class PrinterDiscoveryService {
      * Escanea la red y descubre todas las impresoras disponibles
      */
     public List<DiscoveredPrinter> discoverNetworkPrinters() {
+        // Guardar referencia al hilo actual
+        scanThread = Thread.currentThread();
+        
         scanning = true;
+        cancelRequested = false;
         scannedHosts = 0;
         foundPrinters = 0;
         scanStartTime = System.currentTimeMillis();
@@ -110,7 +117,8 @@ public class PrinterDiscoveryService {
         log.info("========================================");
         log.info("Iniciando descubrimiento de impresoras en red...");
         List<DiscoveredPrinter> discovered = new CopyOnWriteArrayList<>();
-        ExecutorService executor = Executors.newFixedThreadPool(50);
+        currentExecutor = Executors.newFixedThreadPool(50);
+        ExecutorService executor = currentExecutor;
         
         // Obtener rangos de red configurados
         List<String> networkRanges = getNetworkRangesToScan();
@@ -131,6 +139,12 @@ public class PrinterDiscoveryService {
             
             // Escanear cada rango de red en paralelo
             for (String networkRange : networkRanges) {
+                // Verificar interrupción del hilo
+                if (Thread.currentThread().isInterrupted() || cancelRequested) {
+                    log.info("⚠️ Escaneo cancelado (hilo interrumpido o cancelRequested)");
+                    break;
+                }
+                
                 List<String> ips = generateIPsFromRange(networkRange);
                 log.info("Añadiendo rango al escaneo: {} ({} IPs)", networkRange, ips.size());
                 
@@ -138,8 +152,20 @@ public class PrinterDiscoveryService {
                 
                 // Agregar todos los hosts de esta red al pool
                 for (String ip : ips) {
+                    // Verificar si se solicitó cancelación o interrupción
+                    if (Thread.currentThread().isInterrupted() || cancelRequested) {
+                        log.info("⚠️ Escaneo cancelado por el usuario");
+                        break;
+                    }
+                    
                     allFutures.add(executor.submit(() -> {
                         try {
+                            // Verificar cancelación o interrupción antes de escanear
+                            if (Thread.currentThread().isInterrupted() || cancelRequested) {
+                                scannedHosts++; // Contar como escaneado aunque se canceló
+                                return;
+                            }
+                            
                             currentNetwork = currentRange; // Actualizar red actual
                             DiscoveredPrinter printer = scanIPForPrinter(ip);
                             if (printer != null) {
@@ -154,6 +180,11 @@ public class PrinterDiscoveryService {
                             scannedHosts++;
                         }
                     }));
+                }
+                
+                // Si se canceló, salir del loop de redes
+                if (cancelRequested) {
+                    break;
                 }
                     }
             
@@ -171,30 +202,92 @@ public class PrinterDiscoveryService {
                 }
             }
         } finally {
-            executor.shutdown();
-            try {
-                // Esperar máximo 5 minutos por el shutdown
-                if (!executor.awaitTermination(5, TimeUnit.MINUTES)) {
+            // Si no fue cancelado externamente, hacer shutdown normal
+            if (!cancelRequested) {
+                executor.shutdown();
+                try {
+                    // Esperar máximo 5 minutos para completar normalmente
+                    if (!executor.awaitTermination(300, TimeUnit.SECONDS)) {
+                        log.warn("⚠️ Timeout esperando fin del escaneo, forzando...");
+                        executor.shutdownNow();
+                    }
+                } catch (InterruptedException e) {
+                    log.warn("⚠️ Escaneo interrumpido");
                     executor.shutdownNow();
-                    log.warn("Escaneo forzado a terminar por timeout");
+                    Thread.currentThread().interrupt();
                 }
-            } catch (InterruptedException e) {
-                executor.shutdownNow();
-                Thread.currentThread().interrupt();
             }
+            // Si fue cancelado, el executor ya fue detenido por cancelScan()
             
             // Asegurar que llegue al 100%
             scannedHosts = totalHosts;
+            
+            // Limpiar estado
+            boolean wasCancelled = cancelRequested || Thread.currentThread().isInterrupted();
             scanning = false;
+            cancelRequested = false;
+            currentExecutor = null;
+            scanThread = null;
+            
+            if (wasCancelled) {
+                log.info("✅ Escaneo cancelado - limpieza completada");
+                // Limpiar la bandera de interrupción si existe
+                Thread.interrupted();
+            }
         }
         
         long duration = (System.currentTimeMillis() - scanStartTime) / 1000;
         log.info("========================================");
-        log.info("Descubrimiento completado en {} segundos", duration);
+        boolean wasCancelled = cancelRequested || Thread.currentThread().isInterrupted();
+        if (wasCancelled) {
+            log.info("⚠️ Escaneo CANCELADO después de {} segundos", duration);
+        } else {
+            log.info("✅ Descubrimiento COMPLETADO en {} segundos", duration);
+        }
         log.info("Hosts escaneados: {}/{}", scannedHosts, totalHosts);
         log.info("Impresoras encontradas: {}", discovered.size());
         log.info("========================================");
         return discovered;
+    }
+    
+    /**
+     * Cancela el escaneo en progreso INMEDIATAMENTE
+     */
+    public void cancelScan() {
+        log.info("⚠️ Solicitando cancelación INMEDIATA del escaneo...");
+        
+        // Marcar como cancelado primero
+        cancelRequested = true;
+        
+        // 1. Detener el ExecutorService inmediatamente
+        if (currentExecutor != null) {
+            log.info("🛑 Deteniendo executor con {} tareas...", currentExecutor);
+            List<Runnable> pendingTasks = currentExecutor.shutdownNow();
+            log.info("⚠️ {} tareas pendientes canceladas", pendingTasks.size());
+            
+            try {
+                // Esperar máximo 1 segundo a que terminen los hilos
+                if (!currentExecutor.awaitTermination(1, TimeUnit.SECONDS)) {
+                    log.warn("⚠️ Algunos hilos del executor no respondieron");
+                }
+            } catch (InterruptedException e) {
+                log.warn("⚠️ Interrupción durante espera del executor");
+            }
+        }
+        
+        // 2. Intentar interrumpir el hilo principal del escaneo
+        if (scanThread != null && scanThread.isAlive()) {
+            log.info("🛑 Interrumpiendo hilo principal de escaneo...");
+            scanThread.interrupt();
+        }
+        
+        // 3. Forzar estado a completado/cancelado
+        scanning = false;
+        scannedHosts = totalHosts; // Marcar como completo para que el progreso sea 100%
+        currentExecutor = null;
+        scanThread = null;
+        
+        log.info("✅ Escaneo cancelado exitosamente");
     }
     
     /**
@@ -203,6 +296,7 @@ public class PrinterDiscoveryService {
     public ScanStatus getScanStatus() {
         ScanStatus status = new ScanStatus();
         status.setScanning(scanning);
+        status.setCancelled(cancelRequested);
         status.setTotalHosts(totalHosts);
         status.setScannedHosts(scannedHosts);
         status.setFoundPrinters(foundPrinters);
@@ -216,12 +310,17 @@ public class PrinterDiscoveryService {
             status.setProgress(0);
         }
         
-        if (scanning && scanStartTime > 0) {
+        // Si fue cancelado, marcar progreso al 100% para cerrar la barra
+        if (cancelRequested && !scanning) {
+            status.setProgress(100);
+        }
+        
+        if (scanStartTime > 0) {
             long elapsed = (System.currentTimeMillis() - scanStartTime) / 1000;
             status.setElapsedTime(elapsed);
             
-            // Estimar tiempo restante
-            if (scannedHosts > 0) {
+            // Estimar tiempo restante solo si está activo
+            if (scanning && scannedHosts > 0) {
                 long totalEstimated = (elapsed * totalHosts) / scannedHosts;
                 status.setEstimatedRemaining(totalEstimated - elapsed);
             }
@@ -756,6 +855,7 @@ public class PrinterDiscoveryService {
      */
     public static class ScanStatus {
         private boolean scanning;
+        private boolean cancelled;
         private int totalHosts;
         private int scannedHosts;
         private int foundPrinters;
@@ -767,6 +867,9 @@ public class PrinterDiscoveryService {
         // Getters y Setters
         public boolean isScanning() { return scanning; }
         public void setScanning(boolean scanning) { this.scanning = scanning; }
+        
+        public boolean isCancelled() { return cancelled; }
+        public void setCancelled(boolean cancelled) { this.cancelled = cancelled; }
         
         public int getTotalHosts() { return totalHosts; }
         public void setTotalHosts(int totalHosts) { this.totalHosts = totalHosts; }

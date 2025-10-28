@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="fragments/head :: header"/>
+    <title>Gestión de Usuarios</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <link rel="stylesheet" th:href="@{/css/admin-sidebar.css}"/>
+    <link rel="stylesheet" th:href="@{/css/admin-modern.css}"/>
+    <link rel="stylesheet" th:href="@{/css/admin-departments.css}"/>
+    <link rel="stylesheet" th:href="@{/css/admin-users.css}"/>
+    <link rel="stylesheet" th:href="@{/css/admin-sidebar-override.css}"/>
+    <link rel="stylesheet" th:href="@{/css/pagination.css}"/>
+</head>
+<body>
+    <nav th:replace="fragments/nav.html :: nav"></nav>
+    <div th:if="${success}" class="alert alert-success alert-fixed">
+        <span th:text="${success}"></span>
+    </div>
+    <div th:if="${error}" class="alert alert-error alert-fixed">
+        <span th:text="${error}"></span>
+    </div>
+
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside th:replace="fragments/admin-sidebar.html :: sidebar"></aside>
+        
+        <!-- Contenido Principal -->
+        <div class="admin-content">
+            <div class="departments-container">
+                <!-- Header -->
+                <div class="departments-header">
+                    <h1><i class="fas fa-users"></i> Gestión de Usuarios</h1>
+                    <p>Administra los usuarios del sistema con roles Admin y Técnico</p>
+                </div>
+                
+                <!-- Acciones -->
+                <div class="departments-actions">
+                    <button class="btn btn-primary" onclick="openModal('addUserModal')">
+                        <i class="fas fa-plus"></i> Agregar Usuario
+                    </button>
+                </div>
+                
+                <!-- Estadísticas -->
+                <div class="departments-stats">
+                    <div class="dept-stat-card">
+                        <div class="dept-stat-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="dept-stat-value" th:text="${totalUsers != null ? totalUsers : 0}">0</div>
+                        <div class="dept-stat-label">Total de Usuarios</div>
+                    </div>
+                    <div class="dept-stat-card">
+                        <div class="dept-stat-icon">
+                            <i class="fas fa-user-shield"></i>
+                        </div>
+                        <div class="dept-stat-value" th:text="${adminUsers != null ? adminUsers : 0}">0</div>
+                        <div class="dept-stat-label">Administradores</div>
+                    </div>
+                    <div class="dept-stat-card">
+                        <div class="dept-stat-icon">
+                            <i class="fas fa-user-cog"></i>
+                        </div>
+                        <div class="dept-stat-value" th:text="${techUsers != null ? techUsers : 0}">0</div>
+                        <div class="dept-stat-label">Técnicos</div>
+                    </div>
+                </div>
+
+                <!-- Lista de Usuarios -->
+                <div class="departments-table-card">
+                    <div class="card-header">
+                        <span><i class="fas fa-list"></i> Todos los Usuarios</span>
+                    </div>
+                    
+                    <div th:if="${allUsers == null || allUsers.totalElements == null || allUsers.totalElements == 0}" class="card-body">
+                        <div class="empty-state">
+                            <div class="empty-state-icon"><i class="fas fa-users"></i></div>
+                            <p>No hay usuarios registrados</p>
+                            <button class="btn btn-primary" onclick="openModal('addUserModal')">
+                                <i class="fas fa-plus"></i> Agregar Primer Usuario
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div th:unless="${allUsers == null || allUsers.totalElements == null || allUsers.totalElements == 0}" class="card-body">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th>Rol</th>
+                                    <th>Estado</th>
+                                    <th>ID</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="user : ${allUsers.content != null ? allUsers.content : allUsers}">
+                                    <td>
+                                        <div class="user-name-cell">
+                                            <div class="user-icon" th:classappend="${user.roles != null && user.roles.contains('ADMIN') ? 'user-icon-admin' : 'user-icon-tech'}">
+                                                <i class="fas" th:classappend="${user.roles != null && user.roles.contains('ADMIN') ? 'fa-user-shield' : 'fa-user-cog'}"></i>
+                                            </div>
+                                            <strong th:text="${user.username}">username</strong>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="role-badge" 
+                                              th:classappend="${user.roles != null && user.roles.contains('ADMIN') ? 'role-badge-admin' : 'role-badge-tech'}"
+                                              th:text="${user.roles != null && user.roles.contains('ADMIN') ? 'Admin' : 'Técnico'}">
+                                            Admin
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span th:if="${user.enabled}" class="status-badge status-active">Activo</span>
+                                        <span th:unless="${user.enabled}" class="status-badge status-inactive">Inactivo</span>
+                                    </td>
+                                    <td th:text="${user.id}">--</td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="btn btn-sm btn-primary" 
+                                                    th:attr="data-id=${user.id}, data-username=${user.username}, data-roles=${user.roles}"
+                                                    onclick="openEditUserModal(this.dataset)"
+                                                    title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <form method="post" th:action="@{/admin/toggle-user(id=${user.id})}" 
+                                                  class="d-inline">
+                                                <button type="submit" 
+                                                        class="btn btn-sm"
+                                                        th:classappend="${user.enabled ? 'btn-warning' : 'btn-success'}"
+                                                        th:title="${user.enabled ? 'Desactivar' : 'Activar'}">
+                                                    <i class="fas" th:classappend="${user.enabled ? 'fa-ban' : 'fa-check'}"></i>
+                                                </button>
+                                            </form>
+                                            <form method="post" th:action="@{/admin/delete-user(id=${user.id})}" 
+                                                  class="d-inline" 
+                                                  th:if="${user.id != 1}"
+                                                  onsubmit="return confirm('⚠️ ¿Eliminar usuario?')">
+                                                <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <!-- Paginación -->
+                        <div th:if="${allUsers.content != null}" th:replace="fragments/pagination :: pagination(${allUsers}, '/admin/users')"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALES -->
+    <div th:replace="fragments/admin-users-modals :: modals"></div>
+    
+    <!-- Barra de progreso minimizada GLOBAL -->
+    <div th:replace="fragments/scan-progress-minimized.html :: minimized-bar"></div>
+
+    <script th:src="@{/js/admin.js}"></script>
+    <script th:src="@{/js/scan-monitor-global.js}"></script>
+    <script th:src="@{/js/pagination.js}"></script>
+    <script th:src="@{/js/form-confirmations.js}"></script>
+    <script th:replace="fragments/admin-users-scripts :: scripts"></script>
+</body>
+</html>

@@ -8,6 +8,20 @@
             document.getElementById('editPrinterModel').value = data.model;
             document.getElementById('editPrinterLocation').value = data.location;
             document.getElementById('editPrinterIp').value = data.ip;
+            
+            // Campos informativos del servidor IPP
+            const ippPort = data.ippport || '--';
+            document.getElementById('editPrinterIppPort').value = ippPort;
+            
+            // Construir URL IPP del servidor
+            let ippUrl = '--';
+            if (data.ippport) {
+                // Obtener la IP del servidor desde el navegador
+                const serverIp = window.location.hostname;
+                ippUrl = 'ipp://' + serverIp + ':' + data.ippport + '/printers/' + (data.alias || 'printer');
+            }
+            document.getElementById('editPrinterIppUrl').value = ippUrl;
+            
             openModal('editPrinterModal');
         }
         
@@ -88,16 +102,71 @@
             window.restoreScanModalDirect();
         }
         
-        function forceComplete() {
-            clearInterval(scanInterval);
-            document.getElementById('progressBar').style.width = '100%';
-            document.getElementById('scanProgress').textContent = '100%';
-            document.getElementById('scanMessage').innerHTML = 
-                '✅ <strong>Escaneo Finalizado</strong><br>Recargando página...';
-            setTimeout(() => {
-                window.location.href = '/admin/printers';
-            }, 2000);
-        }
+        window.cancelScan = function() {
+         
+            
+            if (!confirm('Seguro de cancelar el escaneo?')) {
+              
+                return;
+            }
+            
+          
+            
+            const btn = document.getElementById('forceCompleteBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = 'Cancelando...';
+            }
+            
+            const formData = new FormData();
+            if (typeof config !== 'undefined' && config.csrf && config.csrf.name) {
+                formData.append(config.csrf.name, config.csrf.value);
+              
+            } else {
+                console.warn('No CSRF');
+            }
+
+      
+            
+            fetch('/admin/cancel-scan', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+              
+                return response.json();
+            })
+            .then(data => {
+               
+                if (data.success) {
+                
+                    clearInterval(scanInterval);
+                    document.getElementById('progressBar').style.width = '100%';
+                    document.getElementById('scanProgress').textContent = '100%';
+                    document.getElementById('scanMessage').innerHTML = 'Escaneo Cancelado - Recargando...';
+                    sessionStorage.removeItem('scanMinimizedState');
+                    document.getElementById('scanProgressMinimized').style.display = 'none';
+                    setTimeout(() => {
+                        window.location.href = '/admin/printers';
+                    }, 2000);
+                } else {
+                    console.error('Error:', data.error);
+                    alert('Error al cancelar: ' + (data.error || 'Desconocido'));
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = 'Cancelar Escaneo';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Catch error:', error);
+                alert('Error de red: ' + error.message);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = 'Cancelar Escaneo';
+                }
+            });
+        };
         
         function startScanMonitoring() {
             document.getElementById('scanProgressModal').style.display = 'block';
@@ -109,6 +178,7 @@
             fetch('/admin/scan-status')
                 .then(response => response.json())
                 .then(data => {
+                    // Si no hay escaneo activo y el progreso es 0, no hacer nada
                     if (!data.scanning && data.progress === 0) {
                         return;
                     }
@@ -128,15 +198,42 @@
                     document.getElementById('scanMinimizedNetwork').textContent = data.currentNetwork || 'Iniciando...';
                     document.getElementById('scanMinimizedPrinters').textContent = data.foundPrinters + ' impresoras';
                     
-                    if (data.progress === lastProgress && data.progress > 95 && data.progress < 100) {
-                        stuckCount++;
-                        if (stuckCount > 10) {
-                            document.getElementById('forceCompleteBtn').style.display = 'inline-block';
+                    // Mostrar botón de cancelar siempre que esté escaneando
+                    const forceBtn = document.getElementById('forceCompleteBtn');
+                    if (forceBtn) {
+                        if (data.scanning) {
+                            forceBtn.style.display = 'inline-block';
+                        } else {
+                            forceBtn.style.display = 'none';
                         }
-                    } else {
-                        stuckCount = 0;
-                        lastProgress = data.progress;
-                        document.getElementById('forceCompleteBtn').style.display = 'none';
+                    }
+                    
+                    lastProgress = data.progress;
+                    
+                    // DETECTAR CANCELACIÓN
+                    if (data.cancelled && !data.scanning) {
+                       
+                        document.getElementById('scanMessage').innerHTML = 
+                            '⚠️ <strong>Escaneo Cancelado</strong><br>' +
+                            'Encontradas ' + data.foundPrinters + ' impresoras hasta ahora.<br>' +
+                            'Recargando página...';
+                        
+                        // Limpiar estado de sessionStorage
+                        sessionStorage.removeItem('scanMinimizedState');
+                        
+                        // Ocultar barra minimizada si está visible
+                        document.getElementById('scanProgressMinimized').style.display = 'none';
+                        
+                        // Si está minimizado, restaurar el modal para mostrar el mensaje
+                        if (isMinimized) {
+                            restoreScanModal();
+                        }
+                        
+                        clearInterval(scanInterval);
+                        setTimeout(() => {
+                            window.location.href = '/admin/printers';
+                        }, 2000);
+                        return;
                     }
                     
                     if (data.scanning) {

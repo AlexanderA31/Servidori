@@ -5,50 +5,7 @@
     <div th:fragment="modals">
         <div th:replace="fragments/shared-modals :: printerModals"></div>
         <div th:replace="fragments/shared-modals :: networkModals"></div>
-        
-        <!-- Modal de Progreso de Escaneo (específico de impresoras) -->
-        <div id="scanProgressModal" class="modal">
-            <div class="modal-content scan-modal-content">
-                <div class="modal-header scan-modal-header">
-                    <h3><i class="fas fa-sync fa-spin"></i> Escaneando Red...</h3>
-                    <button class="btn-minimize-scan" onclick="minimizeScanModal()" title="Minimizar">
-                        <i class="fas fa-minus"></i>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="scan-progress-wrapper">
-                        <div class="scan-progress-info">
-                            <span id="scanProgress">0%</span>
-                            <span id="scanDetails">Preparando escaneo...</span>
-                        </div>
-                        <div class="scan-progress-bar-bg">
-                            <div id="progressBar" class="scan-progress-bar"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="scan-stats-container">
-                        <div class="scan-stats-grid-2">
-                            <div>
-                                <div class="scan-stat-item">Red Actual:</div>
-                                <div id="currentNetwork" class="scan-stat-network">--</div>
-                            </div>
-                            <div>
-                                <div class="scan-stat-item">Impresoras Encontradas:</div>
-                                <div id="foundPrinters" class="scan-stat-printers">0</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="scan-message-wrapper">
-                        <div id="scanMessage"><i class="fas fa-hourglass-half"></i> Por favor espera...</div>
-                        <button id="forceCompleteBtn" class="btn btn-sm btn-warning scan-force-btn"
-                                onclick="forceComplete()">
-                            <i class="fas fa-exclamation-triangle"></i> Forzar Completar
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <div th:replace="fragments/shared-modals :: scanProgressModal"></div>
         
         <!-- Barra de Progreso Minimizada (Esquina Inferior Derecha) -->
         <div id="scanProgressMinimized" class="scan-minimized-bar" style="display: none;">
@@ -68,7 +25,5 @@
             </div>
         </div>
     </div>
-</body>
-</html>
 </body>
 </html>

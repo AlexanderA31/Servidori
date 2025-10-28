@@ -222,6 +222,26 @@
                             <input type="text" id="editPrinterIp" name="ip" class="form-control" 
                                    pattern="^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$" required>
                         </div>
+                        
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #667eea; margin-top: 15px;">
+                            <h4 style="margin: 0 0 10px 0; font-size: 14px; color: #667eea;">
+                                <i class="fas fa-info-circle"></i> Información del Servidor IPP
+                            </h4>
+                            <div class="form-grid-2">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label class="form-label" style="font-size: 12px; margin-bottom: 5px;">Puerto IPP del Servidor</label>
+                                    <input type="text" id="editPrinterIppPort" class="form-control" readonly 
+                                           style="background: #e9ecef; font-weight: bold; color: #495057;">
+                                    <small style="color: #6c757d;">Puerto asignado por el servidor</small>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label class="form-label" style="font-size: 12px; margin-bottom: 5px;">URL IPP del Servidor</label>
+                                    <input type="text" id="editPrinterIppUrl" class="form-control" readonly 
+                                           style="background: #e9ecef; font-size: 12px; color: #495057;">
+                                    <small style="color: #6c757d;">URL para conectar clientes</small>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" onclick="closeModal('editPrinterModal')">Cancelar</button>
@@ -232,6 +252,53 @@
         </div>
     </div>
 
+    <!-- Modal: Progreso de Escaneo de Red -->
+    <div th:fragment="scanProgressModal">
+        <div id="scanProgressModal" class="modal">
+            <div class="modal-content scan-modal-content">
+                <div class="modal-header scan-modal-header">
+                    <h3><i class="fas fa-sync fa-spin"></i> Escaneando Red...</h3>
+                    <button class="btn-minimize-scan" onclick="minimizeScanModal()" title="Minimizar">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="scan-progress-wrapper">
+                        <div class="scan-progress-info">
+                            <span id="scanProgress">0%</span>
+                            <span id="scanDetails">Preparando escaneo...</span>
+                        </div>
+                        <div class="scan-progress-bar-bg">
+                            <div id="progressBar" class="scan-progress-bar"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="scan-stats-container">
+                        <div class="scan-stats-grid-2">
+                            <div>
+                                <div class="scan-stat-item">Red Actual:</div>
+                                <div id="currentNetwork" class="scan-stat-network">--</div>
+                            </div>
+                            <div>
+                                <div class="scan-stat-item">Impresoras Encontradas:</div>
+                                <div id="foundPrinters" class="scan-stat-printers">0</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="scan-message-wrapper">
+                        <div id="scanMessage"><i class="fas fa-hourglass-half"></i> Por favor espera...</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="forceCompleteBtn" class="btn btn-danger" onclick="cancelScan()" style="display: inline-block;">
+                        <i class="fas fa-stop"></i> Cancelar Escaneo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Modal: Configurar Redes/VLANs -->
     <div th:fragment="networkModals">
         <!-- Modal: Configurar Redes -->

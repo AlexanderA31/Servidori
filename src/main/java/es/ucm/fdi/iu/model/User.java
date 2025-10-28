@@ -31,9 +31,10 @@ import java.util.stream.Collectors;
 })
 public class User implements Transferable<User.AdminTransfer> {
 
-    public enum Role {
+        public enum Role {
         USER,			// used for logged-in, non-priviledged users
         ADMIN,			// used for setup, user-management
+        TECNICO			// used for technical staff with limited access
     }
 
     @Id

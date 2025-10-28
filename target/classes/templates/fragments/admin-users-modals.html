@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!-- Modales para Usuarios -->
+    <div th:fragment="modals">
+        <!-- Modal: Agregar Usuario -->
+        <div id="addUserModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-user-plus"></i> Agregar Nuevo Usuario</h3>
+                    <button class="close-modal" onclick="closeModal('addUserModal')">×</button>
+                </div>
+                <form method="post" th:action="@{/admin/add-user}">
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label class="form-label">Nombre de Usuario *</label>
+                            <input type="text" name="username" class="form-control" 
+                                   placeholder="usuario" 
+                                   pattern="[a-zA-Z0-9_-]+"
+                                   title="Solo letras, números, guiones y guiones bajos"
+                                   required>
+                            <small>Solo letras, números, guiones y guiones bajos</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Contraseña *</label>
+                            <input type="password" name="password" class="form-control" 
+                                   placeholder="••••••••" 
+                                   minlength="4"
+                                   required>
+                            <small>Mínimo 4 caracteres</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Rol *</label>
+                            <select name="role" class="form-control" required>
+                                <option value="">-- Seleccione un rol --</option>
+                                <option value="ADMIN">Administrador</option>
+                                <option value="TECNICO">Técnico</option>
+                            </select>
+                            <small>Admin: acceso completo | Técnico: acceso limitado</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('addUserModal')">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Crear Usuario</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Modal: Editar Usuario -->
+        <div id="editUserModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-user-edit"></i> Editar Usuario</h3>
+                    <button class="close-modal" onclick="closeModal('editUserModal')">×</button>
+                </div>
+                <form method="post" th:action="@{/admin/edit-user}">
+                    <div class="modal-body">
+                        <input type="hidden" id="editUserId" name="id">
+                        
+                        <div class="form-group">
+                            <label class="form-label">Nombre de Usuario *</label>
+                            <input type="text" id="editUserUsername" name="username" class="form-control" 
+                                   pattern="[a-zA-Z0-9_-]+"
+                                   title="Solo letras, números, guiones y guiones bajos"
+                                   required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Nueva Contraseña</label>
+                            <input type="password" id="editUserPassword" name="password" class="form-control" 
+                                   placeholder="Dejar vacío para no cambiar" 
+                                   minlength="4">
+                            <small>Dejar vacío si no desea cambiar la contraseña</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Rol *</label>
+                            <select id="editUserRole" name="role" class="form-control" required>
+                                <option value="ADMIN">Administrador</option>
+                                <option value="TECNICO">Técnico</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('editUserModal')">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

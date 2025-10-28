@@ -239,4 +239,4 @@ function convertServerAlertsToNotifications() {
     });
 }
 
-console.log('✅ Sistema de confirmaciones de formularios cargado');
+
