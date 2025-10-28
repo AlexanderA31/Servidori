@@ -9,10 +9,10 @@
     <link rel="stylesheet" th:href="@{/css/admin-departments.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-printqueues.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-sidebar-override.css}"/>
+    <link rel="stylesheet" th:href="@{/css/pagination.css}"/>
 </head>
 <body>
     <nav th:replace="fragments/nav.html :: nav"></nav>
-    
     <div th:if="${success}" class="alert alert-success alert-fixed">
         <span th:text="${success}"></span>
     </div>
@@ -249,10 +249,10 @@
     <!-- Barra de progreso minimizada GLOBAL -->
     <div th:replace="fragments/scan-progress-minimized.html :: minimized-bar"></div>
 
-    <footer th:replace="fragments/footer.html :: footer"></footer>
-
     <script th:src="@{/js/admin.js}"></script>
     <script th:src="@{/js/scan-monitor-global.js}"></script>
+    <script th:src="@{/js/pagination.js}"></script>
+    <script th:src="@{/js/form-confirmations.js}"></script>
     <script th:replace="fragments/admin-printqueues-scripts :: scripts"></script>
 </body>
 </html>

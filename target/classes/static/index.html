@@ -10,6 +10,7 @@
     
     <!-- Home CSS para estilos de compartir impresoras -->
     <link rel="stylesheet" href="/css/home.css">
+    <link rel="stylesheet" href="/css/notifications.css">
     
     <style>
         * {
@@ -19,8 +20,8 @@
         }
 
         :root {
-            --primary-color: #1e3a8a;
-            --primary-dark: #1e40af;
+            --primary-color: #0B283F;
+            --primary-dark: #0B283F;
             --secondary-color: #475569;
             --accent-color: #0ea5e9;
             --success-color: #10b981;
@@ -43,7 +44,7 @@
 
         /* Navbar Empresarial */
         .navbar {
-            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+            background: linear-gradient(135deg, #0B283F 0%, #0B283F 100%);
             padding: 1rem 0;
             box-shadow: var(--shadow-md);
             position: sticky;
@@ -140,7 +141,7 @@
             width: 80px;
             height: 80px;
             margin: 0 auto 1rem;
-            background: linear-gradient(135deg, #1e3a8a 0%, #0ea5e9 100%);
+            background: linear-gradient(135deg, #0B283F 0%, #0ea5e9 100%);
             border-radius: 16px;
             display: flex;
             align-items: center;
@@ -230,7 +231,7 @@
             align-items: center;
             gap: 0.75rem;
             padding: 1rem 2.5rem;
-            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+            background: linear-gradient(135deg, #0B283F 0%, #0B283F 100%);
             color: white;
             border: none;
             border-radius: 10px;
@@ -386,7 +387,7 @@
                                     <code style="background: white; padding: 0.3rem 0.5rem; border-radius: 3px; display: inline-block; margin-top: 0.5rem;">powershell -ExecutionPolicy Bypass -File .\compartir-impresora-windows.ps1</code>
                                 </p>
                             </div>
-                            <button class="btn btn-download" onclick="downloadWindowsScript()"><i class="fas fa-download"></i> Descargar Script Windows</button>
+                            <a href="/api/download/share-windows-script" class="btn btn-download" style="display: inline-block; text-decoration: none;"><i class="fas fa-download"></i> Descargar Script Windows</a>
                         </div>
                         
                         <div class="os-content" id="linux-share">
@@ -399,7 +400,7 @@
                                     <li>El script configurará CUPS para compartir la impresora</li>
                                 </ol>
                             </div>
-                            <button class="btn btn-download" onclick="downloadLinuxScript()"><i class="fas fa-download"></i> Descargar Script Linux</button>
+                            <button class="btn btn-download" onclick="alert('🐧 Script para Linux en desarrollo')"><i class="fas fa-download"></i> Descargar Script Linux</button>
                         </div>
                     </div>
                     
@@ -494,12 +495,13 @@
     <!-- Footer -->
     <footer>
         <div class="container">
-            <p>🖨️ <strong>Sistema de Gestión de Impresoras</strong></p>
-            <p class="footer-info">UEB IMPRESORAS &copy; 2024</p>
+            <p><strong>Sistema de Gestión de Impresoras</strong></p>
+            <p class="footer-info">UEB - Dirección de Tics &copy; <span id="currentYear">2024</span></p>
         </div>
     </footer>
     
     <!-- JavaScript para compartir impresoras -->
+    <script src="/js/notifications.js"></script>
     <script src="/js/home-printer-sharing.js"></script>
     <script>
         // Cargar impresoras desde la API al cargar la página
@@ -536,6 +538,9 @@
                 console.error('❌ Error cargando impresoras:', error);
             }
         }
+        
+        // Actualizar año automáticamente
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
     </script>
 </body>
 </html>

@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import java.nio.charset.StandardCharsets;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -813,6 +814,49 @@ public class ApiController {
             response.put("error", e.getMessage());
         }
         return response;
+    }
+    
+        /**
+     * Endpoint público para descargar el script de compartir impresora Windows
+     */
+    @GetMapping("/download/share-windows-script")
+    public ResponseEntity<String> downloadShareWindowsScript() {
+        try {
+            // Intentar desde el directorio del proyecto
+            java.nio.file.Path scriptPath = java.nio.file.Paths.get("scripts/compartir-impresora-windows.ps1");
+            
+            // Si no existe, intentar desde resources
+            if (!java.nio.file.Files.exists(scriptPath)) {
+                try {
+                    java.io.InputStream is = getClass().getResourceAsStream("/scripts/compartir-impresora-windows.ps1");
+                    if (is != null) {
+                        String script = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                        log.info("Sirviendo script de compartir desde classpath ({} bytes)", script.length());
+                        
+                        return ResponseEntity.ok()
+                            .header("Content-Disposition", "attachment; filename=compartir-impresora-windows.ps1")
+                            .header("Content-Type", "text/plain; charset=UTF-8")
+                            .body(script);
+                    }
+                } catch (Exception ex) {
+                    log.debug("No se pudo cargar desde classpath: {}", ex.getMessage());
+                }
+                
+                log.error("Script de compartir no encontrado");
+                return ResponseEntity.notFound().build();
+            }
+            
+            String script = new String(java.nio.file.Files.readAllBytes(scriptPath), java.nio.charset.StandardCharsets.UTF_8);
+            log.info("Sirviendo script de compartir: {} bytes", script.length());
+            
+            return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=compartir-impresora-windows.ps1")
+                .header("Content-Type", "text/plain; charset=UTF-8")
+                .body(script);
+        } catch (Exception e) {
+            log.error("Error leyendo script de compartir", e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
     
     /**

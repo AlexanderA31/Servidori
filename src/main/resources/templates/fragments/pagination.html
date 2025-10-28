@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Pagination Fragment</title>
+</head>
+<body>
+
+<!-- Fragmento de paginación reutilizable -->
+<th:block th:fragment="pagination(page, baseUrl)">
+<div th:if="${page != null && page.totalElements != null && page.totalElements > 0}" class="pagination-container">
+    <!-- Información de página -->
+    <div class="pagination-info">
+        Mostrando 
+        <strong th:text="${page.numberOfElements}">0</strong> 
+        de 
+        <strong th:text="${page.totalElements}">0</strong> 
+        resultados
+    </div>
+    
+    <!-- Controles de paginación -->
+    <ul class="pagination">
+        <!-- Primera página -->
+        <li class="pagination-item">
+            <a th:href="${page.first ? '#' : baseUrl + '?page=0&size=' + page.size}" 
+               th:class="${'pagination-link' + (page.first ? ' disabled' : '')}"
+               title="Primera página">
+                <i class="fas fa-angle-double-left"></i>
+            </a>
+        </li>
+        
+        <!-- Página anterior -->
+        <li class="pagination-item">
+            <a th:href="${page.first ? '#' : baseUrl + '?page=' + (page.number - 1) + '&size=' + page.size}" 
+               th:class="${'pagination-link' + (page.first ? ' disabled' : '')}"
+               title="Anterior">
+                <i class="fas fa-angle-left"></i>
+            </a>
+        </li>
+        
+        <!-- Páginas numeradas -->
+        <th:block th:if="${page.totalPages > 0}" th:each="pageNum : ${#numbers.sequence(
+            (page.number - 2 < 0 ? 0 : page.number - 2), 
+            (page.number + 2 >= page.totalPages ? page.totalPages - 1 : page.number + 2)
+        )}">
+            <li class="pagination-item">
+                <a th:href="${baseUrl + '?page=' + pageNum + '&size=' + page.size}" 
+                   th:class="${'pagination-link' + (pageNum == page.number ? ' active' : '')}"
+                   th:text="${pageNum + 1}">1</a>
+            </li>
+        </th:block>
+        
+        <!-- Página siguiente -->
+        <li class="pagination-item">
+            <a th:href="${page.last ? '#' : baseUrl + '?page=' + (page.number + 1) + '&size=' + page.size}" 
+               th:class="${'pagination-link' + (page.last ? ' disabled' : '')}"
+               title="Siguiente">
+                <i class="fas fa-angle-right"></i>
+            </a>
+        </li>
+        
+        <!-- Última página -->
+        <li class="pagination-item">
+            <a th:href="${page.last ? '#' : baseUrl + '?page=' + (page.totalPages - 1) + '&size=' + page.size}" 
+               th:class="${'pagination-link' + (page.last ? ' disabled' : '')}"
+               title="Última página">
+                <i class="fas fa-angle-double-right"></i>
+            </a>
+        </li>
+    </ul>
+    
+    <!-- Selector de tamaño de página -->
+    <div class="page-size-selector">
+        <label for="pageSize">Mostrar:</label>
+        <select id="pageSize" 
+                onchange="changePageSize(this, this.dataset.baseUrl)" 
+                th:attr="data-base-url=${baseUrl}">
+            <option value="10" th:selected="${page.size == 10}">10</option>
+            <option value="25" th:selected="${page.size == 25}">25</option>
+            <option value="50" th:selected="${page.size == 50}">50</option>
+            <option value="100" th:selected="${page.size == 100}">100</option>
+        </select>
+    </div>
+</div>
+</th:block>
+
+</body>
+</html>

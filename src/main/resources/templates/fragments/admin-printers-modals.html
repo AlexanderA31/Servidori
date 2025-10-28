@@ -1,278 +1,12 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
+    <!-- Modales para Impresoras - Usa modales compartidos -->
     <div th:fragment="modals">
-        <!-- Modal: Agregar Impresora -->
-        <div id="addPrinterModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3><i class="fas fa-print"></i> Agregar Nueva Impresora</h3>
-                    <button class="close-modal" onclick="closeModal('addPrinterModal')">×</button>
-                </div>
-                <form method="post" th:action="@{/admin/add-printer}">
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label class="form-label">Alias/Nombre *</label>
-                            <input type="text" name="alias" class="form-control" 
-                                   placeholder="ej: HP_LaserJet_Oficina" required>
-                        </div>
-                        
-                        <div class="form-grid-2">
-                            <div class="form-group">
-                                <label class="form-label">Modelo *</label>
-                                <input type="text" name="model" class="form-control" 
-                                       placeholder="HP LaserJet Pro M404dn" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Ubicación *</label>
-                                <input type="text" name="location" class="form-control" 
-                                       placeholder="Oficina Principal - Piso 2" required>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Dirección IP *</label>
-                            <input type="text" name="ip" class="form-control" 
-                                   placeholder="192.168.1.50" 
-                                   pattern="^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">URI del Dispositivo (Opcional)</label>
-                            <input type="text" name="deviceUri" class="form-control" 
-                                   placeholder="ipp://192.168.1.50:631/ipp/print">
-                        </div>
-                        
-                        <div class="form-grid-2">
-                            <div class="form-group">
-                                <label class="form-label">Protocolo</label>
-                                <select name="protocol" class="form-control">
-                                    <option value="">-- Seleccionar --</option>
-                                    <option value="IPP">IPP (Internet Printing Protocol)</option>
-                                    <option value="LPD">LPD (Line Printer Daemon)</option>
-                                    <option value="RAW">RAW (Puerto 9100)</option>
-                                    <option value="SMB">SMB (Samba/Windows)</option>
-                                    <option value="USB">USB</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Puerto</label>
-                                <input type="number" name="port" class="form-control" 
-                                       placeholder="631" min="1" max="65535">
-                            </div>
-                        </div>
-                        
-                        <div class="modal-auto-config">
-                            <h4>ℹ️ Configuración Automática</h4>
-                            <div class="modal-checkbox-group">
-                                <label class="modal-checkbox-label">
-                                    <input type="checkbox" name="addToCups" value="true" checked>
-                                    <span>Agregar a CUPS automáticamente</span>
-                                </label>
-                                <label class="modal-checkbox-label">
-                                    <input type="checkbox" name="shareViaSamba" value="true" checked>
-                                    <span>Compartir vía Samba</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" onclick="closeModal('addPrinterModal')">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Agregar Impresora</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+        <div th:replace="fragments/shared-modals :: printerModals"></div>
+        <div th:replace="fragments/shared-modals :: networkModals"></div>
         
-        <!-- Modal: Editar Impresora -->
-        <div id="editPrinterModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3><i class="fas fa-edit"></i> Editar Impresora</h3>
-                    <button class="close-modal" onclick="closeModal('editPrinterModal')">×</button>
-                </div>
-                <form method="post" th:action="@{/admin/edit-printer}">
-                    <div class="modal-body">
-                        <input type="hidden" id="editPrinterId" name="id">
-                        
-                        <div class="form-group">
-                            <label class="form-label">Alias/Nombre *</label>
-                            <input type="text" id="editPrinterAlias" name="alias" class="form-control" required>
-                        </div>
-                        
-                        <div class="form-grid-2">
-                            <div class="form-group">
-                                <label class="form-label">Modelo *</label>
-                                <input type="text" id="editPrinterModel" name="model" class="form-control" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Ubicación *</label>
-                                <input type="text" id="editPrinterLocation" name="location" class="form-control" required>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Dirección IP *</label>
-                            <input type="text" id="editPrinterIp" name="ip" class="form-control" 
-                                   pattern="^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$" required>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" onclick="closeModal('editPrinterModal')">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Modal: Configurar Redes/VLANs -->
-        <div id="configureNetworksModal" class="modal">
-            <div class="modal-content modal-networks">
-                <div class="modal-header modal-gradient-header">
-                    <h3><i class="fas fa-cog"></i> Configurar Rangos de Red / VLANs</h3>
-                    <button class="close-modal" onclick="closeModal('configureNetworksModal')">×</button>
-                </div>
-                <div class="modal-body">
-                    <!-- Formulario para agregar red -->
-                    <div class="network-form-box">
-                        <h4 class="network-form-title">➕ Agregar Nueva Red</h4>
-                        <form method="post" th:action="@{/admin/add-network-range}">
-                            <div class="form-grid-2">
-                                <div class="form-group">
-                                    <label class="form-label">Nombre *</label>
-                                    <input type="text" name="name" class="form-control" 
-                                           placeholder="ej: VLAN Producción" required>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Rango CIDR *</label>
-                                    <input type="text" name="cidrRange" class="form-control" 
-                                           placeholder="192.168.1.0/24" 
-                                           pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$" required>
-                                </div>
-                            </div>
-                            <div class="form-grid-2-1">
-                                <div class="form-group">
-                                    <label class="form-label">Descripción</label>
-                                    <input type="text" name="description" class="form-control" 
-                                           placeholder="Red de producción - Piso 2">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">VLAN ID</label>
-                                    <input type="number" name="vlanId" class="form-control" 
-                                           placeholder="10" min="1" max="4094">
-                                </div>
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-sm">➕ Agregar Red</button>
-                        </form>
-                    </div>
-                    
-                    <!-- Lista de redes -->
-                    <h4 class="networks-title">🌐 Redes Configuradas</h4>
-                    <div th:if="${networkRanges == null || #lists.isEmpty(networkRanges)}" class="no-networks-message">
-                        🚫 No hay redes configuradas
-                    </div>
-                    <table th:unless="${networkRanges == null || #lists.isEmpty(networkRanges)}" class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Rango CIDR</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr th:each="net : ${networkRanges}">
-                                <td><strong th:text="${net.name}">Red</strong></td>
-                                <td><code th:text="${net.cidrRange}">192.168.1.0/24</code></td>
-                                <td>
-                                    <span th:if="${net.active}" class="badge badge-success">✓ Activa</span>
-                                    <span th:unless="${net.active}" class="badge badge-danger">✗ Inactiva</span>
-                                </td>
-                                <td>
-                                    <div class="action-buttons">
-                                        <button class="btn btn-sm btn-primary" 
-                                                th:attr="data-id=${net.id}, data-name=${net.name}, data-cidr=${net.cidrRange}, data-description=${net.description}, data-vlan=${net.vlanId}, data-active=${net.active}"
-                                                onclick="openEditNetworkModal(this.dataset)"
-                                                title="Editar red">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <form method="post" th:action="@{/admin/toggle-network-range(id=${net.id})}" class="d-inline">
-                                            <button type="submit" class="btn btn-sm btn-primary" title="Activar/Desactivar">
-                                                <span th:text="${net.active ? '🔒' : '🔓'}"></span>
-                                            </button>
-                                        </form>
-                                        <form method="post" th:action="@{/admin/delete-network-range(id=${net.id})}" 
-                                              class="d-inline" onsubmit="return confirm('¿Eliminar esta red?')">
-                                            <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('configureNetworksModal')">Cerrar</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Modal: Editar Red -->
-        <div id="editNetworkModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3><i class="fas fa-edit"></i> Editar Rango de Red</h3>
-                    <button class="close-modal" onclick="closeModal('editNetworkModal')">×</button>
-                </div>
-                <form method="post" th:action="@{/admin/edit-network-range}">
-                    <div class="modal-body">
-                        <input type="hidden" id="editNetworkId" name="id">
-                        
-                        <div class="form-grid-2">
-                            <div class="form-group">
-                                <label class="form-label">Nombre *</label>
-                                <input type="text" id="editNetworkName" name="name" class="form-control" 
-                                       placeholder="ej: VLAN Producción" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Rango CIDR *</label>
-                                <input type="text" id="editNetworkCidr" name="cidrRange" class="form-control" 
-                                       placeholder="192.168.1.0/24" 
-                                       pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$" required>
-                            </div>
-                        </div>
-                        
-                        <div class="form-grid-2-1">
-                            <div class="form-group">
-                                <label class="form-label">Descripción</label>
-                                <input type="text" id="editNetworkDescription" name="description" class="form-control" 
-                                       placeholder="Red de producción - Piso 2">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">VLAN ID</label>
-                                <input type="number" id="editNetworkVlan" name="vlanId" class="form-control" 
-                                       placeholder="10" min="1" max="4094">
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="modal-checkbox-label">
-                                <input type="checkbox" id="editNetworkActive" name="active" value="true">
-                                <span>Red Activa</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" onclick="closeModal('editNetworkModal')">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Modal de Progreso de Escaneo -->
+        <!-- Modal de Progreso de Escaneo (específico de impresoras) -->
         <div id="scanProgressModal" class="modal">
             <div class="modal-content scan-modal-content">
                 <div class="modal-header scan-modal-header">
@@ -306,10 +40,10 @@
                     </div>
                     
                     <div class="scan-message-wrapper">
-                        <div id="scanMessage">⏳ Por favor espera...</div>
+                        <div id="scanMessage"><i class="fas fa-hourglass-half"></i> Por favor espera...</div>
                         <button id="forceCompleteBtn" class="btn btn-sm btn-warning scan-force-btn"
                                 onclick="forceComplete()">
-                            ⚠️ Forzar Completar
+                            <i class="fas fa-exclamation-triangle"></i> Forzar Completar
                         </button>
                     </div>
                 </div>
@@ -334,5 +68,7 @@
             </div>
         </div>
     </div>
+</body>
+</html>
 </body>
 </html>

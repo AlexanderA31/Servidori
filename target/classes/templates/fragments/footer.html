@@ -6,11 +6,16 @@
 	<link rel="stylesheet" th:href="@{/css/footer.css}"/>
 </head>
 <body>
-		<footer th:fragment="footer">
+			<footer th:fragment="footer">
 		<div class="container">
-			<p class="mb-2">🖨️ <strong>Sistema de Gestión de Impresoras</strong></p>
-			
+			<p class="mb-2">
+				<strong>UEB IMPRESORAS</strong> © <span id="currentYear"></span>
+			</p>
 		</div>
+		<script>
+			// Actualizar año automáticamente
+			document.getElementById('currentYear').textContent = new Date().getFullYear();
+		</script>
 	</footer>
 </body>
 </html>

@@ -9,10 +9,10 @@
     <link rel="stylesheet" th:href="@{/css/admin-departments.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-printers.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-sidebar-override.css}"/>
+    <link rel="stylesheet" th:href="@{/css/pagination.css}"/>
 </head>
 <body>
     <nav th:replace="fragments/nav.html :: nav"></nav>
-    
     <div th:if="${success}" class="alert alert-success alert-fixed">
         <span th:text="${success}"></span>
     </div>
@@ -61,7 +61,7 @@
                         <div class="dept-stat-icon">
                             <i class="fas fa-print"></i>
                         </div>
-                        <div class="dept-stat-value" th:text="${allPrinters != null ? #lists.size(allPrinters) : 0}">0</div>
+                        <div class="dept-stat-value" th:text="${totalPrintersCount != null ? totalPrintersCount : 0}">0</div>
                         <div class="dept-stat-label">Total de Impresoras</div>
                     </div>
                     <div class="dept-stat-card">
@@ -79,7 +79,7 @@
                         <span><i class="fas fa-list"></i> Todas las Impresoras</span>
                     </div>
                     <div class="card-body">
-                        <div th:if="${allPrinters == null || #lists.isEmpty(allPrinters)}" class="empty-state">
+                        <div th:if="${allPrinters == null || (allPrinters.content != null && #lists.isEmpty(allPrinters.content)) || (allPrinters.content == null && #lists.isEmpty(allPrinters))}" class="empty-state">
                             <div class="empty-state-icon"><i class="fas fa-print"></i></div>
                             <p>No hay impresoras registradas en el sistema</p>
                             <button class="btn btn-primary" onclick="openModal('addPrinterModal')">
@@ -87,7 +87,7 @@
                             </button>
                         </div>
                         
-                        <div th:unless="${allPrinters == null || #lists.isEmpty(allPrinters)}">
+                        <div th:unless="${allPrinters == null || (allPrinters.content != null && #lists.isEmpty(allPrinters.content)) || (allPrinters.content == null && #lists.isEmpty(allPrinters))}">
                             <table class="data-table">
                                 <thead>
                                     <tr>
@@ -95,12 +95,13 @@
                                         <th>Modelo</th>
                                         <th>Ubicación</th>
                                         <th>Dirección IP</th>
+                                        <th>Puerto IPP</th>
                                         <th>URI</th>
                                         <th>Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr th:each="printer : ${allPrinters}">
+                                    <tr th:each="printer : ${allPrinters.content != null ? allPrinters.content : allPrinters}">
                                         <td>
                                             <div class="dept-name-cell">
                                                 <div class="printer-icon-mini">
@@ -113,6 +114,10 @@
                                         <td th:text="${printer.location}">Ubicación</td>
                                         <td>
                                             <span class="ip-badge" th:text="${printer.ip}">IP</span>
+                                        </td>
+                                        <td>
+                                            <span class="port-badge" th:if="${printer.ippPort}" th:text="${printer.ippPort}">8631</span>
+                                            <span th:unless="${printer.ippPort}" class="text-muted">--</span>
                                         </td>
                                         <td>
                                             <code th:if="${printer.deviceUri}" th:text="${printer.deviceUri}">URI</code>
@@ -147,6 +152,9 @@
                                     </tr>
                                 </tbody>
                             </table>
+                            
+                            <!-- Paginación -->
+                            <div th:if="${allPrinters.content != null}" th:replace="fragments/pagination :: pagination(${allPrinters}, '/admin/printers')"></div>
                         </div>
                     </div>
                 </div>
@@ -160,10 +168,10 @@
     <!-- Barra de progreso minimizada GLOBAL -->
     <div th:replace="fragments/scan-progress-minimized.html :: minimized-bar"></div>
 
-    <footer th:replace="fragments/footer.html :: footer"></footer>
-
     <script th:src="@{/js/admin.js}"></script>
     <script th:src="@{/js/scan-monitor-global.js}"></script>
+    <script th:src="@{/js/pagination.js}"></script>
+    <script th:src="@{/js/form-confirmations.js}"></script>
     <script th:replace="fragments/admin-printers-scripts :: scripts"></script>
 </body>
 </html>

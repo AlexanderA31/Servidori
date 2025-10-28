@@ -2,11 +2,11 @@
 <html 
 	xmlns:th="http://www.thymeleaf.org"
 	xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
-<head><th:block th:replace="fragments/head :: header"/>
+<head><th:block th:replace="~{fragments/head :: header}"/>
 	<title th:text="'IU: Error ' + ${status}">IU: Error</title>
 </head>
 <body>
-	<nav th:replace="fragments/nav.html :: nav">
+	<nav th:replace="~{fragments/nav.html :: nav}">
 		Nav goes here
 	</nav>
 	
@@ -70,7 +70,7 @@
 	</div> <!-- end main div -->
 	</div> <!-- end container div -->
 	
-	<footer th:replace="fragments/footer.html :: footer">
+	<footer th:replace="~{fragments/footer.html :: footer}">
 		Footer goes here
 	</footer>
 </body>

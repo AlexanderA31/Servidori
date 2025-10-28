@@ -34,12 +34,12 @@ aside.admin-sidebar,
 
 .sidebar-menu-link:hover {
     background: #f8fafc !important;
-    color: #1e3a8a !important;
+    color: #0B283F !important;
 }
 
 .sidebar-menu-link.active {
     background: #e0e7ff !important;
-    color: #1e3a8a !important;
+    color: #0B283F !important;
 }
 
 /* Iconos */
@@ -48,11 +48,11 @@ aside.admin-sidebar,
 }
 
 .sidebar-menu-link:hover .sidebar-menu-icon {
-    color: #1e3a8a !important;
+    color: #0B283F !important;
 }
 
 .sidebar-menu-link.active .sidebar-menu-icon {
-    color: #1e3a8a !important;
+    color: #0B283F !important;
 }
 
 /* Texto del menú */
@@ -61,11 +61,11 @@ aside.admin-sidebar,
 }
 
 .sidebar-menu-link:hover .sidebar-menu-text {
-    color: #1e3a8a !important;
+    color: #0B283F !important;
 }
 
 .sidebar-menu-link.active .sidebar-menu-text {
-    color: #1e3a8a !important;
+    color: #0B283F !important;
 }
 
 /* Badges */
@@ -75,7 +75,7 @@ aside.admin-sidebar,
 }
 
 .sidebar-menu-link.active .sidebar-menu-badge {
-    background: #1e3a8a !important;
+    background: #0B283F !important;
     color: #ffffff !important;
 }
 
@@ -91,7 +91,7 @@ aside.admin-sidebar,
 
 .sidebar-footer-link:hover {
     background: #f8fafc !important;
-    color: #1e3a8a !important;
+    color: #0B283F !important;
 }
 
 /* Navegación */

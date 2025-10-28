@@ -2,8 +2,8 @@
 
 :root {
     /* Colores actualizados para coincidir con el landing */
-    --primary-color: #1e3a8a;
-    --primary-dark: #1e40af;
+    --primary-color: #0B283F;
+    --primary-dark: #0B283F;
     --secondary-color: #475569;
     --accent-color: #0ea5e9;
     --success-color: #10b981;
@@ -301,7 +301,16 @@ body {
 
 /* Forms */
 .form-group {
-    margin-bottom: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+/* Formularios más compactos en modales */
+.modal-body .form-group {
+    margin-bottom: 0.875rem;
+}
+
+.modal-body .form-group:last-child {
+    margin-bottom: 0;
 }
 
 .form-label {
@@ -425,10 +434,222 @@ body {
     max-width: 600px;
     width: 90%;
     max-height: 90vh;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
     box-shadow: var(--shadow-lg);
     animation: slideUp 0.3s;
-    margin: auto;
+    margin: 20px auto;
+    position: relative;
+}
+
+/* Modal más grande para configuración de redes */
+.modal-content.modal-networks {
+    max-width: 1000px;
+    max-height: 90vh;
+}
+
+/* Estilos mejorados para el formulario de agregar red */
+.network-form-box {
+    background: var(--light-bg);
+    padding: 1.25rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.network-form-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin: 0 0 1rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-transform: none;
+}
+
+.network-form-title i {
+    color: var(--primary-color);
+    font-size: 0.875rem;
+}
+
+/* Grid para formulario de 2 columnas */
+.form-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.875rem;
+    margin-bottom: 0.875rem;
+}
+
+.form-grid-2-1 {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 0.875rem;
+    margin-bottom: 0.875rem;
+}
+
+/* Tabla más compacta dentro del modal de redes */
+.modal-networks .data-table thead th {
+    padding: 0.625rem 0.75rem;
+    font-size: 0.75rem;
+}
+
+.modal-networks .data-table tbody td {
+    padding: 0.625rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.modal-networks .badge {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+.modal-networks .action-buttons .btn {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.8125rem;
+}
+
+@media (max-width: 640px) {
+    .form-grid-2,
+    .form-grid-2-1 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Título de la sección de redes configuradas */
+.networks-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin: 0 0 0.875rem 0;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-transform: none;
+}
+
+.networks-title i {
+    color: var(--accent-color);
+    font-size: 0.875rem;
+}
+
+/* Mensaje cuando no hay redes */
+.no-networks-message {
+    text-align: center;
+    padding: 1.25rem;
+    background: white;
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.no-networks-message i {
+    color: var(--accent-color);
+}
+
+/* Mejorar espaciado de labels en modales */
+.modal-body .form-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 0.375rem;
+    text-transform: none;
+}
+
+.modal-body .form-control {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.modal-body small,
+.modal-body .text-muted {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: block;
+    margin-top: 0.25rem;
+}
+
+/* Mejorar el header del modal */
+.modal-header h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.modal-header h3 i {
+    font-size: 1rem;
+    color: var(--primary-color);
+}
+
+/* Botones en el modal */
+.modal-footer .btn {
+    font-size: 0.875rem;
+    padding: 0.625rem 1.25rem;
+}
+
+/* Checkbox mejorado */
+.modal-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-dark);
+    padding: 0.5rem 0;
+}
+
+.modal-checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.modal-checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Info en modales */
+.modal-dept-info {
+    background: var(--light-bg);
+    padding: 0.875rem 1rem;
+    border-radius: 6px;
+    margin-bottom: 1.25rem;
+    font-size: 0.9rem;
+    border-left: 3px solid var(--primary-color);
+}
+
+.modal-auto-config {
+    background: var(--light-bg);
+    padding: 1.25rem;
+    border-radius: 8px;
+    margin-top: 1.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.modal-auto-config h4 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin: 0 0 0.875rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.modal-auto-config h4 i {
+    color: var(--accent-color);
+    font-size: 0.95rem;
 }
 
 @keyframes slideUp {
@@ -443,12 +664,13 @@ body {
 }
 
 .modal-header {
-    padding: 1.5rem;
+    padding: 1rem 1.5rem;
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
     background: var(--card-bg);
+    flex-shrink: 0;
 }
 
 .modal-header h3 {
@@ -460,6 +682,10 @@ body {
 
 .modal-body {
     padding: 1.5rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 .modal-footer {
@@ -469,6 +695,8 @@ body {
     justify-content: flex-end;
     gap: 0.75rem;
     background: var(--card-bg);
+    flex: 0 0 auto;
+    flex-shrink: 0;
 }
 
 .close-modal {

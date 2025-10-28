@@ -82,7 +82,7 @@ function copyToClipboard(elementId) {
         }, 2000);
     }).catch(err => {
         console.error('Error al copiar:', err);
-        alert('No se pudo copiar al portapapeles');
+        showError('No se pudo copiar al portapapeles');
     });
 }
 
@@ -94,7 +94,7 @@ function downloadWindowsClientScript() {
     const selectedOption = printerSelect.options[printerSelect.selectedIndex];
     
     if (!selectedOption.value) {
-        alert('Por favor selecciona una impresora primero');
+        showWarning('Por favor selecciona una impresora primero');
         return;
     }
     
@@ -333,5 +333,46 @@ function downloadFile(content, filename, mimeType) {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    alert('Script descargado: ' + filename + '\n\nEjecuta como Administrador');
+    showSuccess('Script descargado: ' + filename, 'Descarga Completa');
+    setTimeout(() => {
+        showInfo('Recuerda ejecutar el script como Administrador', 'Instrucción Importante');
+    }, 500);
+}
+
+// ==================== COMPARTIR IMPRESORAS USB/LOCAL ====================
+
+// Descargar script para compartir impresora en Windows
+function downloadWindowsScript() {
+    console.log('Descargando script para compartir impresora USB/Local...');
+    
+    // Redirigir al endpoint que sirve el archivo
+    window.location.href = '/print-server/download/share-windows-script';
+    
+    // Mostrar mensajes de instrucciones
+    setTimeout(() => {
+        showSuccess('Script descargado correctamente', 'Descarga Completa');
+        setTimeout(() => {
+            showInfo(
+                '<strong>Instrucciones:</strong><br>' +
+                '1. Haz clic derecho en el archivo descargado<br>' +
+                '2. Selecciona "Ejecutar con PowerShell"<br>' +
+                '3. Si aparece advertencia, selecciona "Abrir"<br>' +
+                '4. Selecciona la impresora USB que deseas compartir<br>' +
+                '5. El script se configurará automáticamente<br><br>' +
+                '<strong>⚠️ Importante:</strong> Debe ejecutarse como Administrador',
+                'Cómo usar el script'
+            );
+        }, 800);
+    }, 500);
+}
+
+// Descargar script para compartir impresora en Linux
+function downloadLinuxScript() {
+    showInfo(
+        '<strong>Script para Linux en desarrollo</strong><br><br>' +
+        'Mientras tanto, puedes usar CUPS para compartir:<br><br>' +
+        '<code>sudo cupsctl --share-printers<br>' +
+        'sudo systemctl restart cups</code>',
+        '🐧 Compartir en Linux'
+    );
 }

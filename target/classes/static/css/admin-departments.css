@@ -7,7 +7,7 @@
 }
 
 .departments-header {
-    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    background: linear-gradient(135deg, #0B283F 0%, #0B283F 100%);
     color: white;
     padding: 2rem;
     border-radius: 12px;
@@ -51,13 +51,13 @@
     border-radius: 12px;
     padding: 1.5rem;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    border-left: 4px solid #1e3a8a;
+    border-left: 4px solid #0B283F;
 }
 
 .dept-stat-icon {
     width: 48px;
     height: 48px;
-    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    background: linear-gradient(135deg, #0B283F 0%, #0B283F 100%);
     border-radius: 10px;
     display: flex;
     align-items: center;
@@ -70,7 +70,7 @@
 .dept-stat-value {
     font-size: 2rem;
     font-weight: 700;
-    color: #1e3a8a;
+    color: #0B283F;
     margin-bottom: 0.5rem;
 }
 
@@ -128,20 +128,165 @@
     flex-shrink: 0;
 }
 
+/* Estilos dinámicos para color de departamento usando data attributes */
+.dept-row {
+    position: relative;
+}
+
+.dept-row::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--dept-color, #0B283F);
+}
+
+.dept-color-dot {
+    background: var(--dept-color, #0B283F);
+}
+
+/* Fila con contador y botón de agregar */
+.dept-count-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.dept-count-row strong {
+    min-width: 20px;
+    text-align: left;
+    line-height: 1.5;
+}
+
+/* Fila expandida debajo del departamento */
+.dept-expanded-row {
+    background: #f8fafc;
+}
+
+.dept-expanded-cell {
+    padding: 1rem 1.5rem !important;
+}
+
+.dept-expanded-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.dept-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.dept-items-label {
+    font-size: 0.75rem;
+    color: #475569;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.dept-items-label i {
+    font-size: 0.875rem;
+    color: #64748b;
+}
+
 .dept-items-container {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    margin-top: 0.5rem;
 }
 
 .dept-item-badge {
     background: #f3f4f6;
-    color: #1e3a8a;
+    color: #0B283F;
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
     font-size: 0.75rem;
     font-weight: 600;
+}
+
+/* Badge de impresora con botón de eliminar */
+.dept-printer-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: #e0f2fe;
+    color: #075985;
+    padding: 0.25rem 0.35rem 0.25rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid #bae6fd;
+    max-width: 200px;
+}
+
+.dept-printer-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.dept-remove-form {
+    display: inline-flex;
+    margin: 0;
+    padding: 0;
+}
+
+.dept-remove-btn {
+    background: transparent;
+    border: none;
+    color: #ef4444;
+    padding: 0.125rem 0.25rem;
+    cursor: pointer;
+    font-size: 0.75rem;
+    line-height: 1;
+    border-radius: 3px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dept-remove-btn:hover {
+    background: #fee2e2;
+    color: #dc2626;
+    transform: scale(1.1);
+}
+
+.dept-remove-btn:active {
+    transform: scale(0.95);
+}
+
+/* Badge de computadora con botón de eliminar */
+.dept-computer-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: #f0fdf4;
+    color: #166534;
+    padding: 0.25rem 0.35rem 0.25rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid #bbf7d0;
+    max-width: 200px;
+}
+
+.dept-computer-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
 }
 
 .modal-dept-info {
@@ -149,7 +294,7 @@
     padding: 1rem;
     border-radius: 8px;
     margin-bottom: 1rem;
-    color: #1e3a8a;
+    color: #0B283F;
     font-size: 0.9rem;
 }
 
@@ -162,7 +307,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #1e3a8a;
+    color: #0B283F;
     font-size: 1rem;
     flex-shrink: 0;
 }

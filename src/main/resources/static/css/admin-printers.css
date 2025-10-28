@@ -30,6 +30,26 @@
     text-transform: uppercase;
 }
 
+/* Badge para puerto IPP */
+.port-badge {
+    display: inline-block;
+  
+    color: rgb(0, 0, 0);
+    padding: 0.375rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 700;
+    font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+    transition: all 0.2s ease;
+}
+
+.port-badge:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+}
+
 .scan-message-wrapper {
     text-align: center;
 }
@@ -87,6 +107,7 @@
     overflow: hidden;
     border: 2px solid var(--primary-color);
     animation: slideInFromRight 0.3s ease;
+    display: none; /* Ocultar por defecto */
 }
 
 @keyframes slideInFromRight {

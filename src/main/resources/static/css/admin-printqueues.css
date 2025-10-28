@@ -4,7 +4,7 @@
 
 /* Estado del Servicio */
 .queue-service-status {
-    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    background: linear-gradient(135deg, #0B283F 0%, #0B283F 100%);
     color: white;
     padding: 1rem 2rem;
     border-radius: 12px;
@@ -73,11 +73,10 @@
 
 /* Estadísticas específicas de colas */
 .queue-stat-total {
-    border-left-color: #1e3a8a;
+    border-left-color: #0B283F;
 }
-
 .queue-stat-total .dept-stat-icon {
-    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    background: linear-gradient(135deg, #0B283F 0%, #0B283F 100%);
 }
 
 .queue-stat-active {
@@ -107,7 +106,7 @@
 }
 
 .queue-printer-header {
-    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    background: linear-gradient(135deg, #0B283F 0%, #0B283F 100%);
     color: white;
     padding: 1.5rem 2rem;
     display: flex;
@@ -222,7 +221,7 @@
     justify-content: center;
     width: 32px;
     height: 32px;
-    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    background: linear-gradient(135deg, #0B283F 0%, #0B283F 100%);
     color: white;
     border-radius: 8px;
     font-weight: 700;
@@ -237,7 +236,7 @@
 }
 
 .job-file-info i {
-    color: #1e3a8a;
+    color: #0B283F;
     font-size: 1.2rem;
 }
 

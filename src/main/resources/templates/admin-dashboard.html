@@ -133,21 +133,11 @@
     <!-- Barra de progreso minimizada GLOBAL -->
     <div th:replace="fragments/scan-progress-minimized.html :: minimized-bar"></div>
 
-    <footer th:replace="fragments/footer.html :: footer"></footer>
-
     <script th:src="@{/js/admin.js}"></script>
     <script th:src="@{/js/scan-monitor-global.js}"></script>
+    <script th:src="@{/js/form-confirmations.js}"></script>
     <script>
-        // Auto-cerrar alertas
-        document.addEventListener('DOMContentLoaded', function() {
-            const alerts = document.querySelectorAll('.alert');
-            alerts.forEach(alert => {
-                setTimeout(() => {
-                    alert.style.opacity = '0';
-                    setTimeout(() => alert.remove(), 300);
-                }, 5000);
-            });
-        });
+        // Las alertas ahora se manejan automáticamente por form-confirmations.js
     </script>
 </body>
 </html>

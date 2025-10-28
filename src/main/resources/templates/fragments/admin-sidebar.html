@@ -4,7 +4,7 @@
     <title>Admin Sidebar</title>
 </head>
 <body>
-    <aside th:fragment="sidebar" class="admin-sidebar" id="adminSidebar" style="width: 240px !important; min-width: 240px !important; max-width: 240px !important;">
+    <aside th:fragment="sidebar" class="admin-sidebar" id="adminSidebar">
         <!-- Header del Sidebar -->
         <div class="sidebar-header">
             <span class="sidebar-title">Panel Admin</span>
@@ -40,7 +40,6 @@
                                 <i class="fas fa-building"></i>
                             </span>
                             <span class="sidebar-menu-text">Departamentos</span>
-                            <span class="sidebar-menu-badge" th:text="${departments != null ? #lists.size(departments) : 0}">0</span>
                             <span class="sidebar-tooltip">Departamentos</span>
                         </a>
                     </li>
@@ -52,7 +51,6 @@
                                 <i class="fas fa-print"></i>
                             </span>
                             <span class="sidebar-menu-text">Impresoras</span>
-                            <span class="sidebar-menu-badge" th:text="${allPrinters != null ? #lists.size(allPrinters) : 0}">0</span>
                             <span class="sidebar-tooltip">Impresoras</span>
                         </a>
                     </li>
@@ -64,7 +62,6 @@
                                 <i class="fas fa-desktop"></i>
                             </span>
                             <span class="sidebar-menu-text">Computadoras</span>
-                            <span class="sidebar-menu-badge" th:text="${unassignedComputers != null ? #lists.size(unassignedComputers) : 0}">0</span>
                             <span class="sidebar-tooltip">Computadoras</span>
                         </a>
                     </li>
@@ -76,7 +73,6 @@
                                 <i class="fas fa-list-ol"></i>
                             </span>
                             <span class="sidebar-menu-text">Colas de Impresión</span>
-                            <span class="sidebar-menu-badge" th:text="${totalJobs != null ? totalJobs : 0}">0</span>
                             <span class="sidebar-tooltip">Colas de Impresión</span>
                         </a>
                     </li>

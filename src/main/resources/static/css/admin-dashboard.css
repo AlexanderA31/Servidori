@@ -12,7 +12,7 @@
     border-radius: 12px;
     padding: 1.5rem;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    border-left: 4px solid #1e3a8a;
+    border-left: 4px solid #0B283F;
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
@@ -31,7 +31,7 @@
 .dashboard-card-icon {
     width: 48px;
     height: 48px;
-    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    background: linear-gradient(135deg, #0B283F 0%, #0B283F 100%);
     border-radius: 10px;
     display: flex;
     align-items: center;
@@ -51,7 +51,7 @@
 .dashboard-card-value {
     font-size: 2.5rem;
     font-weight: 700;
-    color: #1e3a8a;
+    color: #0B283F;
     margin-bottom: 0.5rem;
 }
 
@@ -67,7 +67,7 @@
 }
 
 .dashboard-card-action a {
-    color: #1e3a8a;
+    color: #0B283F;
     text-decoration: none;
     font-weight: 600;
     font-size: 0.875rem;
@@ -82,7 +82,7 @@
 }
 
 .welcome-section {
-    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    background: linear-gradient(135deg, #0B283F 0%, #0B283F 100%);
     color: white;
     padding: 2rem;
     border-radius: 12px;
@@ -112,7 +112,7 @@
 
 .server-info h3 {
     margin: 0 0 1rem 0;
-    color: #1e3a8a;
+    color: #0B283F;
 }
 
 .server-info-item {
@@ -132,7 +132,7 @@
 }
 
 .server-info-value {
-    color: #1e3a8a;
+    color: #0B283F;
     font-weight: 700;
     font-family: 'Courier New', monospace;
 }

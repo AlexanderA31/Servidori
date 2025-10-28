@@ -65,12 +65,19 @@ document.addEventListener('DOMContentLoaded', function() {
     
     window.openAddPrinterToGroupModal = function(id, name) {
         // Esta función se puede implementar después para agregar impresoras a grupos
-        alert('Función para agregar impresoras al grupo "' + name + '" estará disponible próximamente');
+        showInfo('Esta función estará disponible próximamente para el grupo "' + name + '"', 'Próximamente');
     };
     
-    // Delete confirmations
-    window.confirmDelete = function(form) {
-        return confirm('¿Está seguro de que desea eliminar este elemento?');
+    // Delete confirmations - Ahora usa el sistema de modales
+    window.confirmDelete = async function(form) {
+        return await showConfirm({
+            title: '¿Eliminar elemento?',
+            message: '¿Estás seguro de que deseas eliminar este elemento? Esta acción no se puede deshacer.',
+            confirmText: 'Eliminar',
+            cancelText: 'Cancelar',
+            type: 'danger',
+            confirmClass: 'btn-danger'
+        });
     };
     
     // Auto-hide alerts after 5 seconds

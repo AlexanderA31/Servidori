@@ -172,6 +172,53 @@ public class PrinterServerController {
     }
 
     /**
+     * Descarga el script para compartir impresora USB/Local (Windows)
+     */
+    @GetMapping("/download/share-windows-script")
+    public ResponseEntity<String> downloadShareWindowsScript() {
+        try {
+            // Intentar primero desde el directorio del proyecto
+            java.nio.file.Path scriptPath = java.nio.file.Paths.get("scripts/compartir-impresora-windows.ps1");
+            
+            // Si no existe, intentar desde el classpath
+            if (!java.nio.file.Files.exists(scriptPath)) {
+                log.debug("Script no encontrado en: {}, intentando classpath...", scriptPath.toAbsolutePath());
+                
+                // Intentar cargar desde resources
+                try {
+                    java.io.InputStream is = getClass().getResourceAsStream("/scripts/compartir-impresora-windows.ps1");
+                    if (is != null) {
+                        String script = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                        log.info("Sirviendo script de compartir impresora desde classpath ({} bytes)", script.length());
+                        
+                        return ResponseEntity.ok()
+                            .header("Content-Disposition", "attachment; filename=compartir-impresora-windows.ps1")
+                            .header("Content-Type", "text/plain; charset=UTF-8")
+                            .body(script);
+                    }
+                } catch (Exception ex) {
+                    log.debug("No se pudo cargar desde classpath: {}", ex.getMessage());
+                }
+                
+                log.error("Script de compartir no encontrado en ninguna ubicación");
+                return ResponseEntity.notFound().build();
+            }
+            
+            String script = new String(java.nio.file.Files.readAllBytes(scriptPath), java.nio.charset.StandardCharsets.UTF_8);
+            
+            log.info("Sirviendo script de compartir impresora: {} ({} bytes)", scriptPath.getFileName(), script.length());
+            
+            return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=compartir-impresora-windows.ps1")
+                .header("Content-Type", "text/plain; charset=UTF-8")
+                .body(script);
+        } catch (Exception e) {
+            log.error("Error leyendo script de compartir", e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
+    /**
      * Descarga el script de PowerShell para Windows desde archivo (generico)
      */
     @GetMapping("/download/windows-script")

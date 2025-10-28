@@ -634,6 +634,7 @@ public class PrinterDiscoveryService {
 
     /**
      * Registra una impresora descubierta en la base de datos
+     * Si ya existe, NO la sobrescribe y mantiene el puerto IPP asignado
      * @return Printer si se registró exitosamente, null si ya existía
      */
     @Transactional
@@ -652,9 +653,10 @@ public class PrinterDiscoveryService {
                     .getResultList();
             
             if (!existingByIp.isEmpty()) {
-                log.debug("❌ Impresora ya registrada (IP duplicada): {} - {}", 
-                    discovered.getName(), printerIp);
-                return null; // Retornar null para indicar que no se agregó
+                Printer existing = existingByIp.get(0);
+                log.info("🔒 Impresora ya registrada (IP: {}), manteniendo configuración existente: {} (Puerto IPP: {})", 
+                    printerIp, existing.getAlias(), existing.getIppPort());
+                return null; // Retornar null para indicar que no se agregó (ya existe)
             }
             
             // Verificar si ya existe por alias (nombre similar)
@@ -664,7 +666,9 @@ public class PrinterDiscoveryService {
                     .getResultList();
             
             if (!existingByAlias.isEmpty()) {
-                log.debug("❌ Impresora ya registrada (nombre duplicado): {}", discovered.getName());
+                Printer existing = existingByAlias.get(0);
+                log.info("🔒 Impresora ya registrada (Nombre: {}), manteniendo configuración existente (Puerto IPP: {})", 
+                    existing.getAlias(), existing.getIppPort());
                 return null;
             }
             

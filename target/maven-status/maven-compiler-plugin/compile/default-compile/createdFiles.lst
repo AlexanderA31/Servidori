@@ -54,7 +54,6 @@ es\ucm\fdi\iu\model\NetworkRange$Transfer.class
 es\ucm\fdi\iu\PmgrApplication.class
 es\ucm\fdi\iu\model\PGroup$Transfer.class
 es\ucm\fdi\iu\model\PGroup.class
-es\ucm\fdi\iu\control\DepartmentController.class
 es\ucm\fdi\iu\service\CupsService.class
 es\ucm\fdi\iu\model\Computer$Transfer.class
 es\ucm\fdi\iu\service\IppServerService$IppResponse.class

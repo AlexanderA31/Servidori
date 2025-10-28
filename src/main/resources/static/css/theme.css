@@ -2,9 +2,9 @@
 
 :root {
     /* Colores actualizados - coinciden con el landing */
-    --color-primary: #1e3a8a;
-    --color-primary-light: #1e40af;
-    --color-primary-dark: #1e40af;
+    --color-primary: #0B283F;
+    --color-primary-light: #0B283F;
+    --color-primary-dark: #0B283F;
     
     --color-secondary: #475569;
     --color-secondary-light: #64748b;
@@ -14,7 +14,7 @@
     --bg-primary: #ffffff;
     --bg-secondary: #f8fafc;
     --bg-tertiary: #f1f5f9;
-    --bg-dark: #1e3a8a;
+    --bg-dark: #0B283F;
     
     /* Texto */
     --text-primary: #0f172a;
@@ -28,9 +28,9 @@
     --border-color-dark: #cbd5e0;
     
     /* Botones - Todos usan el color azul del landing */
-    --btn-bg: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
-    --btn-bg-hover: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
-    --btn-bg-active: #1e3a8a;
+    --btn-bg: linear-gradient(135deg, #0B283F 0%, #0B283F 100%);
+    --btn-bg-hover: linear-gradient(135deg, #0B283F 0%, #1e40af 100%);
+    --btn-bg-active: #0B283F;
     --btn-text: #ffffff;
     
     /* Estados - Mismo color para consistencia */
@@ -130,7 +130,7 @@ input[type="button"].btn {
     transition: all var(--transition-base);
     text-decoration: none;
     line-height: 1.5;
-    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    background: linear-gradient(135deg, #0B283F 0%, #0B283F 100%);
     color: var(--btn-text);
     border-color: transparent;
 }
@@ -143,7 +143,7 @@ input[type="button"].btn {
 }
 
 .btn:active {
-    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    background: linear-gradient(135deg, #0B283F 0%, #0B283F 100%);
     border-color: transparent;
     transform: translateY(0);
 }
@@ -173,7 +173,7 @@ input[type="button"].btn {
 .btn-warning.focus,
 .btn-danger.focus,
 .btn-info.focus {
-    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    background: linear-gradient(135deg, #0B283F 0%, #0B283F 100%);
     color: var(--btn-text);
     border-color: transparent;
 }

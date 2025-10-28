@@ -11,6 +11,10 @@ import es.ucm.fdi.iu.service.PrinterDiscoveryService;
 import es.ucm.fdi.iu.service.PrinterAutoConfigService;
 import es.ucm.fdi.iu.service.PrintQueueService;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
@@ -85,7 +89,7 @@ public class AdminController {
                     "SELECT COUNT(c) FROM Computer c", Long.class)
                     .getSingleResult();
             
-            long unassignedComputers = entityManager.createQuery(
+                        long unassignedComputers = entityManager.createQuery(
                     "SELECT COUNT(c) FROM Computer c WHERE c.department IS NULL", Long.class)
                     .getSingleResult();
             
@@ -94,9 +98,12 @@ public class AdminController {
                     .getSingleResult();
             
             model.addAttribute("totalDepartments", totalDepartments);
+            model.addAttribute("totalDepartmentsCount", totalDepartments);
             model.addAttribute("totalComputers", totalComputers);
             model.addAttribute("unassignedComputers", unassignedComputers);
+            model.addAttribute("unassignedComputersCount", unassignedComputers);
             model.addAttribute("totalPrinters", totalPrinters);
+            model.addAttribute("totalPrintersCount", totalPrinters);
             model.addAttribute("currentUri", request.getRequestURI());
             
             log.info("Dashboard loaded successfully");
@@ -110,16 +117,31 @@ public class AdminController {
     
     // ========== SECCIÓN: DEPARTAMENTOS ==========
     
-        @GetMapping("/departments")
+                        @GetMapping("/departments")
     @Transactional
-    public String departments(Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
+    public String departments(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
         try {
             User currentUser = (User) session.getAttribute("u");
             
-            // Cargar departamentos
-            List<Department> departments = entityManager.createNamedQuery(
+            // Contar total de departamentos (para estadísticas)
+            long totalDepartmentsCount = entityManager.createQuery(
+                    "SELECT COUNT(d) FROM Department d", Long.class)
+                    .getSingleResult();
+            
+            // Cargar departamentos con paginación
+            Pageable pageable = PageRequest.of(page, size);
+            List<Department> allDepartments = entityManager.createNamedQuery(
                     "Department.all", Department.class)
                     .getResultList();
+            
+            // Protección contra listas vacías o páginas fuera de rango
+            int start = Math.min((int) pageable.getOffset(), allDepartments.size());
+            int end = Math.min((start + pageable.getPageSize()), allDepartments.size());
+            List<Department> departmentsPage = start < allDepartments.size() ? allDepartments.subList(start, end) : java.util.Collections.emptyList();
+            Page<Department> departments = new PageImpl<>(departmentsPage, pageable, allDepartments.size());
             
             // Computadoras sin asignar
             List<Computer> unassignedComputers = entityManager.createQuery(
@@ -141,7 +163,8 @@ public class AdminController {
                 log.warn("No se pudieron cargar rangos de red: {}", e.getMessage());
             }
             
-            model.addAttribute("departments", departments);
+                        model.addAttribute("departments", departments);
+            model.addAttribute("totalDepartmentsCount", totalDepartmentsCount);
             model.addAttribute("unassignedComputers", unassignedComputers);
             model.addAttribute("allPrinters", allPrinters);
             model.addAttribute("networkRanges", networkRanges);
@@ -158,16 +181,31 @@ public class AdminController {
     
     // ========== SECCIÓN: IMPRESORAS ==========
     
-        @GetMapping("/printers")
+                        @GetMapping("/printers")
     @Transactional
-    public String printers(Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
+    public String printers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
         try {
             User currentUser = (User) session.getAttribute("u");
             
-            // Cargar todas las impresoras
-            List<Printer> allPrinters = entityManager.createQuery(
+            // Contar total de impresoras (para estadísticas)
+            long totalPrintersCount = entityManager.createQuery(
+                    "SELECT COUNT(p) FROM Printer p", Long.class)
+                    .getSingleResult();
+            
+            // Cargar todas las impresoras con paginación
+            Pageable pageable = PageRequest.of(page, size);
+            List<Printer> allPrintersList = entityManager.createQuery(
                     "SELECT p FROM Printer p ORDER BY p.alias", Printer.class)
                     .getResultList();
+            
+            // Protección contra listas vacías o páginas fuera de rango
+            int start = Math.min((int) pageable.getOffset(), allPrintersList.size());
+            int end = Math.min((start + pageable.getPageSize()), allPrintersList.size());
+            List<Printer> printersPage = start < allPrintersList.size() ? allPrintersList.subList(start, end) : java.util.Collections.emptyList();
+            Page<Printer> allPrinters = new PageImpl<>(printersPage, pageable, allPrintersList.size());
             
             // Rangos de red
             List<NetworkRange> networkRanges = new java.util.ArrayList<>();
@@ -188,13 +226,14 @@ public class AdminController {
                     "SELECT c FROM Computer c WHERE c.department IS NULL", Computer.class)
                     .getResultList();
             
-            model.addAttribute("allPrinters", allPrinters);
+                                                model.addAttribute("allPrinters", allPrinters);
+            model.addAttribute("totalPrintersCount", totalPrintersCount);
             model.addAttribute("networkRanges", networkRanges);
             model.addAttribute("departments", departments);  // PARA EL SIDEBAR
             model.addAttribute("unassignedComputers", unassignedComputers);  // PARA EL SIDEBAR
             model.addAttribute("currentUri", request.getRequestURI());
             
-            log.info("Printers section loaded with {} printers", allPrinters.size());
+            log.info("Printers section loaded with {} printers", totalPrintersCount);
             return "admin-printers";
         } catch (Exception e) {
             log.error("Error loading printers", e);
@@ -234,7 +273,7 @@ public class AdminController {
             long activePrinters = printersWithJobs.size();
             long pendingJobs = totalJobs;
             
-            // Datos para el sidebar
+                        // Datos para el sidebar
             List<Department> departments = entityManager.createNamedQuery(
                     "Department.all", Department.class)
                     .getResultList();
@@ -243,6 +282,19 @@ public class AdminController {
                     "SELECT c FROM Computer c WHERE c.department IS NULL", Computer.class)
                     .getResultList();
             
+            // Contadores para el sidebar
+            long totalDepartmentsCount = entityManager.createQuery(
+                    "SELECT COUNT(d) FROM Department d", Long.class)
+                    .getSingleResult();
+            
+            long totalPrintersCount = entityManager.createQuery(
+                    "SELECT COUNT(p) FROM Printer p", Long.class)
+                    .getSingleResult();
+            
+            long unassignedComputersCount = entityManager.createQuery(
+                    "SELECT COUNT(c) FROM Computer c WHERE c.department IS NULL", Long.class)
+                    .getSingleResult();
+            
             model.addAttribute("printersWithJobs", printersWithJobs);
             model.addAttribute("allPrinters", allPrinters);
             model.addAttribute("totalJobs", totalJobs);
@@ -250,6 +302,9 @@ public class AdminController {
             model.addAttribute("pendingJobs", pendingJobs);
             model.addAttribute("departments", departments);
             model.addAttribute("unassignedComputers", unassignedComputers);
+            model.addAttribute("totalDepartmentsCount", totalDepartmentsCount);
+            model.addAttribute("totalPrintersCount", totalPrintersCount);
+            model.addAttribute("unassignedComputersCount", unassignedComputersCount);
             model.addAttribute("currentUri", request.getRequestURI());
             
             log.info("Print queues section loaded with {} active printers", activePrinters);
@@ -373,26 +428,56 @@ public class AdminController {
     
     // ========== SECCIÓN: COMPUTADORAS ==========
     
-        @GetMapping("/computers")
+                        @GetMapping("/computers")
     @Transactional
-    public String computers(Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
+    public String computers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
         try {
             User currentUser = (User) session.getAttribute("u");
             
+            Pageable pageable = PageRequest.of(page, size);
+            
+            // Contar totales (para estadísticas)
+            long totalComputersCount = entityManager.createQuery(
+                    "SELECT COUNT(c) FROM Computer c", Long.class)
+                    .getSingleResult();
+            
+            long unassignedComputersCount = entityManager.createQuery(
+                    "SELECT COUNT(c) FROM Computer c WHERE c.department IS NULL", Long.class)
+                    .getSingleResult();
+            
+            long assignedComputersCount = entityManager.createQuery(
+                    "SELECT COUNT(c) FROM Computer c WHERE c.department IS NOT NULL", Long.class)
+                    .getSingleResult();
+            
             // Cargar todas las computadoras
-            List<Computer> allComputers = entityManager.createQuery(
+            List<Computer> allComputersList = entityManager.createQuery(
                     "SELECT c FROM Computer c ORDER BY c.name", Computer.class)
                     .getResultList();
             
-            // Computadoras sin asignar
-            List<Computer> unassignedComputers = entityManager.createQuery(
+                        // Computadoras sin asignar con paginación
+            List<Computer> unassignedComputersList = entityManager.createQuery(
                     "SELECT c FROM Computer c WHERE c.department IS NULL ORDER BY c.name", Computer.class)
                     .getResultList();
             
-            // Computadoras por departamento
-            List<Computer> assignedComputers = entityManager.createQuery(
+            int startUnassigned = Math.min((int) pageable.getOffset(), unassignedComputersList.size());
+            int endUnassigned = Math.min((startUnassigned + pageable.getPageSize()), unassignedComputersList.size());
+            List<Computer> unassignedPage = startUnassigned < unassignedComputersList.size() ? unassignedComputersList.subList(startUnassigned, endUnassigned) : java.util.Collections.emptyList();
+            Page<Computer> unassignedComputers = new PageImpl<>(unassignedPage, pageable, unassignedComputersList.size());
+            
+            // Computadoras por departamento con paginación
+            List<Computer> assignedComputersList = entityManager.createQuery(
                     "SELECT c FROM Computer c WHERE c.department IS NOT NULL ORDER BY c.department.name, c.name", Computer.class)
                     .getResultList();
+            
+            int startAssigned = Math.min((int) pageable.getOffset(), assignedComputersList.size());
+            int endAssigned = Math.min((startAssigned + pageable.getPageSize()), assignedComputersList.size());
+            List<Computer> assignedPage = startAssigned < assignedComputersList.size() ? assignedComputersList.subList(startAssigned, endAssigned) : java.util.Collections.emptyList();
+            Page<Computer> assignedComputers = new PageImpl<>(assignedPage, pageable, assignedComputersList.size());
+            
+            List<Computer> allComputers = allComputersList;
             
             // Cargar departamentos para asignación Y para el sidebar
             List<Department> departments = entityManager.createNamedQuery(
@@ -404,9 +489,11 @@ public class AdminController {
                     "SELECT p FROM Printer p", Printer.class)
                     .getResultList();
             
-            model.addAttribute("allComputers", allComputers);
+                        model.addAttribute("allComputers", allComputers);
             model.addAttribute("unassignedComputers", unassignedComputers);
             model.addAttribute("assignedComputers", assignedComputers);
+            model.addAttribute("unassignedComputersCount", unassignedComputersCount);
+            model.addAttribute("assignedComputersCount", assignedComputersCount);
             model.addAttribute("departments", departments);
             model.addAttribute("allPrinters", allPrinters);  // PARA EL SIDEBAR
             model.addAttribute("currentUri", request.getRequestURI());

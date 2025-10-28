@@ -4,14 +4,14 @@
     <th:block th:replace="fragments/head :: header"/>
     <title>Gestión de Departamentos</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
-    <link rel="stylesheet" th:href="@{/css/admin-sidebar.css}"/>
+        <link rel="stylesheet" th:href="@{/css/admin-sidebar.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-modern.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-departments.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-sidebar-override.css}"/>
+    <link rel="stylesheet" th:href="@{/css/pagination.css}"/>
 </head>
 <body>
     <nav th:replace="fragments/nav.html :: nav"></nav>
-    
     <div th:if="${success}" class="alert alert-success alert-fixed">
         <span th:text="${success}"></span>
     </div>
@@ -40,12 +40,12 @@
                 </div>
                 
                 <!-- Estadísticas -->
-                <div class="departments-stats">
+                                <div class="departments-stats">
                     <div class="dept-stat-card">
                         <div class="dept-stat-icon">
                             <i class="fas fa-building"></i>
                         </div>
-                        <div class="dept-stat-value" th:text="${departments != null ? #lists.size(departments) : 0}">0</div>
+                        <div class="dept-stat-value" th:text="${totalDepartmentsCount != null ? totalDepartmentsCount : 0}">0</div>
                         <div class="dept-stat-label">Total Departamentos</div>
                     </div>
                     <div class="dept-stat-card">
@@ -70,7 +70,7 @@
                         <span><i class="fas fa-list"></i> Todos los Departamentos</span>
                     </div>
                     <div class="card-body">
-                        <div th:if="${departments == null || #lists.isEmpty(departments)}" class="empty-state">
+                        <div th:if="${departments == null || (departments.content != null && #lists.isEmpty(departments.content)) || (departments.content == null && #lists.isEmpty(departments))}" class="empty-state">
                             <div class="empty-state-icon"><i class="fas fa-building"></i></div>
                             <p>No hay departamentos creados</p>
                             <button class="btn btn-primary" onclick="openModal('createDepartmentModal')">
@@ -78,7 +78,7 @@
                             </button>
                         </div>
                         
-                        <div th:unless="${departments == null || #lists.isEmpty(departments)}">
+                        <div th:unless="${departments == null || (departments.content != null && #lists.isEmpty(departments.content)) || (departments.content == null && #lists.isEmpty(departments))}">
                             <table class="data-table">
                                 <thead>
                                     <tr>
@@ -90,9 +90,9 @@
                                         <th>Acciones</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <tr th:each="dept : ${departments}" 
-                                        th:style="'border-left: 4px solid ' + ${dept.color}">
+                                                                                                <tbody>
+                                    <th:block th:each="dept : ${departments.content != null ? departments.content : departments}">
+                                    <tr th:style="'border-left: 4px solid ' + ${dept.color}">
                                         <td>
                                             <div class="dept-name-cell">
                                                 <span class="dept-color-dot" th:style="'background: ' + ${dept.color}"></span>
@@ -104,8 +104,8 @@
                                             <span th:if="${dept.location}" th:text="${dept.location}">Ubicación</span>
                                             <span th:unless="${dept.location}" class="text-muted">--</span>
                                         </td>
-                                        <td>
-                                            <div>
+                                                                                                                                                                                                        <td>
+                                            <div class="dept-count-row">
                                                 <strong th:text="${dept.computers != null ? #lists.size(dept.computers) : 0}">0</strong>
                                                 <button class="btn btn-sm btn-primary" 
                                                         th:attr="data-dept-id=${dept.id}, data-dept-name=${dept.name}"
@@ -114,14 +114,9 @@
                                                     <i class="fas fa-plus"></i>
                                                 </button>
                                             </div>
-                                            <div th:if="${dept.computers != null and #lists.size(dept.computers) > 0}" class="dept-items-container">
-                                                <div th:each="comp : ${dept.computers}" class="badge badge-secondary dept-item-badge">
-                                                    <span th:text="${comp.name}">PC</span>
-                                                </div>
-                                            </div>
                                         </td>
-                                        <td>
-                                            <div>
+                                                                                                                                                                                                                                                <td>
+                                            <div class="dept-count-row">
                                                 <strong th:text="${dept.printers != null ? #lists.size(dept.printers) : 0}">0</strong>
                                                 <button class="btn btn-sm btn-primary" 
                                                         th:attr="data-dept-id=${dept.id}, data-dept-name=${dept.name}"
@@ -129,11 +124,6 @@
                                                         title="Asignar impresora">
                                                     <i class="fas fa-plus"></i>
                                                 </button>
-                                            </div>
-                                            <div th:if="${dept.printers != null and #lists.size(dept.printers) > 0}" class="dept-items-container">
-                                                <div th:each="printer : ${dept.printers}" class="badge badge-secondary dept-item-badge">
-                                                    <span th:text="${printer.alias}">Printer</span>
-                                                </div>
                                             </div>
                                         </td>
                                         <td>
@@ -147,8 +137,52 @@
                                             </div>
                                         </td>
                                     </tr>
+                                    
+                                    <!-- Fila expandida para mostrar items asignados -->
+                                    <tr th:if="${(dept.computers != null && #lists.size(dept.computers) > 0) || (dept.printers != null && #lists.size(dept.printers) > 0)}" 
+                                        class="dept-expanded-row"
+                                        th:style="'border-left: 4px solid ' + ${dept.color}">
+                                        <td colspan="6" class="dept-expanded-cell">
+                                            <div class="dept-expanded-content">
+                                                <!-- Computadoras asignadas -->
+                                                <div th:if="${dept.computers != null && #lists.size(dept.computers) > 0}" class="dept-section">
+                                                    <div class="dept-items-label"><i class="fas fa-desktop"></i> Computadoras asignadas:</div>
+                                                    <div class="dept-items-container">
+                                                        <div th:each="comp : ${dept.computers}" class="dept-computer-badge">
+                                                            <span class="dept-computer-name" th:text="${comp.name}" th:title="${comp.name}">PC</span>
+                                                            <form method="post" th:action="@{/admin/remove-computer-from-dept(computerId=${comp.id})}" 
+                                                                  class="dept-remove-form" onsubmit="return confirm('¿Quitar esta computadora del departamento?')">
+                                                                <button type="submit" class="dept-remove-btn" title="Quitar computadora">
+                                                                    <i class="fas fa-times"></i>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <!-- Impresoras asignadas -->
+                                                <div th:if="${dept.printers != null && #lists.size(dept.printers) > 0}" class="dept-section">
+                                                    <div class="dept-items-label"><i class="fas fa-print"></i> Impresoras asignadas:</div>
+                                                    <div class="dept-items-container">
+                                                        <div th:each="printer : ${dept.printers}" class="dept-printer-badge">
+                                                            <span class="dept-printer-name" th:text="${printer.alias}" th:title="${printer.alias}">Printer</span>
+                                                            <form method="post" th:action="@{/admin/remove-printer-from-dept(departmentId=${dept.id}, printerId=${printer.id})}" 
+                                                                  class="dept-remove-form" onsubmit="return confirm('¿Quitar esta impresora del departamento?')">
+                                                                <button type="submit" class="dept-remove-btn" title="Quitar impresora">
+                                                                    <i class="fas fa-times"></i>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                                                                </td>
+                                    </tr>
+                                    </th:block>
                                 </tbody>
                             </table>
+                            
+                            <!-- Paginación -->
+                            <div th:if="${departments.content != null}" th:replace="fragments/pagination :: pagination(${departments}, '/admin/departments')"></div>
                         </div>
                     </div>
                 </div>
@@ -159,13 +193,13 @@
         <!-- MODALES -->
     <div th:replace="fragments/admin-departments-modals :: modals"></div>
     
-    <!-- Barra de progreso minimizada GLOBAL -->
+        <!-- Barra de progreso minimizada GLOBAL -->
     <div th:replace="fragments/scan-progress-minimized.html :: minimized-bar"></div>
 
-    <footer th:replace="fragments/footer.html :: footer"></footer>
-
-    <script th:src="@{/js/admin.js}"></script>
+                <script th:src="@{/js/admin.js}"></script>
     <script th:src="@{/js/scan-monitor-global.js}"></script>
+    <script th:src="@{/js/pagination.js}"></script>
+    <script th:src="@{/js/form-confirmations.js}"></script>
     <script th:replace="fragments/admin-departments-scripts :: scripts"></script>
 </body>
 </html>

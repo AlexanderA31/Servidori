@@ -13,8 +13,17 @@
         }
 
         // Función para mover un trabajo al inicio de la cola
-        function moveJobToTop(jobId) {
-            if (confirm('¿Mover este trabajo al inicio de la cola?')) {
+        async function moveJobToTop(jobId) {
+            const confirmed = await showConfirm({
+                title: '¿Mover trabajo?',
+                message: '¿Deseas mover este trabajo al inicio de la cola de impresión?',
+                confirmText: 'Mover al inicio',
+                cancelText: 'Cancelar',
+                type: 'info',
+                confirmClass: 'btn-primary'
+            });
+            
+            if (confirmed) {
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = '/admin/printqueues/move-to-top?jobId=' + jobId;
@@ -34,18 +43,16 @@
             openModal('viewJobModal');
         }
 
-        // Auto-cerrar alertas
+        // Las alertas ahora se manejan automáticamente por form-confirmations.js
         document.addEventListener('DOMContentLoaded', function() {
-            const alerts = document.querySelectorAll('.alert');
-            alerts.forEach(alert => {
-                setTimeout(() => {
-                    alert.style.opacity = '0';
-                    setTimeout(() => alert.remove(), 300);
-                }, 5000);
-            });
             
             // Iniciar monitoreo de estado
             startStatusMonitoring();
+            
+            // Mostrar notificación de inicio
+            setTimeout(() => {
+                showInfo('La página se actualizará automáticamente cada 30 segundos', 'Monitoreo Activo');
+            }, 1000);
             
             // Auto-actualizar cada 30 segundos
             let autoRefresh = setInterval(refreshQueues, 30000);

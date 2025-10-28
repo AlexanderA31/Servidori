@@ -8,10 +8,10 @@
     <link rel="stylesheet" th:href="@{/css/admin-modern.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-computers.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-sidebar-override.css}"/>
+    <link rel="stylesheet" th:href="@{/css/pagination.css}"/>
 </head>
 <body>
     <nav th:replace="fragments/nav.html :: nav"></nav>
-    
     <div th:if="${success}" class="alert alert-success alert-fixed">
         <span th:text="${success}"></span>
     </div>
@@ -52,20 +52,20 @@
                         <div class="computer-stat-icon">
                             <i class="fas fa-exclamation-triangle"></i>
                         </div>
-                        <div class="computer-stat-value" th:text="${unassignedComputers != null ? #lists.size(unassignedComputers) : 0}">0</div>
+                        <div class="computer-stat-value" th:text="${unassignedComputersCount != null ? unassignedComputersCount : 0}">0</div>
                         <div class="computer-stat-label">Sin Asignar</div>
                     </div>
                     <div class="computer-stat-card assigned-card">
                         <div class="computer-stat-icon">
                             <i class="fas fa-check-circle"></i>
                         </div>
-                        <div class="computer-stat-value" th:text="${assignedComputers != null ? #lists.size(assignedComputers) : 0}">0</div>
+                        <div class="computer-stat-value" th:text="${assignedComputersCount != null ? assignedComputersCount : 0}">0</div>
                         <div class="computer-stat-label">Asignadas</div>
                     </div>
                 </div>
 
                 <!-- Computadoras Sin Asignar -->
-                <div class="computers-section" th:if="${unassignedComputers != null and !#lists.isEmpty(unassignedComputers)}">
+                <div class="computers-section" th:if="${unassignedComputers != null && unassignedComputers.totalElements != null && unassignedComputers.totalElements > 0}">
                     <h2 class="section-title">
                         <i class="fas fa-exclamation-triangle"></i>
                         Computadoras Sin Asignar
@@ -83,7 +83,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr th:each="computer : ${unassignedComputers}">
+                                    <tr th:each="computer : ${unassignedComputers.content != null ? unassignedComputers.content : unassignedComputers}">
                                         <td>
                                             <div class="computer-name-cell">
                                                 <div class="computer-icon">
@@ -126,6 +126,9 @@
                                     </tr>
                                 </tbody>
                             </table>
+                            
+                            <!-- Paginación -->
+                            <div th:if="${unassignedComputers.content != null}" th:replace="fragments/pagination :: pagination(${unassignedComputers}, '/admin/computers')"></div>
                         </div>
                     </div>
                 </div>
@@ -137,12 +140,15 @@
                         Computadoras Asignadas por Departamento
                     </h2>
                     
-                    <div th:if="${assignedComputers == null || #lists.isEmpty(assignedComputers)}" class="empty-state">
+                    <div th:if="${assignedComputers == null || assignedComputers.totalElements == null || assignedComputers.totalElements == 0}" class="empty-state">
                         <div class="empty-state-icon"><i class="fas fa-desktop"></i></div>
                         <p>No hay computadoras asignadas a departamentos</p>
+                        <button class="btn btn-primary" onclick="openModal('addComputerModal')">
+                            <i class="fas fa-plus"></i> Agregar Primera Computadora
+                        </button>
                     </div>
                     
-                    <div th:unless="${assignedComputers == null || #lists.isEmpty(assignedComputers)}" class="card">
+                    <div th:unless="${assignedComputers == null || assignedComputers.totalElements == null || assignedComputers.totalElements == 0}" class="card">
                         <div class="card-body">
                             <table class="data-table">
                                 <thead>
@@ -155,7 +161,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr th:each="computer : ${assignedComputers}">
+                                    <tr th:each="computer : ${assignedComputers.content != null ? assignedComputers.content : assignedComputers}">
                                         <td>
                                             <div class="computer-name-cell">
                                                 <div class="computer-icon">
@@ -198,6 +204,9 @@
                                     </tr>
                                 </tbody>
                             </table>
+                            
+                            <!-- Paginación -->
+                            <div th:if="${assignedComputers.content != null}" th:replace="fragments/pagination :: pagination(${assignedComputers}, '/admin/computers')"></div>
                         </div>
                     </div>
                 </div>
@@ -211,10 +220,10 @@
     <!-- Barra de progreso minimizada GLOBAL -->
     <div th:replace="fragments/scan-progress-minimized.html :: minimized-bar"></div>
 
-    <footer th:replace="fragments/footer.html :: footer"></footer>
-
     <script th:src="@{/js/admin.js}"></script>
     <script th:src="@{/js/scan-monitor-global.js}"></script>
+    <script th:src="@{/js/pagination.js}"></script>
+    <script th:src="@{/js/form-confirmations.js}"></script>
     <script th:replace="fragments/admin-computers-scripts :: scripts"></script>
 </body>
 </html>

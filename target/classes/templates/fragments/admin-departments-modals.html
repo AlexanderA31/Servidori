@@ -1,114 +1,11 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
+    <!-- Modales para Departamentos - Usa modales compartidos -->
     <div th:fragment="modals">
-        <!-- Modal: Crear Departamento -->
-        <div id="createDepartmentModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3><i class="fas fa-building"></i> Nuevo Departamento</h3>
-                    <button class="close-modal" onclick="closeModal('createDepartmentModal')">×</button>
-                </div>
-                <form method="post" th:action="@{/admin/create-department}">
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label class="form-label">Nombre del Departamento *</label>
-                            <input type="text" name="name" class="form-control" 
-                                   placeholder="ej: Ventas, Diseño, Contabilidad" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Descripción</label>
-                            <textarea name="description" class="form-control" rows="2" 
-                                      placeholder="Descripción breve del departamento"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Ubicación</label>
-                            <input type="text" name="location" class="form-control" 
-                                   placeholder="ej: Piso 2, Edificio A">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Color de Identificación</label>
-                            <input type="color" name="color" class="form-control" value="#667eea">
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" onclick="closeModal('createDepartmentModal')">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Crear Departamento</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Modal: Agregar Computadora -->
-        <div id="addComputerModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3><i class="fas fa-desktop"></i> Agregar Computadora</h3>
-                    <button class="close-modal" onclick="closeModal('addComputerModal')">×</button>
-                </div>
-                <form method="post" th:action="@{/admin/add-computer-to-dept}">
-                    <div class="modal-body">
-                        <input type="hidden" id="addComputerDeptId" name="departmentId">
-                        <div class="modal-dept-info">
-                            <strong>Departamento:</strong> <span id="addComputerDeptName"></span>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Dirección MAC *</label>
-                            <input type="text" name="macAddress" class="form-control" 
-                                   placeholder="AA:BB:CC:DD:EE:FF" 
-                                   pattern="([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})" required>
-                            <small>Formato: XX:XX:XX:XX:XX:XX</small>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Nombre *</label>
-                            <input type="text" name="name" class="form-control" 
-                                   placeholder="PC-Ventas-01" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Hostname</label>
-                            <input type="text" name="hostname" class="form-control" 
-                                   placeholder="pc-ventas-01">
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" onclick="closeModal('addComputerModal')">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Agregar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Modal: Asignar Impresora -->
-        <div id="assignPrinterModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3><i class="fas fa-print"></i> Asignar Impresora</h3>
-                    <button class="close-modal" onclick="closeModal('assignPrinterModal')">×</button>
-                </div>
-                <form method="post" th:action="@{/admin/assign-printer-to-dept}">
-                    <div class="modal-body">
-                        <input type="hidden" id="assignPrinterDeptId" name="departmentId">
-                        <div class="modal-dept-info">
-                            <strong>Departamento:</strong> <span id="assignPrinterDeptName"></span>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Seleccionar Impresora *</label>
-                            <select name="printerId" class="form-control" required>
-                                <option value="">-- Seleccione una impresora --</option>
-                                <option th:each="p : ${allPrinters}" th:value="${p.id}" 
-                                        th:text="${p.alias + ' (' + p.ip + ') - ' + p.model}">
-                                    Impresora
-                                </option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" onclick="closeModal('assignPrinterModal')">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Asignar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+        <div th:replace="fragments/shared-modals :: createDepartmentModal"></div>
+        <div th:replace="fragments/shared-modals :: addComputerToDeptModal"></div>
+        <div th:replace="fragments/shared-modals :: assignPrinterModal"></div>
     </div>
 </body>
 </html>
