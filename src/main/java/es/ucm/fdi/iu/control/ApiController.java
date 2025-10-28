@@ -832,7 +832,7 @@ public class ApiController {
         return response;
     }
     
-            /**
+                /**
      * Endpoint público para descargar el script de compartir impresora Windows
      */
     @GetMapping("/download/share-windows-script")
@@ -871,6 +871,49 @@ public class ApiController {
                 .body(script);
         } catch (Exception e) {
             log.error("Error leyendo script de compartir", e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
+    /**
+     * Endpoint público para descargar el script de compartir impresora Linux
+     */
+    @GetMapping("/download/share-linux-script")
+    public ResponseEntity<String> downloadShareLinuxScript() {
+        try {
+            // Intentar desde el directorio del proyecto
+            java.nio.file.Path scriptPath = java.nio.file.Paths.get("scripts/compartir-impresora-linux.sh");
+            
+            // Si no existe, intentar desde resources
+            if (!java.nio.file.Files.exists(scriptPath)) {
+                try {
+                    java.io.InputStream is = getClass().getResourceAsStream("/scripts/compartir-impresora-linux.sh");
+                    if (is != null) {
+                        String script = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                        log.info("Sirviendo script de compartir Linux desde classpath ({} bytes)", script.length());
+                        
+                        return ResponseEntity.ok()
+                            .header("Content-Disposition", "attachment; filename=compartir-impresora-linux.sh")
+                            .header("Content-Type", "text/plain; charset=UTF-8")
+                            .body(script);
+                    }
+                } catch (Exception ex) {
+                    log.debug("No se pudo cargar desde classpath: {}", ex.getMessage());
+                }
+                
+                log.error("Script de compartir Linux no encontrado");
+                return ResponseEntity.notFound().build();
+            }
+            
+            String script = new String(java.nio.file.Files.readAllBytes(scriptPath), java.nio.charset.StandardCharsets.UTF_8);
+            log.info("Sirviendo script de compartir Linux: {} bytes", script.length());
+            
+            return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=compartir-impresora-linux.sh")
+                .header("Content-Type", "text/plain; charset=UTF-8")
+                .body(script);
+        } catch (Exception e) {
+            log.error("Error leyendo script de compartir Linux", e);
             return ResponseEntity.internalServerError().build();
         }
     }

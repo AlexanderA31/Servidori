@@ -69,13 +69,19 @@
                                     <div class="instructions">
                                         <h4>Instrucciones para Linux:</h4>
                                         <ol>
-                                            <li>Descarga el script bash</li>
-                                            <li>Dale permisos de ejecución: <code>chmod +x share-printer.sh</code></li>
-                                            <li>Ejecuta con sudo: <code>sudo ./share-printer.sh</code></li>
-                                            <li>El script configurará CUPS para compartir la impresora</li>
+                                            <li>Descarga el script bash haciendo clic en el botón de abajo</li>
+                                            <li>Dale permisos de ejecución: <code>chmod +x compartir-impresora-linux.sh</code></li>
+                                            <li>Ejecuta con sudo: <code>sudo ./compartir-impresora-linux.sh</code></li>
+                                            <li>Selecciona la impresora USB/Local que deseas compartir del menú</li>
+                                            <li>El script configurará CUPS y la registrará en el servidor</li>
+                                            <li>¡Listo! Ya puedes ver la impresora en la red</li>
                                         </ol>
+                                  
+                                        <p style="margin-top: 1rem; padding: 0.75rem; background: #fff3cd; border-left: 3px solid #ffc107; border-radius: 4px; font-size: 0.875rem;">
+                                            <strong>⚠️ Importante:</strong> La computadora con la impresora USB debe estar <strong>encendida</strong> y CUPS debe estar ejecutándose.
+                                        </p>
                                     </div>
-                                    <button class="btn btn-download" onclick="alert('🐧 Script para Linux en desarrollo')"><i class="fas fa-download"></i> Descargar Script Linux</button>
+                                    <a href="/api/download/share-linux-script" class="btn btn-download" onclick="return downloadShareLinuxScript();"><i class="fas fa-download"></i> Descargar Script Linux (.SH)</a>
                                 </div>
                             </div>
                             
@@ -232,6 +238,36 @@
                         '✅ Configura el firewall automáticamente<br>' +
                         '✅ Asigna un puerto IPP único<br><br>' +
                         '<strong>⚠️ Importante:</strong> La PC con la impresora debe estar encendida para que otros puedan imprimir',
+                        'Cómo usar el script'
+                    );
+                }, 800);
+            }, 500);
+            
+            return false; // Prevenir navegación adicional
+        }
+        
+        function downloadShareLinuxScript() {
+            // Iniciar descarga
+            window.location.href = '/api/download/share-linux-script';
+            
+            // Mostrar instrucciones mejoradas
+            setTimeout(() => {
+                showSuccess('Script descargado correctamente', 'Descarga Completa');
+                setTimeout(() => {
+                    showInfo(
+                        '<strong>✅ Instrucciones Simples:</strong><br><br>' +
+                        '<strong>1. Abre una terminal</strong> en la carpeta donde descargaste el script<br>' +
+                        '<strong>2. Dale permisos:</strong> <code>chmod +x compartir-impresora-linux.sh</code><br>' +
+                        '<strong>3. Ejecuta el script:</strong> <code>sudo ./compartir-impresora-linux.sh</code><br>' +
+                        '<strong>4. Selecciona la impresora USB</strong> que deseas compartir del menú<br>' +
+                        '<strong>5. ¡Listo!</strong> La impresora estará disponible en la red<br><br>' +
+                        '<strong>💡 Qué hace el script:</strong><br>' +
+                        '✅ Detecta todas tus impresoras CUPS locales<br>' +
+                        '✅ Comparte la impresora vía IPP/CUPS<br>' +
+                        '✅ La registra en el servidor central<br>' +
+                        '✅ Configura el firewall automáticamente<br>' +
+                        '✅ Asigna un puerto IPP único<br><br>' +
+                        '<strong>⚠️ Importante:</strong> CUPS debe estar instalado y la PC debe estar encendida',
                         'Cómo usar el script'
                     );
                 }, 800);
