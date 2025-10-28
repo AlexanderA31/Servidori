@@ -5,6 +5,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.print.PrintService;
@@ -69,10 +70,18 @@ public class PrinterDiscoveryService {
     // Comunidad SNMP por defecto (configurable)
     private static final String SNMP_COMMUNITY = "public";
     
-    // Rangos de red por defecto (si no hay configurados)
-    private static final String[] DEFAULT_NETWORK_RANGES = {
-        "192.168.1.0/24",   // Red local típica
-    };
+    // Configuración desde application.properties
+    @Value("${printer.discovery.networks:192.168.1.0/24}")
+    private String configuredNetworks;
+    
+    @Value("${printer.discovery.snmp.enabled:true}")
+    private boolean snmpEnabled;
+    
+    @Value("${printer.discovery.snmp.timeout:500}")
+    private int snmpTimeout;
+    
+    @Value("${printer.discovery.port.timeout:200}")
+    private int portTimeout;
 
     /**
      * Obtiene los rangos de red configurados o usa los por defecto
@@ -85,18 +94,26 @@ public class PrinterDiscoveryService {
                 .getResultList();
             
             if (!configuredRanges.isEmpty()) {
+                // Usar rangos de la base de datos
                 for (es.ucm.fdi.iu.model.NetworkRange range : configuredRanges) {
                     ranges.add(range.getCidrRange());
-                    log.info("Rango configurado: {} ({})", range.getName(), range.getCidrRange());
+                    log.info("Rango configurado en BD: {} ({})", range.getName(), range.getCidrRange());
                 }
             } else {
-                // Usar rangos por defecto
-                ranges.addAll(Arrays.asList(DEFAULT_NETWORK_RANGES));
-                log.info("Usando rangos por defecto");
+                // Usar rangos de application.properties
+                String[] propertyRanges = configuredNetworks.split(",");
+                for (String range : propertyRanges) {
+                    ranges.add(range.trim());
+                    log.info("Rango configurado en properties: {}", range.trim());
+                }
             }
         } catch (Exception e) {
-            log.error("Error al obtener rangos de red, usando por defecto", e);
-            ranges.addAll(Arrays.asList(DEFAULT_NETWORK_RANGES));
+            log.error("Error al obtener rangos de red, usando configuración por defecto", e);
+            // Fallback a configuración de properties
+            String[] propertyRanges = configuredNetworks.split(",");
+            for (String range : propertyRanges) {
+                ranges.add(range.trim());
+            }
         }
         return ranges;
     }
@@ -387,7 +404,7 @@ public class PrinterDiscoveryService {
         
         // ESTRATEGIA 4: Verificar puertos RAW/LPD directamente
         for (int port : new int[]{9100, 515}) { // RAW, LPD (ya probamos IPP)
-            if (isPortOpen(ip, port, 200)) {
+            if (isPortOpen(ip, port, portTimeout)) {
                 DiscoveredPrinter printer = new DiscoveredPrinter();
                 printer.setIp(ip);
                 printer.setName(resolveDNSName(ip));
@@ -478,7 +495,7 @@ public class PrinterDiscoveryService {
             target.setCommunity(new OctetString(SNMP_COMMUNITY));
             target.setAddress(new UdpAddress(ip + "/" + SNMP_PORT));
             target.setRetries(1);
-            target.setTimeout(500); // 500ms timeout
+            target.setTimeout(snmpTimeout);
             target.setVersion(SnmpConstants.version2c);
             
             // Intentar obtener descripción del sistema

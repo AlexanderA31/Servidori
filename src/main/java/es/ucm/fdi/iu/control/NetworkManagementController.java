@@ -2,6 +2,7 @@ package es.ucm.fdi.iu.control;
 
 import es.ucm.fdi.iu.model.NetworkRange;
 import es.ucm.fdi.iu.model.User;
+import es.ucm.fdi.iu.service.NetworkDiagnosticService;
 import es.ucm.fdi.iu.service.PrinterDiscoveryService;
 import jakarta.persistence.EntityManager;
 import jakarta.servlet.http.HttpSession;
@@ -31,6 +32,9 @@ public class NetworkManagementController {
 
     @Autowired
     private PrinterDiscoveryService printerDiscoveryService;
+    
+    @Autowired
+    private NetworkDiagnosticService diagnosticService;
 
     /**
      * Panel principal de gestión de redes
@@ -369,6 +373,16 @@ public class NetworkManagementController {
         return range != null ? range.toTransfer() : null;
     }
 
+    /**
+     * API: Diagnosticar conectividad a una red
+     */
+    @GetMapping("/api/diagnose-network")
+    @ResponseBody
+    public NetworkDiagnosticService.NetworkDiagnosticResult diagnoseNetwork(@RequestParam String cidr) {
+        log.info("Diagnosticando conectividad a red: {}", cidr);
+        return diagnosticService.diagnoseNetwork(cidr);
+    }
+    
     /**
      * API: Validar CIDR
      */
