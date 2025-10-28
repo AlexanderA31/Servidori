@@ -524,8 +524,8 @@
                     const option = document.createElement('option');
                     // El value ahora es el ID de la impresora
                     option.value = printer.id;
-                    // Mostrar alias y la IP del SERVIDOR (fija)
-                    option.textContent = `${printer.alias} (Servidor: ${serverIp})`;
+                    // Mostrar solo el nombre/alias de la impresora
+                    option.textContent = printer.alias;
                     // Guardar la URI IPP ya construida correctamente
                     option.dataset.ippuri = printer.ippUri;
                     option.dataset.name = printer.alias;
