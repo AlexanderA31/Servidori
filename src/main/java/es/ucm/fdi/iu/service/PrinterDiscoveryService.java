@@ -695,6 +695,14 @@ public class PrinterDiscoveryService {
                 }
             }
             
+            // Asignar puerto IPP único y dedicado
+            Integer maxPort = em.createQuery(
+                "SELECT MAX(p.ippPort) FROM Printer p", Integer.class)
+                .getSingleResult();
+            int nextPort = (maxPort != null) ? maxPort + 1 : 8631;
+            printer.setIppPort(nextPort);
+            log.info("Puerto IPP {} asignado a impresora descubierta {}", nextPort, discovered.getName());
+            
             em.persist(printer);
             em.flush(); // Asegurar que se persiste inmediatamente
             log.info("✅ Impresora registrada: {} en {} ({})", 

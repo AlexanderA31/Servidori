@@ -63,7 +63,7 @@
 .btn-minimize-scan {
     background: rgba(255, 255, 255, 0.3);
     border: 2px solid rgba(255, 255, 255, 0.5);
-    color: white;
+    color: rgb(9, 8, 8);
     width: 40px;
     height: 40px;
     border-radius: 8px;

@@ -379,6 +379,14 @@ public class ApiController {
             }
         }
 
+                // Asignar puerto IPP único y dedicado
+        Integer maxPort = entityManager.createQuery(
+            "SELECT MAX(p.ippPort) FROM Printer p", Integer.class)
+            .getSingleResult();
+        int nextPort = (maxPort != null) ? maxPort + 1 : 8631;
+        p.setIppPort(nextPort);
+        log.info("Puerto IPP {} asignado a impresora {}", nextPort, p.getAlias());
+        
         entityManager.persist(p);
         entityManager.flush();
         return u.toTransfer(t.getKey());
@@ -794,9 +802,17 @@ public class ApiController {
             printer.setProtocol(protocol);
             printer.setPort(port);
             printer.setDeviceUri("ipp://" + ip + ":" + port + "/printers/" + alias.replace(" ", "_"));
-            printer.setInstance(user);
+                        printer.setInstance(user);
             printer.setInk(100);
             printer.setPaper(100);
+            
+            // Asignar puerto IPP único y dedicado
+            Integer maxPort = entityManager.createQuery(
+                "SELECT MAX(p.ippPort) FROM Printer p", Integer.class)
+                .getSingleResult();
+            int nextPort = (maxPort != null) ? maxPort + 1 : 8631;
+            printer.setIppPort(nextPort);
+            log.info("Puerto IPP {} asignado a impresora compartida {}", nextPort, alias);
             
             entityManager.persist(printer);
             entityManager.flush();
@@ -876,7 +892,7 @@ public class ApiController {
                 "SELECT p FROM Printer p ORDER BY p.alias", Printer.class)
                 .getResultList();
         
-        for (Printer p : printers) {
+                for (Printer p : printers) {
             Map<String, String> printerData = new HashMap<>();
             printerData.put("id", String.valueOf(p.getId()));
             printerData.put("alias", p.getAlias());
@@ -886,9 +902,13 @@ public class ApiController {
             // IP física de la impresora (solo para información, NO para conexión)
             printerData.put("printerIp", p.getIp() != null ? p.getIp() : "");
             
-                        // URI IPP correcto (usa la IP del SERVIDOR, no de la impresora)
+            // Puerto IPP dedicado de esta impresora (cada una tiene el suyo)
+            int ippPort = p.getIppPort() != null ? p.getIppPort() : 8631;
+            printerData.put("ippPort", String.valueOf(ippPort));
+            
+            // URI IPP correcto (usa el puerto dedicado de la impresora)
             String safeName = p.getAlias().replace(" ", "_");
-            String ippUri = String.format("ipp://%s:8631/printers/%s", serverIp, safeName);
+            String ippUri = String.format("ipp://%s:%d/printers/%s", serverIp, ippPort, safeName);
             printerData.put("ippUri", ippUri);
             
             printersList.add(printerData);

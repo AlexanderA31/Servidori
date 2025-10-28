@@ -1098,7 +1098,7 @@ public class AdminController {
                 return "redirect:/login";
             }
             
-            // Crear impresora
+                        // Crear impresora
             Printer printer = new Printer();
                         printer.setAlias(alias);
             printer.setModel(model);
@@ -1111,6 +1111,14 @@ public class AdminController {
             printer.setInstance(user);
             printer.setInk(100);
             printer.setPaper(100);
+            
+            // Asignar puerto IPP único y dedicado
+            Integer maxPort = entityManager.createQuery(
+                "SELECT MAX(p.ippPort) FROM Printer p", Integer.class)
+                .getSingleResult();
+            int nextPort = (maxPort != null) ? maxPort + 1 : 8631;
+            printer.setIppPort(nextPort);
+            log.info("Puerto IPP {} asignado a impresora {}", nextPort, alias);
             
                         entityManager.persist(printer);
             entityManager.flush(); // Asegurar que se persiste antes de configurar
