@@ -208,7 +208,7 @@ if exist "%TEMP_PRINTERS%" del "%TEMP_PRINTERS%"
 if exist "%TEMP_PS_SCRIPT%" del "%TEMP_PS_SCRIPT%"
 
 REM Crear script PowerShell temporal
-echo Get-Printer ^| Where-Object {$_.Type -eq 'Local' -or $_.PortName -like 'USB*' -or $_.PortName -like 'LPT*' -or $_.PortName -like 'COM*'} ^| ForEach-Object {Write-Output "$($_.Name)^|$($_.PortName)^|$($_.DriverName)"} > "%TEMP_PS_SCRIPT%"
+(echo Get-Printer ^| Where-Object {$_.Type -eq 'Local' -or $_.PortName -like 'USB*' -or $_.PortName -like 'LPT*' -or $_.PortName -like 'COM*'} ^| ForEach-Object {Write-Output "$($_.Name)^|$($_.PortName)^|$($_.DriverName)"}) > "%TEMP_PS_SCRIPT%"
 
 REM Ejecutar PowerShell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%TEMP_PS_SCRIPT%" > "%TEMP_PRINTERS%" 2>&1
@@ -335,9 +335,11 @@ REM Crear script PowerShell para hacer la peticion HTTP
     echo }
 ) > "%TEMP_CURL_SCRIPT%"
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%TEMP_CURL_SCRIPT%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%TEMP_CURL_SCRIPT%" 2>&1
 
+set "SERVER_REGISTERED=false"
 if errorlevel 1 (
+    echo.
     echo [AVISO] No se pudo conectar al servidor
     echo.
     echo POSIBLES CAUSAS:
@@ -354,26 +356,43 @@ if errorlevel 1 (
     )
     
     echo.
-    echo Continuando con configuracion local solamente...
-    echo La impresora no sera registrada en el servidor.
+    echo [INFO] Continuando con configuracion local solamente...
+    echo [INFO] La impresora no sera registrada en el servidor.
     echo.
     set "IPP_PORT=631"
+) else (
+    set "SERVER_REGISTERED=true"
+    
+    REM Leer la respuesta del servidor
+    if exist "%TEMP_RESPONSE%" (
+        echo.
+        echo [OK] Respuesta del servidor recibida
+        
+        REM Verificar si el registro fue exitoso
+        findstr /i "success" "%TEMP_RESPONSE%" >nul 2>&1
+        if !errorlevel! equ 0 (
+            echo [OK] Impresora registrada exitosamente en el servidor
+            
+            REM Extraer puerto IPP asignado
+            set "IPP_PORT=631"
+            for /f "tokens=2 delims=:, " %%a in ('findstr /i "ippPort" "%TEMP_RESPONSE%" 2^>nul') do (
+                set "IPP_PORT=%%a"
+            )
+            echo [OK] Puerto IPP asignado: !IPP_PORT!
+        ) else (
+            echo [ERROR] El servidor rechazo el registro
+            echo.
+            type "%TEMP_RESPONSE%"
+            echo.
+            set "SERVER_REGISTERED=false"
+            set "IPP_PORT=631"
+        )
+    ) else (
+        echo [AVISO] No se recibio respuesta del servidor
+        set "SERVER_REGISTERED=false"
+        set "IPP_PORT=631"
+    )
 )
-
-REM Leer la respuesta
-if not exist "%TEMP_RESPONSE%" (
-    echo ERROR: No se recibio respuesta del servidor
-    goto :error_exit
-)
-
-REM Extraer puerto IPP de la respuesta
-set "IPP_PORT=631"
-for /f "tokens=2 delims=:, " %%a in ('findstr /i "ippPort" "%TEMP_RESPONSE%"') do (
-    set "IPP_PORT=%%a"
-)
-
-echo Respuesta del servidor recibida
-echo Puerto IPP asignado: %IPP_PORT%
 echo.
 
 REM Compartir impresora via SMB
@@ -387,19 +406,49 @@ set "SHARE_NAME=!SHARE_NAME:-=_!"
 set "SHARE_NAME=!SHARE_NAME:(=!"
 set "SHARE_NAME=!SHARE_NAME:)=!"
 
+REM ====================================================================
+REM Compartir impresora via SMB (para acceso directo desde otras PCs)
+REM ====================================================================
+echo.
+echo Configurando comparticion de impresora via SMB...
+echo.
+
+REM Habilitar comparticion de archivos e impresoras en el firewall
+netsh advfirewall firewall set rule group="Compartir archivos e impresoras" new enable=Yes >nul 2>&1
+
 REM Compartir la impresora usando PowerShell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Set-Printer -Name '!SELECTED_PRINTER!' -Shared $true -ShareName '!SHARE_NAME!' -ErrorAction SilentlyContinue"
+echo Compartiendo impresora: !SELECTED_PRINTER!
+echo Nombre compartido: !SHARE_NAME!
+echo.
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "try { Set-Printer -Name '!SELECTED_PRINTER!' -Shared $true -ShareName '!SHARE_NAME!' -ErrorAction Stop; Write-Host '[OK] Impresora compartida exitosamente'; exit 0 } catch { Write-Host '[ERROR]' $_.Exception.Message; exit 1 }"
 
 if %errorlevel% equ 0 (
     echo [OK] Impresora compartida via SMB: \\%HOSTNAME%\!SHARE_NAME!
+    echo.
+    
+    REM Verificar que la comparticion funciona
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$p = Get-Printer -Name '!SELECTED_PRINTER!' -ErrorAction SilentlyContinue; if ($p -and $p.Shared) { Write-Host '[OK] Comparticion verificada correctamente'; exit 0 } else { Write-Host '[AVISO] Comparticion no verificada'; exit 1 }"
 ) else (
     echo [AVISO] No se pudo compartir la impresora via SMB
+    echo          La impresora aun puede funcionar via el servidor IPP
+    echo          Para compartir manualmente:
+    echo            1. Panel de Control ^> Dispositivos e Impresoras
+    echo            2. Click derecho en "!SELECTED_PRINTER!"
+    echo            3. Propiedades ^> Compartir ^> Compartir esta impresora
+    echo            4. Nombre: !SHARE_NAME!
 )
 
 echo.
 
-REM Configurar regla de firewall
-echo Configurando firewall para puerto %IPP_PORT%...
+echo.
+echo.
+REM ====================================================================
+REM Configurar firewall para permitir conexiones IPP
+REM ====================================================================
+echo.
+echo Configurando firewall para permitir conexiones IPP...
+echo Puerto: %IPP_PORT%
 echo.
 
 set "RULE_NAME=PrinterShare_IPP_%IPP_PORT%"
@@ -498,47 +547,82 @@ del "%TEMP_RESPONSE%" 2>nul
 del "%TEMP_PS_SCRIPT%" 2>nul
 del "%TEMP_CURL_SCRIPT%" 2>nul
 
-REM Resumen final
-echo ====================================================================
-echo   INFORMACION DE CONEXION
-echo ====================================================================
-echo.
-echo   Otras computadoras pueden conectarse usando:
-echo.
-echo   Desde el Servidor de Impresoras:
-echo      - La impresora aparecera automaticamente en la tabla
-echo      - Puerto IPP del servidor: %IPP_PORT%
-echo      - Puerto IPP local (cliente): 631
-echo.
-echo   Conexion directa SMB (Windows):
-echo      \\%HOSTNAME%\!SHARE_NAME!
-echo.
-echo   Cliente USB:
-echo      - Ejecutandose en: %CONFIG_DIR%
- echo      - Puerto de escucha: 631
-echo      - Logs: %CONFIG_DIR%\logs
-echo.
-echo   IMPORTANTE:
-echo      - Esta computadora debe estar ENCENDIDA
-echo      - La impresora debe estar CONECTADA
-echo      - El cliente USB debe estar ejecutandose
-echo      - No suspender la computadora
-echo.
-echo ====================================================================
+REM ====================================================================
+REM Resumen final y instrucciones
+REM ====================================================================
+cls
 echo.
 echo ====================================================================
 echo   CONFIGURACION COMPLETADA EXITOSAMENTE
 echo ====================================================================
 echo.
-echo La impresora USB ha sido compartida y registrada en el servidor.
-echo Otras computadoras pueden conectarse a traves del servidor.
+echo Impresora: !SELECTED_PRINTER!
+echo Computadora: %HOSTNAME%
+echo IP: !IP_ADDRESS!
 echo.
-echo Para ver el estado, accede al panel de administracion:
-echo    http://%SERVER_IP%:%SERVER_PORT%/admin/printers
+if "!SERVER_REGISTERED!"=="true" (
+    echo [OK] Impresora registrada en el servidor central
+    echo      URL: http://%SERVER_IP%:%SERVER_PORT%
+) else (
+    echo [INFO] Impresora NO registrada en servidor (solo local)
+)
+echo.
+echo ====================================================================
+echo   COMO USAR ESTA IMPRESORA DESDE OTRAS COMPUTADORAS
+echo ====================================================================
+echo.
+if "!SERVER_REGISTERED!"=="true" (
+    echo METODO 1 - A traves del Servidor de Impresoras (RECOMENDADO):
+    echo.
+    echo   1. Abre un navegador en la otra PC
+    echo   2. Ve a: http://%SERVER_IP%:%SERVER_PORT%
+    echo   3. La impresora "!PRINTER_ALIAS!" aparecera en la lista
+    echo   4. Sigue las instrucciones para instalarla
+    echo.
+    echo   Panel de administracion:
+    echo      http://%SERVER_IP%:%SERVER_PORT%/admin/printers
+    echo.
+)
+echo METODO 2 - Conexion directa SMB (solo Windows):
+echo.
+echo   1. En la otra PC, abre "Ejecutar" (Win + R)
+echo   2. Escribe: \\%HOSTNAME%\!SHARE_NAME!
+echo   3. Click derecho ^> "Conectar" o "Instalar"
+echo.
+echo ====================================================================
+echo   IMPORTANTE - MANTENER ACTIVO
+echo ====================================================================
+echo.
+echo Para que otras computadoras puedan imprimir:
+echo.
+echo   [!] Esta computadora debe estar ENCENDIDA
+echo   [!] La impresora debe estar CONECTADA y ENCENDIDA
+if not "!SKIP_CLIENT!"=="true" (
+    echo   [!] El cliente USB debe estar ejecutandose
+    echo.
+    echo       Si el cliente se detiene, reinicialo con:
+    echo       %CONFIG_DIR%\start-client.bat
+)
+echo   [!] NO suspender esta computadora
 echo.
 echo ====================================================================
 echo.
-echo Presiona cualquier tecla para cerrar esta ventana...
+echo Archivos guardados en:
+echo   Configuracion: %CONFIG_FILE%
+if not "!SKIP_CLIENT!"=="true" (
+    echo   Cliente USB: %CONFIG_DIR%\usb-client.jar
+    echo   Script inicio: %CONFIG_DIR%\start-client.bat
+)
+echo   Log: %LOG_FILE%
+echo.
+echo ====================================================================
+echo.
+if "!SERVER_REGISTERED!"=="true" (
+    echo Tu impresora ya esta disponible en:
+    echo    http://%SERVER_IP%:%SERVER_PORT%
+    echo.
+)
+echo Presiona cualquier tecla para cerrar...
 pause >nul
 exit /b 0
 
