@@ -185,7 +185,7 @@ EOF
 
 # Registrar en el servidor
 echo "Registrando impresora en el servidor..."
-echo "URL: http://$SERVER_IP:$SERVER_PORT/admin/api/register-shared-printer"
+echo "URL: http://$SERVER_IP:$SERVER_PORT/api/register-shared-printer"
 echo ""
 
 TEMP_RESPONSE="/tmp/printer_response_$$.json"
@@ -197,7 +197,7 @@ if ! curl -s -X POST \
     -d @"$TEMP_JSON" \
     --connect-timeout 15 \
     --max-time 30 \
-    "http://$SERVER_IP:$SERVER_PORT/admin/api/register-shared-printer" \
+    "http://$SERVER_IP:$SERVER_PORT/api/register-shared-printer" \
     -o "$TEMP_RESPONSE" 2>&1; then
     
     echo -e "${RED}ERROR: No se pudo conectar al servidor${NC}"

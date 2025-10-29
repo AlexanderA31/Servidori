@@ -114,7 +114,7 @@ function Register-PrinterWithServer {
         port = 631
     } | ConvertTo-Json
     
-    $url = "http://${ServerIP}:${ServerPort}/admin/api/register-shared-printer"
+    $url = "http://${ServerIP}:${ServerPort}/api/register-shared-printer"
     
     Write-Host "Conectando al servidor: $url" -ForegroundColor Yellow
     

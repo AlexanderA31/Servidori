@@ -172,7 +172,7 @@ set "TEMP_JSON=%TEMP%\printer_register.json"
 
 REM Registrar en el servidor
 echo Registrando impresora en el servidor...
-echo URL: http://%SERVER_IP%:%SERVER_PORT%/admin/api/register-shared-printer
+echo URL: http://%SERVER_IP%:%SERVER_PORT%/api/register-shared-printer
 echo.
 
 set "TEMP_RESPONSE=%TEMP%\printer_response.json"
@@ -182,7 +182,7 @@ REM Crear script PowerShell para hacer la peticion HTTP
 (
     echo $json = Get-Content '%TEMP_JSON%' -Raw
     echo try {
-    echo     $response = Invoke-RestMethod -Uri 'http://%SERVER_IP%:%SERVER_PORT%/admin/api/register-shared-printer' -Method Post -Body $json -ContentType 'application/json' -TimeoutSec 15
+    echo     $response = Invoke-RestMethod -Uri 'http://%SERVER_IP%:%SERVER_PORT%/api/register-shared-printer' -Method Post -Body $json -ContentType 'application/json' -TimeoutSec 15
     echo     $response ^| ConvertTo-Json ^| Out-File '%TEMP_RESPONSE%' -Encoding UTF8
     echo     exit 0
     echo } catch {
