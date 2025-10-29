@@ -56,6 +56,7 @@ function updateIPPInstructions(ippUri, printerName) {
     const instructionsDiv = document.getElementById('ippInstructions');
     const ippUrlElement = document.getElementById('ippUrl');
     const linuxCommand = document.getElementById('linuxCommand');
+    const macIppUrl = document.getElementById('macIppUrl');
     
     // Extraer puerto del URI
     const portMatch = ippUri.match(/:([\d]+)\//);
@@ -63,6 +64,12 @@ function updateIPPInstructions(ippUri, printerName) {
     
     ippUrlElement.textContent = ippUri;
     linuxCommand.textContent = 'lpadmin -p "' + printerName + '" -v "' + ippUri + '" -E';
+    
+    // Actualizar URL para macOS
+    if (macIppUrl) {
+        macIppUrl.textContent = ippUri;
+    }
+    
     instructionsDiv.style.display = 'block';
 }
 
@@ -391,13 +398,51 @@ function downloadWindowsScript() {
     }, 500);
 }
 
+// Descargar script de instalación para Linux
+function downloadLinuxClientScript() {
+    const printerSelect = document.getElementById('printerSelect');
+    const selectedOption = printerSelect.options[printerSelect.selectedIndex];
+    
+    if (!selectedOption.value) {
+        showWarning('Por favor selecciona una impresora primero');
+        return;
+    }
+    
+    const printerName = selectedOption.dataset.name;
+    const safeFileName = printerName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    
+    // Redirigir al endpoint que sirve el script de Linux
+    window.location.href = '/print-server/download/install-linux-script';
+    
+    // Mostrar instrucciones
+    setTimeout(() => {
+        showSuccess('Script descargado: instalar-impresora-ipp.sh', 'Descarga Completa');
+        setTimeout(() => {
+            showInfo(
+                '<strong>🐧 Instrucciones para Linux:</strong><br><br>' +
+                '1. Abre una terminal<br>' +
+                '2. Navega a la carpeta de descargas:<br>' +
+                '   <code>cd ~/Descargas</code><br><br>' +
+                '3. Da permisos de ejecución:<br>' +
+                '   <code>chmod +x instalar-impresora-ipp.sh</code><br><br>' +
+                '4. Ejecuta el script:<br>' +
+                '   <code>./instalar-impresora-ipp.sh</code><br><br>' +
+                '<strong>ℹ️ Nota:</strong> El script usará IPP Everywhere para enviar PDF directo',
+                'Cómo usar el script'
+            );
+        }, 800);
+    }, 500);
+}
+
 // Descargar script para compartir impresora en Linux
 function downloadLinuxScript() {
     showInfo(
-        '<strong>Script para Linux en desarrollo</strong><br><br>' +
-        'Mientras tanto, puedes usar CUPS para compartir:<br><br>' +
+        '<strong>Script para compartir impresoras USB en Linux</strong><br><br>' +
+        'Usa CUPS para compartir tu impresora USB:<br><br>' +
         '<code>sudo cupsctl --share-printers<br>' +
-        'sudo systemctl restart cups</code>',
+        'sudo cupsctl --remote-admin<br>' +
+        'sudo systemctl restart cups</code><br><br>' +
+        'Luego regístrala en el servidor desde la interfaz web de CUPS.',
         '🐧 Compartir en Linux'
     );
 }

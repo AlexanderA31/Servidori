@@ -145,27 +145,114 @@
                                         
                                         <div class="client-content" id="linux-client">
                                             <h4>Linux:</h4>
-                                            <ol>
-                                                <li>Abre "Configuración del sistema" → "Impresoras"</li>
-                                                <li>Haz clic en "Agregar" o "+"</li>
-                                                <li>Selecciona "Impresora de red" → "Impresora IPP"</li>
-                                                <li>Ingresa la URL IPP mostrada arriba</li>
-                                            </ol>
-                                            <p><strong>O usa este comando:</strong></p>
-                                            <code class="command-block selectable" id="linuxCommand"></code>
-                                            <button class="btn-copy" onclick="copyToClipboard('linuxCommand')"><i class="fas fa-copy"></i> Copiar</button>
+                                            
+                                            <div>
+                                                <h4>Método Recomendado: Script Automático (.SH)</h4>
+                                                <p>La forma más fácil y rápida de instalar la impresora:</p>
+                                                <ol>
+                                                    <li>Descarga el script Bash haciendo clic en el botón de abajo</li>
+                                                    <li>Dale permisos de ejecución: <code>chmod +x instalar-impresora-ipp.sh</code></li>
+                                                    <li>Ejecuta el script: <code>./instalar-impresora-ipp.sh</code></li>
+                                                    <li>Selecciona la impresora del menú interactivo</li>
+                                                    <li>La impresora se instalará automáticamente con IPP Everywhere</li>
+                                                    <li>¡Listo! Ya puedes imprimir con PDF directo</li>
+                                                </ol>
+                                            </div>
+                                            
+                                            <button class="btn btn-download" onclick="downloadLinuxClientScript()" style="margin-bottom: 1.5rem;">
+                                                <i class="fas fa-download"></i> Descargar Script Automático (.SH)
+                                            </button>
+                                            
+                                            <details style="margin-top: 1.5rem;">
+                                                <summary>📋 Instalación Manual (si prefieres hacerlo sin el script)</summary>
+                                                <ol>
+                                                    <li>Abre "Configuración del sistema" → "Impresoras"</li>
+                                                    <li>Haz clic en "Agregar" o "+"</li>
+                                                    <li>Selecciona "Impresora de red" → "Impresora IPP"</li>
+                                                    <li>Ingresa la URL IPP mostrada arriba</li>
+                                                </ol>
+                                                <p><strong>O usa este comando:</strong></p>
+                                                <code class="command-block selectable" id="linuxCommand"></code>
+                                                <button class="btn-copy" onclick="copyToClipboard('linuxCommand')"><i class="fas fa-copy"></i> Copiar</button>
+                                            </details>
                                         </div>
                                         
                                         <div class="client-content" id="macos-client">
                                             <h4>macOS:</h4>
-                                            <ol>
-                                                <li>Abre "Preferencias del Sistema" → "Impresoras y Escáneres"</li>
-                                                <li>Haz clic en el botón "+" para agregar una impresora</li>
-                                                <li>Mantén presionada la tecla "Option" y haz clic en "Avanzado"</li>
-                                                <li>Selecciona "Impresora de Internet - IPP"</li>
-                                                <li>Ingresa la URL IPP mostrada arriba</li>
-                                                <li>Selecciona el controlador apropiado</li>
-                                            </ol>
+                                            
+                                            
+                                            <div>
+                                                <h4>Método 1: Instalación Automática (Recomendado)</h4>
+                                                <ol>
+                                                    <li>Abre "Preferencias del Sistema" → "Impresoras y Escáneres"</li>
+                                                    <li>Haz clic en el botón <strong>"+"</strong> para agregar una impresora</li>
+                                                    <li>Espera a que macOS detecte automáticamente la impresora IPP</li>
+                                                    <li>Si aparece en la lista, selecciónala y haz clic en "Agregar"</li>
+                                                    <li>macOS seleccionará automáticamente el driver <strong>AirPrint</strong> (PDF directo)</li>
+                                                </ol>
+                                                
+                                                <p style="margin-top: 1rem; padding: 0.75rem; background: #d1fae5; border-left: 3px solid #10b981; border-radius: 4px; font-size: 0.875rem;">
+                                                    <strong>✅ Ventaja:</strong> AirPrint envía PDF directamente con formato completo (colores, negritas, imágenes)
+                                                </p>
+                                            </div>
+                                            
+                                            <details style="margin-top: 1.5rem;">
+                                                <summary>📋 Método 2: Instalación Manual Avanzada</summary>
+                                                <div style="margin-top: 1rem;">
+                                                    <p>Si la impresora no aparece automáticamente:</p>
+                                                    <ol>
+                                                        <li>Abre "Preferencias del Sistema" → "Impresoras y Escáneres"</li>
+                                                        <li>Haz clic en el botón <strong>"+"</strong></li>
+                                                        <li><strong>Mantén presionada la tecla "Option" (⌥)</strong> y haz clic en "Avanzado"</li>
+                                                        <li>En "Tipo", selecciona <strong>"Internet Printing Protocol - IPP"</strong></li>
+                                                        <li>En "URL", pega la URL IPP mostrada arriba</li>
+                                                        <li>En "Nombre", ponle un nombre descriptivo a la impresora</li>
+                                                        <li>En "Usar", selecciona una de estas opciones:
+                                                            <ul style="margin-left: 2rem; margin-top: 0.5rem;">
+                                                                <li><strong>Opción 1 (Recomendada):</strong> "Generic PostScript Printer" - Para documentos con formato</li>
+                                                                <li><strong>Opción 2:</strong> "Generic PCL Printer" - Compatible con la mayoría de impresoras</li>
+                                                                <li><strong>Opción 3:</strong> Buscar el modelo específico si aparece en la lista</li>
+                                                                <li><strong>Opción 4:</strong> "AirPrint" - Si está disponible (mejor calidad)</li>
+                                                            </ul>
+                                                        </li>
+                                                        <li>Haz clic en "Agregar"</li>
+                                                    </ol>
+                                                    
+                                                    <div style="margin-top: 1rem; padding: 0.75rem; background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 4px; font-size: 0.875rem;">
+                                                        <strong>⚠️ Importante:</strong>
+                                                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                                                            <li>NO uses "Generic Text Only" - perderás el formato</li>
+                                                            <li>Si la impresora es <strong>Epson</strong>, busca drivers Epson en la lista</li>
+                                                            <li>Si es <strong>HP</strong>, busca drivers HP en la lista</li>
+                                                            <li>Si es <strong>Brother</strong>, busca drivers Brother en la lista</li>
+                                                            <li>Si no encuentras el modelo, usa "Generic PostScript Printer"</li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </details>
+                                            
+                                            <details style="margin-top: 1rem;">
+                                                <summary>💻 Método 3: Línea de Comandos (Terminal)</summary>
+                                                <div style="margin-top: 1rem;">
+                                                    <p>Para usuarios avanzados:</p>
+                                                    <code class="command-block" style="display: block; background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 4px; font-family: monospace; font-size: 0.875rem; overflow-x: auto; margin: 1rem 0;">
+# Reemplaza los valores entre &lt; &gt;<br>
+lpadmin -p "&lt;NOMBRE_IMPRESORA&gt;" \<br>
+&nbsp;&nbsp;-v "<span id="macIppUrl"></span>" \<br>
+&nbsp;&nbsp;-P "/System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/PrintCore.framework/Resources/Generic.ppd" \<br>
+&nbsp;&nbsp;-E
+                                                    </code>
+                                                    <p style="font-size: 0.875rem; color: #64748b;"><strong>Ejemplo:</strong></p>
+                                                    <code class="command-block" style="display: block; background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 4px; font-family: monospace; font-size: 0.875rem; overflow-x: auto;">
+lpadmin -p "EPSON-Oficina" \<br>
+&nbsp;&nbsp;-v "ipp://10.1.1.47:8633/printers/EPSON-THnomina" \<br>
+&nbsp;&nbsp;-P "/System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/PrintCore.framework/Resources/Generic.ppd" \<br>
+&nbsp;&nbsp;-E
+                                                    </code>
+                                                </div>
+                                            </details>
+                                            
+                                          
                                         </div>
                                     </div>
                                 </div>

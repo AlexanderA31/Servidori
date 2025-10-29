@@ -945,6 +945,49 @@ public class ApiController {
         }
     }
     
+        /**
+     * Endpoint público para descargar el script de instalación para Linux
+     */
+    @GetMapping("/download/install-linux-script")
+    public ResponseEntity<String> downloadInstallLinuxScript() {
+        try {
+            // Intentar desde el directorio del proyecto
+            java.nio.file.Path scriptPath = java.nio.file.Paths.get("scripts/instalar-impresora-ipp.sh");
+            
+            // Si no existe, intentar desde resources
+            if (!java.nio.file.Files.exists(scriptPath)) {
+                try {
+                    java.io.InputStream is = getClass().getResourceAsStream("/scripts/instalar-impresora-ipp.sh");
+                    if (is != null) {
+                        String script = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                        log.info("Sirviendo script de instalación Linux desde classpath ({} bytes)", script.length());
+                        
+                        return ResponseEntity.ok()
+                            .header("Content-Disposition", "attachment; filename=instalar-impresora-ipp.sh")
+                            .header("Content-Type", "text/plain; charset=UTF-8")
+                            .body(script);
+                    }
+                } catch (Exception ex) {
+                    log.debug("No se pudo cargar desde classpath: {}", ex.getMessage());
+                }
+                
+                log.error("Script de instalación Linux no encontrado");
+                return ResponseEntity.notFound().build();
+            }
+            
+            String script = new String(java.nio.file.Files.readAllBytes(scriptPath), java.nio.charset.StandardCharsets.UTF_8);
+            log.info("Sirviendo script de instalación Linux: {} bytes", script.length());
+            
+            return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=instalar-impresora-ipp.sh")
+                .header("Content-Type", "text/plain; charset=UTF-8")
+                .body(script);
+        } catch (Exception e) {
+            log.error("Error leyendo script de instalación Linux", e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
     /**
      * Endpoint público para obtener todas las impresoras del sistema
      * Para usar en el landing page (sin autenticación)
