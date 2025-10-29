@@ -10,8 +10,6 @@ import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -42,11 +40,6 @@ public class PrintQueueService {
     
     @Autowired
     private IppPrintService ippPrintService;
-
-    @Autowired
-    private PlatformTransactionManager transactionManager;
-
-    private TransactionTemplate transactionTemplate;
     
     // Executor para procesar trabajos de impresión
     private ExecutorService executorService;
@@ -56,9 +49,6 @@ public class PrintQueueService {
     
     // Trabajos en proceso
     private final Set<Long> processingJobs = ConcurrentHashMap.newKeySet();
-    
-    // Trabajos marcados para cancelación
-    private final Set<Long> cancelledJobs = ConcurrentHashMap.newKeySet();
     
     // Directorio temporal para archivos de impresión
     private Path printSpoolDir;
@@ -81,8 +71,6 @@ public class PrintQueueService {
         log.info("🖨️  Iniciando Servicio de Colas de Impresión");
         log.info("========================================");
         
-        this.transactionTemplate = new TransactionTemplate(transactionManager);
-
         // Crear directorio de spool
         try {
             printSpoolDir = Paths.get(System.getProperty("java.io.tmpdir"), "print-spool");
@@ -180,11 +168,16 @@ public class PrintQueueService {
             
             Job job = jobs.get(0);
             
-            // Verificar si ya está en proceso y marcar atomically
-            if (processingJobs.add(job.getId())) {
-                // Procesar trabajo en thread separado
-                executorService.submit(() -> processJob(job));
+            // Verificar si ya está en proceso
+            if (processingJobs.contains(job.getId())) {
+                return;
             }
+            
+            // Marcar como en proceso
+            processingJobs.add(job.getId());
+            
+            // Procesar trabajo en thread separado
+            executorService.submit(() -> processJob(job));
             
         } catch (Exception e) {
             log.error("Error procesando cola de impresora {}", printer.getId(), e);
@@ -199,19 +192,6 @@ public class PrintQueueService {
         boolean success = false;
         
         try {
-            if (cancelledJobs.contains(job.getId())) {
-                log.info("Trabajo {} cancelado antes de procesar.", job.getId());
-                removeJob(job);
-                return;
-            }
-
-            // Verificar si el trabajo aún existe antes de procesar
-            Job currentJob = entityManager.find(Job.class, job.getId());
-            if (currentJob == null) {
-                log.warn("El trabajo {} ya no existe, posiblemente fue cancelado.", job.getId());
-                return;
-            }
-
             log.info("🖨️ Procesando trabajo {}: {}", job.getId(), job.getFileName());
             
             Printer printer = job.getPrinter();
@@ -262,12 +242,6 @@ public class PrintQueueService {
                 }
             }
             
-            if (cancelledJobs.contains(job.getId())) {
-                log.info("Trabajo {} cancelado durante el procesamiento.", job.getId());
-                removeJob(job);
-                return;
-            }
-            
             if (success) {
                 log.info("════════════════════════════════");
                 log.info("✅ TRABAJO {} COMPLETADO EXITOSAMENTE", job.getId());
@@ -297,7 +271,6 @@ public class PrintQueueService {
             log.error("❌ Error crítico procesando trabajo {}", job.getId(), e);
         } finally {
             processingJobs.remove(job.getId());
-            cancelledJobs.remove(job.getId());
         }
     }
     
@@ -448,48 +421,46 @@ public class PrintQueueService {
     
     /**
      * Elimina un trabajo completado
-     * Usa un método transaccional separado para evitar problemas con EntityManager compartido
+     * IMPORTANTE: Debe ejecutarse en un contexto transaccional nuevo
      */
     private void removeJob(Job job) {
         try {
             log.info("🗑️ Eliminando trabajo {} de la cola...", job.getId());
             
-            // Eliminar archivo de spool primero (no requiere transacción)
+            // Eliminar archivo de spool
             Path spoolFile = findSpoolFile(job);
             if (spoolFile != null) {
                 Files.deleteIfExists(spoolFile);
                 log.debug("   Archivo de spool eliminado");
             }
             
-            // Llamar al método transaccional para eliminar de BD
-            transactionTemplate.execute(status -> {
-                removeJobFromDatabase(job.getId());
-                return null;
-            });
+            // Crear una nueva transacción para eliminar el trabajo
+            // Usar executeInTransaction para asegurar commit
+            try {
+                // Obtener el job en una nueva transacción
+                entityManager.getTransaction().begin();
+                
+                Job managedJob = entityManager.find(Job.class, job.getId());
+                if (managedJob != null) {
+                    entityManager.remove(managedJob);
+                    entityManager.flush();
+                    log.debug("   Trabajo eliminado de la base de datos");
+                } else {
+                    log.warn("   Trabajo {} ya no existe en la BD", job.getId());
+                }
+                
+                entityManager.getTransaction().commit();
+                log.info("✅ Trabajo {} eliminado completamente de la cola", job.getId());
+                
+            } catch (Exception e) {
+                if (entityManager.getTransaction().isActive()) {
+                    entityManager.getTransaction().rollback();
+                }
+                throw e;
+            }
             
         } catch (Exception e) {
             log.error("❌ Error eliminando trabajo completado: {}", e.getMessage(), e);
-        }
-    }
-    
-    /**
-     * Método transaccional para eliminar el trabajo de la base de datos
-     * Se ejecuta en su propia transacción Spring
-     */
-    public void removeJobFromDatabase(Long jobId) {
-        try {
-            Job managedJob = entityManager.find(Job.class, jobId);
-            if (managedJob != null) {
-                entityManager.remove(managedJob);
-                entityManager.flush();
-                log.debug("   Trabajo {} eliminado de la base de datos", jobId);
-                log.info("✅ Trabajo {} eliminado completamente de la cola", jobId);
-            } else {
-                log.warn("   Trabajo {} ya no existe en la BD", jobId);
-            }
-        } catch (Exception e) {
-            log.error("❌ Error en transacción de eliminación: {}", e.getMessage());
-            throw e;
         }
     }
     
@@ -595,14 +566,8 @@ public class PrintQueueService {
      * Cancela un trabajo de la cola
      */
     @Transactional
-    public synchronized boolean cancelJob(Long jobId) {
+    public boolean cancelJob(Long jobId) {
         try {
-            if (processingJobs.contains(jobId)) {
-                log.warn("Intentando cancelar trabajo {} que está en proceso. Marcado para eliminación.", jobId);
-                cancelledJobs.add(jobId);
-                return true;
-            }
-
             Job job = entityManager.find(Job.class, jobId);
             if (job != null) {
                 // Eliminar archivo de spool
