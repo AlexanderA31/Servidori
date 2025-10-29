@@ -1,10 +1,18 @@
 @echo off
 REM ====================================================================
 REM Script para Compartir Impresora USB/Local con el Servidor Central
-REM Version 4.2 - Con instalacion automatica de Java
+REM Version 4.3 - Con mejor manejo de errores
 REM ====================================================================
 
+REM NO cerrar la ventana automaticamente en caso de error
 setlocal enabledelayedexpansion
+
+REM Capturar errores
+if "%1"=="" (
+    echo.
+    echo Iniciando script...
+    echo.
+)
 
 REM Configuracion del servidor
 set "SERVER_IP=10.1.16.31"
@@ -39,8 +47,13 @@ if %errorLevel% neq 0 (
 title Compartir Impresora USB/Local - Servidor %SERVER_IP%
 
 REM Inicializar log
-echo [%DATE% %TIME%] Iniciando script de comparticion de impresora > "%LOG_FILE%"
-echo [%DATE% %TIME%] Servidor: %SERVER_IP%:%SERVER_PORT% >> "%LOG_FILE%"
+echo [%DATE% %TIME%] Iniciando script de comparticion de impresora > "%LOG_FILE%" 2>&1
+if errorlevel 1 (
+    echo [ERROR] No se pudo crear el archivo de log
+    set "LOG_FILE=%TEMP%\compartir-impresora-debug.log"
+    echo [%DATE% %TIME%] Iniciando script de comparticion de impresora > "%LOG_FILE%" 2>&1
+)
+echo [%DATE% %TIME%] Servidor: %SERVER_IP%:%SERVER_PORT% >> "%LOG_FILE%" 2>&1
 
 cls
 echo.
@@ -51,7 +64,13 @@ echo.
 echo   Servidor: %SERVER_IP%:%SERVER_PORT%
 echo   Log: %LOG_FILE%
 echo.
+echo   IMPORTANTE: Si ves este mensaje y la ventana se cierra,
+echo               significa que hay un error mas adelante.
+echo.
 echo ====================================================================
+echo.
+echo Presiona cualquier tecla para continuar...
+pause >nul
 echo.
 
 REM ====================================================================
@@ -208,32 +227,78 @@ if exist "%TEMP_PRINTERS%" del "%TEMP_PRINTERS%"
 if exist "%TEMP_PS_SCRIPT%" del "%TEMP_PS_SCRIPT%"
 
 REM Crear script PowerShell temporal
-(echo Get-Printer ^| Where-Object {$_.Type -eq 'Local' -or $_.PortName -like 'USB*' -or $_.PortName -like 'LPT*' -or $_.PortName -like 'COM*'} ^| ForEach-Object {Write-Output "$($_.Name)^|$($_.PortName)^|$($_.DriverName)"}) > "%TEMP_PS_SCRIPT%"
+echo Creando script de deteccion...
+(
+    echo Get-Printer ^| Where-Object {$_.Type -eq 'Local' -or $_.PortName -like 'USB*' -or $_.PortName -like 'LPT*' -or $_.PortName -like 'COM*'} ^| ForEach-Object {Write-Output "$($_.Name)^|$($_.PortName)^|$($_.DriverName)"}
+) > "%TEMP_PS_SCRIPT%" 2>&1
+
+if not exist "%TEMP_PS_SCRIPT%" (
+    echo [ERROR] No se pudo crear el script de PowerShell
+    echo Intentando con permisos elevados...
+    pause
+    goto :error_exit
+)
+
+echo [OK] Script de deteccion creado
 
 REM Ejecutar PowerShell
+echo Ejecutando PowerShell para detectar impresoras...
+echo Esto puede tardar unos segundos...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%TEMP_PS_SCRIPT%" > "%TEMP_PRINTERS%" 2>&1
+
+if errorlevel 1 (
+    echo [AVISO] PowerShell retorno un error: %errorlevel%
+    echo Continuando de todos modos...
+)
 
 if not exist "%TEMP_PRINTERS%" (
     echo.
-    echo ERROR: No se pudieron listar las impresoras
+    echo [ERROR] No se pudieron listar las impresoras
     echo El comando PowerShell fallo
     echo.
-    echo Intentando metodo alternativo...
+    echo [INFO] Intentando metodo alternativo con WMIC...
     wmic printer get name,portname,drivername /format:csv > "%TEMP_PRINTERS%" 2>&1
     
     if not exist "%TEMP_PRINTERS%" (
-        echo ERROR: Tampoco funciono el metodo alternativo
+        echo [ERROR] Tampoco funciono el metodo alternativo
+        echo.
+        echo Posibles causas:
+        echo   1. No hay impresoras instaladas
+        echo   2. Los servicios de impresion de Windows no estan activos
+        echo   3. Problema con PowerShell
+        echo.
+        echo Verifica:
+        echo   - Panel de Control ^> Dispositivos e Impresoras
+        echo   - Que haya al menos una impresora instalada
+        echo.
         goto :error_exit
+    ) else (
+        echo [OK] Metodo alternativo funciono
     )
+) else (
+    echo [OK] Impresoras detectadas con PowerShell
 )
 
 REM Verificar si el archivo tiene contenido
+echo Verificando contenido del archivo...
 for %%A in ("%TEMP_PRINTERS%") do set "FILE_SIZE=%%~zA"
+echo Tamano del archivo: %FILE_SIZE% bytes
+
 if %FILE_SIZE% EQU 0 (
     echo.
-    echo ERROR: No se encontraron impresoras USB/Locales
-    echo Asegurate de que haya una impresora USB conectada
+    echo [ERROR] No se encontraron impresoras USB/Locales
+    echo.
+    echo Asegurate de que:
+    echo   1. Haya una impresora USB conectada
+    echo   2. Los drivers esten instalados
+    echo   3. La impresora aparezca en "Dispositivos e Impresoras"
+    echo.
+    echo Abre "Dispositivos e Impresoras" y verifica:
+    echo   Win + R  ^>  control printers
+    echo.
     goto :error_exit
+) else (
+    echo [OK] Archivo con datos: %FILE_SIZE% bytes
 )
 
 REM Contar y mostrar impresoras
@@ -251,15 +316,31 @@ for /f "usebackq tokens=1,2,3 delims=|" %%a in ("%TEMP_PRINTERS%") do (
     echo     Puerto: %%b
     echo     Driver: %%c
     echo.
+    
+    REM Log para debug
+    echo [%DATE% %TIME%] Impresora detectada: %%a (Puerto: %%b) >> "%LOG_FILE%"
 )
 
 if %PRINTER_COUNT% EQU 0 (
     echo.
-    echo ERROR: No se pudieron procesar las impresoras
+    echo [ERROR] No se pudieron procesar las impresoras
+    echo.
+    echo El archivo contiene datos pero no se pudieron parsear.
+    echo Mostrando contenido del archivo:
+    echo.
+    type "%TEMP_PRINTERS%"
+    echo.
     goto :error_exit
+) else (
+    echo.
+    echo [OK] %PRINTER_COUNT% impresora(s) detectada(s)
+    echo.
 )
 
 REM Seleccionar impresora
+echo.
+echo Presiona una tecla para continuar con la seleccion...
+pause >nul
 echo.
 set /p "SELECTION=Selecciona el numero de la impresora (1-%PRINTER_COUNT%): "
 
@@ -288,6 +369,12 @@ set "SELECTED_PRINTER=!PRINTER_NAME[%SELECTION%]!"
 set "SELECTED_PORT=!PRINTER_PORT[%SELECTION%]!"
 set "SELECTED_DRIVER=!PRINTER_DRIVER[%SELECTION%]!"
 
+REM Verificar que se obtuvieron los valores
+if "!SELECTED_PRINTER!"=="" (
+    echo [ERROR] No se pudo obtener el nombre de la impresora
+    goto :error_exit
+)
+
 echo.
 echo ====================================================================
 echo   IMPRESORA SELECCIONADA
@@ -296,6 +383,8 @@ echo.
 echo   Nombre: !SELECTED_PRINTER!
 echo   Puerto: !SELECTED_PORT!
 echo   Driver: !SELECTED_DRIVER!
+echo.
+echo [%DATE% %TIME%] Impresora seleccionada: !SELECTED_PRINTER! >> "%LOG_FILE%"
 echo.
 
 REM Crear nombre de alias para la impresora
@@ -579,8 +668,23 @@ if "!SERVER_ACCESSIBLE!"=="true" (
     echo    3. Reinicia el cliente si es necesario
     echo.
 )
+echo.
+echo ====================================================================
+echo.
+echo Log completo guardado en:
+echo    %LOG_FILE%
+echo.
+echo Para ver el log:
+echo    notepad "%LOG_FILE%"
+echo.
+echo ====================================================================
+echo.
 echo Presiona cualquier tecla para cerrar...
 pause >nul
+
+REM Log final
+echo [%DATE% %TIME%] Script completado exitosamente >> "%LOG_FILE%"
+
 exit /b 0
 
 :error_exit
