@@ -263,6 +263,25 @@ public class PrintQueueService {
             // Intentar diferentes métodos según configuración
             boolean success = false;
             
+            // DETECCIÓN DE IMPRESORAS COMPARTIDAS USB
+            // Las impresoras compartidas USB tienen "Compartida-USB" en su location
+            // y deben enviarse a localhost:ippPort en vez de a la IP física del cliente
+            boolean isSharedUSB = printer.getLocation() != null && 
+                                 printer.getLocation().contains("Compartida-USB");
+            
+            if (isSharedUSB && printer.getIppPort() != null && printer.getIppPort() >= 8631) {
+                log.info("🔄 Impresora compartida USB detectada - usando servidor local puerto {}", printer.getIppPort());
+                success = ippPrintService.sendToRawPort("localhost", file, printer.getIppPort());
+                if (success) {
+                    log.info("✅ Enviado exitosamente a servidor local puerto {}", printer.getIppPort());
+                    return true;
+                } else {
+                    log.warn("⚠️ No se pudo enviar al servidor local - la computadora con la impresora USB podría estar desconectada");
+                    return false;
+                }
+            }
+            
+            // Impresoras de red normales (incluso si tienen ippPort asignado)
             // Método 1: Puerto RAW (9100)
             if (printer.getProtocol() == null || "RAW".equalsIgnoreCase(printer.getProtocol())) {
                 int port = printer.getPort() != null ? printer.getPort() : 9100;

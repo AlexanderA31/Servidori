@@ -1,5 +1,6 @@
 es\ucm\fdi\iu\service\IppServerService.class
 es\ucm\fdi\iu\control\ApiController$ApiAuthException.class
+es\ucm\fdi\iu\service\NetworkDiagnosticService.class
 es\ucm\fdi\iu\service\PrinterShareService$ShareStatus.class
 es\ucm\fdi\iu\service\CupsService$CupsPrinterInfo.class
 es\ucm\fdi\iu\model\Department$ComputerInfo.class
@@ -14,6 +15,7 @@ es\ucm\fdi\iu\model\User$Transfer.class
 es\ucm\fdi\iu\service\SambaAutoConfigService.class
 es\ucm\fdi\iu\service\IppPrintService$IppJobInfo.class
 es\ucm\fdi\iu\model\Printer$Transfer.class
+es\ucm\fdi\iu\service\NetworkDiagnosticService$NetworkDiagnosticResult.class
 es\ucm\fdi\iu\model\Transferable.class
 es\ucm\fdi\iu\model\User$AdminTransfer.class
 es\ucm\fdi\iu\control\PrinterServerController.class

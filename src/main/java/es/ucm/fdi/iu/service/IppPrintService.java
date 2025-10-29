@@ -309,19 +309,33 @@ public class IppPrintService {
             // Intentar diferentes métodos de impresión
             boolean success = false;
             
-            // Método 1: Intentar enviar directamente al puerto RAW (9100)
-            if (printer.getIp() != null && !printer.getIp().startsWith("LOCAL")) {
+            // DETECCIÓN DE IMPRESORAS COMPARTIDAS USB
+            // Las impresoras compartidas USB tienen "Compartida-USB" en su location
+            // y deben enviarse a localhost:ippPort en vez de a la IP física del cliente
+            boolean isSharedUSB = printer.getLocation() != null && 
+                                 printer.getLocation().contains("Compartida-USB");
+            
+            if (isSharedUSB && printer.getIppPort() != null && printer.getIppPort() >= 8631) {
+                log.info("🔄 Impresora compartida USB detectada - usando servidor local puerto {}", printer.getIppPort());
+                success = sendToRawPort("localhost", tempFile, printer.getIppPort());
+                if (success) {
+                    log.info("✅ Página enviada exitosamente a servidor local puerto {}", printer.getIppPort());
+                }
+            }
+            // Impresoras de red normales (incluso si tienen ippPort asignado)
+            else if (printer.getIp() != null && !printer.getIp().startsWith("LOCAL")) {
+                // Método 1: Intentar enviar directamente al puerto RAW (9100)
                 success = sendToRawPort(printer.getIp(), tempFile, 9100);
                 if (success) {
                     log.info("✅ Página enviada exitosamente vía RAW (puerto 9100)");
                 }
-            }
-            
-            // Método 2: Intentar LPD (puerto 515)
-            if (!success && printer.getIp() != null && !printer.getIp().startsWith("LOCAL")) {
-                success = sendToRawPort(printer.getIp(), tempFile, 515);
-                if (success) {
-                    log.info("✅ Página enviada exitosamente vía LPD (puerto 515)");
+                
+                // Método 2: Intentar LPD (puerto 515)
+                if (!success) {
+                    success = sendToRawPort(printer.getIp(), tempFile, 515);
+                    if (success) {
+                        log.info("✅ Página enviada exitosamente vía LPD (puerto 515)");
+                    }
                 }
             }
             
