@@ -483,8 +483,15 @@ public class PrinterDiscoveryService {
      * Este método FUNCIONA CROSS-VLAN si hay enrutamiento IP y firewall permite SNMP
      */
     private DiscoveredPrinter scanViaSNMP(String ip) {
+        // Verificar si SNMP está habilitado
+        if (!snmpEnabled) {
+            return null;
+        }
+        
         Snmp snmp = null;
         try {
+            log.debug("🔍 Intentando SNMP en {} (timeout: {}ms)", ip, snmpTimeout);
+            
             // Crear transporte SNMP
             TransportMapping<?> transport = new DefaultUdpTransportMapping();
             snmp = new Snmp(transport);
@@ -509,11 +516,15 @@ public class PrinterDiscoveryService {
             if (response != null && response.getResponse() != null) {
                 PDU responsePDU = response.getResponse();
                 
+                log.debug("✅ SNMP respondió desde {}", ip);
+                
                 // Verificar si es una impresora
                 String sysDescr = responsePDU.get(0).getVariable().toString().toLowerCase();
+                log.debug("Descripción SNMP: {}", sysDescr);
                 
                 // Buscar palabras clave de impresoras
                 if (containsPrinterKeywords(sysDescr)) {
+                    log.info("✅ Impresora detectada vía SNMP en {}: {}", ip, sysDescr);
                     DiscoveredPrinter printer = new DiscoveredPrinter();
                     printer.setIp(ip);
                     
@@ -531,10 +542,14 @@ public class PrinterDiscoveryService {
                     printer.setPort(SNMP_PORT);
                     
                     return printer;
+                } else {
+                    log.debug("❌ {} respondió SNMP pero no es impresora: {}", ip, sysDescr);
                 }
+            } else {
+                log.debug("❌ SNMP timeout en {}", ip);
             }
         } catch (IOException e) {
-            log.trace("SNMP no disponible en {}: {}", ip, e.getMessage());
+            log.debug("❌ SNMP error en {}: {}", ip, e.getMessage());
         } finally {
             if (snmp != null) {
                 try {
