@@ -250,31 +250,120 @@ public class PrintDocumentConverter {
     public byte[] processForPrinting(byte[] data, String printerModel) {
         try {
             String type = detectDocumentType(data);
-            log.info("Tipo de documento detectado: {}", type);
+            log.info("════════════════════════════════════════════════════════════");
+            log.info("🔍 ANÁLISIS DE DOCUMENTO");
+            log.info("════════════════════════════════════════════════════════════");
+            log.info("   Tipo detectado: {}", type);
+            log.info("   Tamaño: {} bytes", data.length);
+            log.info("   Impresora: {}", printerModel);
             
-            if (type.equals("TEXT")) {
-                log.info("Texto plano detectado, convirtiendo para impresora: {}", printerModel);
+            // Mostrar primeros bytes para debugging
+            if (data.length >= 10) {
+                StringBuilder hex = new StringBuilder();
+                for (int i = 0; i < Math.min(20, data.length); i++) {
+                    hex.append(String.format("%02X ", data[i]));
+                }
+                log.info("   Primeros bytes: {}", hex.toString());
+            }
+            
+            if (type.equals("PDF")) {
+                log.info("✅ PDF detectado - Enviando directamente");
+                log.info("   La impresora debe soportar impresión directa de PDF");
+                log.info("════════════════════════════════════════════════════════════");
+                return data;
                 
+            } else if (type.equals("PostScript")) {
+                log.info("✅ PostScript detectado - Enviando directamente");
+                log.info("════════════════════════════════════════════════════════════");
+                return data;
+                
+            } else if (type.equals("PCL")) {
+                log.info("✅ PCL detectado - Enviando directamente");
+                log.info("════════════════════════════════════════════════════════════");
+                return data;
+                
+            } else if (type.equals("TEXT")) {
+                log.info("🔄 Texto plano detectado - Convirtiendo a formato de impresora");
+                log.info("   Impresora destino: {}", printerModel);
+                
+                byte[] converted;
                 // Usar formato apropiado según la impresora
                 if (printerModel != null && printerModel.toUpperCase().contains("EPSON")) {
-                    return convertTextToESCP(data);
+                    log.info("   Formato: ESC/P (Epson)");
+                    converted = convertTextToESCP(data);
                 } else if (printerModel != null && printerModel.toUpperCase().contains("HP")) {
-                    return convertTextToPCL(data, printerModel);
+                    log.info("   Formato: PCL (HP)");
+                    converted = convertTextToPCL(data, printerModel);
                 } else {
-                    // Por defecto, intentar PCL (más universal)
-                    return convertTextToPCL(data, printerModel);
+                    log.info("   Formato: PCL (Universal)");
+                    converted = convertTextToPCL(data, printerModel);
                 }
+                
+                log.info("✅ Conversión completada: {} bytes → {} bytes", data.length, converted.length);
+                log.info("════════════════════════════════════════════════════════════");
+                return converted;
+                
             } else if (type.equals("IPP")) {
-                log.warn("Datos IPP recibidos, extrayendo contenido...");
-                // TODO: Parsear IPP y extraer datos reales
-                return data;
+                log.warn("⚠️  Datos IPP/RAW recibidos - Intentando extraer contenido");
+                // Buscar inicio de PDF dentro de los datos IPP
+                byte[] extracted = extractDocumentFromIPP(data);
+                if (extracted != null && extracted.length > 0) {
+                    log.info("✅ Documento extraído de IPP: {} bytes", extracted.length);
+                    log.info("════════════════════════════════════════════════════════════");
+                    // Procesar recursivamente el documento extraído
+                    return processForPrinting(extracted, printerModel);
+                } else {
+                    log.warn("⚠️  No se pudo extraer documento, enviando datos originales");
+                    log.info("════════════════════════════════════════════════════════════");
+                    return data;
+                }
+                
             } else {
-                log.info("Documento ya en formato de impresora ({}), enviando directamente", type);
+                log.info("ℹ️  Tipo desconocido - Enviando directamente");
+                log.info("   La impresora intentará interpretar el formato");
+                log.info("════════════════════════════════════════════════════════════");
                 return data;
             }
         } catch (Exception e) {
-            log.error("Error procesando documento, enviando datos originales: {}", e.getMessage());
+            log.error("❌ Error procesando documento: {}", e.getMessage(), e);
+            log.error("   Enviando datos originales como fallback");
+            log.info("════════════════════════════════════════════════════════════");
             return data;
+        }
+    }
+    
+    /**
+     * Intenta extraer un documento (PDF, PostScript, etc.) de datos IPP
+     */
+    private byte[] extractDocumentFromIPP(byte[] data) {
+        try {
+            // Buscar magic number de PDF: %PDF
+            for (int i = 0; i < data.length - 4; i++) {
+                if (data[i] == 0x25 && data[i+1] == 0x50 && 
+                    data[i+2] == 0x44 && data[i+3] == 0x46) {
+                    log.info("🔍 PDF encontrado en posición {}", i);
+                    byte[] pdf = new byte[data.length - i];
+                    System.arraycopy(data, i, pdf, 0, pdf.length);
+                    return pdf;
+                }
+            }
+            
+            // Buscar PostScript: %!
+            for (int i = 0; i < data.length - 2; i++) {
+                if (data[i] == 0x25 && data[i+1] == 0x21) {
+                    log.info("🔍 PostScript encontrado en posición {}", i);
+                    byte[] ps = new byte[data.length - i];
+                    System.arraycopy(data, i, ps, 0, ps.length);
+                    return ps;
+                }
+            }
+            
+            log.debug("No se encontró documento embebido en datos IPP");
+            return null;
+            
+        } catch (Exception e) {
+            log.error("Error extrayendo documento de IPP: {}", e.getMessage());
+            return null;
         }
     }
 }
