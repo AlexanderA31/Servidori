@@ -180,16 +180,11 @@ public class PrintQueueService {
             
             Job job = jobs.get(0);
             
-            // Verificar si ya está en proceso
-            if (processingJobs.contains(job.getId())) {
-                return;
+            // Verificar si ya está en proceso y marcar atomically
+            if (processingJobs.add(job.getId())) {
+                // Procesar trabajo en thread separado
+                executorService.submit(() -> processJob(job));
             }
-            
-            // Marcar como en proceso
-            processingJobs.add(job.getId());
-            
-            // Procesar trabajo en thread separado
-            executorService.submit(() -> processJob(job));
             
         } catch (Exception e) {
             log.error("Error procesando cola de impresora {}", printer.getId(), e);
