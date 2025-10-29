@@ -301,98 +301,37 @@ echo.
 REM Crear nombre de alias para la impresora
 set "PRINTER_ALIAS=!SELECTED_PRINTER!_%HOSTNAME%"
 
-REM Crear JSON para registro
-set "TEMP_JSON=%TEMP%\printer_register.json"
-(
-    echo {
-    echo   "alias": "!PRINTER_ALIAS!",
-    echo   "model": "!SELECTED_DRIVER!",
-    echo   "ip": "!IP_ADDRESS!",
-    echo   "location": "Compartida-USB - %HOSTNAME% - Usuario: %USERNAME%",
-    echo   "protocol": "IPP",
-    echo   "port": 631
-    echo }
-) > "%TEMP_JSON%"
-
-REM Registrar en el servidor
-echo Registrando impresora en el servidor...
-echo URL: http://%SERVER_IP%:%SERVER_PORT%/api/register-shared-printer
+REM Verificar conectividad con el servidor
+echo Verificando conectividad con el servidor...
+echo URL: http://%SERVER_IP%:%SERVER_PORT%
 echo.
 
-set "TEMP_RESPONSE=%TEMP%\printer_response.json"
-set "TEMP_CURL_SCRIPT=%TEMP%\curl_request.ps1"
-
-REM Crear script PowerShell para hacer la peticion HTTP
-(
-    echo $json = Get-Content '%TEMP_JSON%' -Raw
-    echo try {
-    echo     $response = Invoke-RestMethod -Uri 'http://%SERVER_IP%:%SERVER_PORT%/api/register-shared-printer' -Method Post -Body $json -ContentType 'application/json' -TimeoutSec 15
-    echo     $response ^| ConvertTo-Json ^| Out-File '%TEMP_RESPONSE%' -Encoding UTF8
-    echo     exit 0
-    echo } catch {
-    echo     Write-Host "Error:" $_.Exception.Message
-    echo     exit 1
-    echo }
-) > "%TEMP_CURL_SCRIPT%"
-
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%TEMP_CURL_SCRIPT%" 2>&1
-
-set "SERVER_REGISTERED=false"
-if errorlevel 1 (
-    echo.
-    echo [AVISO] No se pudo conectar al servidor
+set "SERVER_ACCESSIBLE=false"
+ping -n 1 -w 1000 %SERVER_IP% >nul 2>&1
+if !errorlevel! equ 0 (
+    echo [OK] Servidor accesible: %SERVER_IP%
+    set "SERVER_ACCESSIBLE=true"
+) else (
+    echo [AVISO] No se puede hacer ping al servidor: %SERVER_IP%
     echo.
     echo POSIBLES CAUSAS:
-    echo   1. El servidor no esta accesible en %SERVER_IP%:%SERVER_PORT%
-    echo   2. Firewall bloqueando la conexion
-    echo   3. Servidor de impresoras no esta ejecutandose
+    echo   1. El servidor no esta ejecutandose
+    echo   2. Firewall bloqueando ICMP
+    echo   3. Red no configurada correctamente
     echo.
-    echo Verifica que el servidor este ejecutandose y accesible.
-    echo.
-    set /p "CONTINUE_ANYWAY=Deseas continuar con la configuracion local? (S/N): "
+    set /p "CONTINUE_ANYWAY=Deseas continuar de todos modos? (S/N): "
     
     if /i "!CONTINUE_ANYWAY!"=="N" (
         goto :error_exit
     )
     
     echo.
-    echo [INFO] Continuando con configuracion local solamente...
-    echo [INFO] La impresora no sera registrada en el servidor.
-    echo.
-    set "IPP_PORT=631"
-) else (
-    set "SERVER_REGISTERED=true"
-    
-    REM Leer la respuesta del servidor
-    if exist "%TEMP_RESPONSE%" (
-        echo.
-        echo [OK] Respuesta del servidor recibida
-        
-        REM Verificar si el registro fue exitoso
-        findstr /i "success" "%TEMP_RESPONSE%" >nul 2>&1
-        if !errorlevel! equ 0 (
-            echo [OK] Impresora registrada exitosamente en el servidor
-            
-            REM Extraer puerto IPP asignado
-            set "IPP_PORT=631"
-            for /f "tokens=2 delims=:, " %%a in ('findstr /i "ippPort" "%TEMP_RESPONSE%" 2^>nul') do (
-                set "IPP_PORT=%%a"
-            )
-            echo [OK] Puerto IPP asignado: !IPP_PORT!
-        ) else (
-            echo [ERROR] El servidor rechazo el registro
-            echo.
-            type "%TEMP_RESPONSE%"
-            echo.
-            set "SERVER_REGISTERED=false"
-            set "IPP_PORT=631"
-        )
-    ) else (
-        echo [AVISO] No se recibio respuesta del servidor
-        set "SERVER_REGISTERED=false"
-        set "IPP_PORT=631"
-    )
+    echo [INFO] Continuando sin verificacion de servidor...
 )
+
+echo.
+echo [INFO] El cliente USB se registrara automaticamente al iniciar
+echo [INFO] No es necesario registro manual previo
 echo.
 
 REM Compartir impresora via SMB
@@ -448,10 +387,13 @@ REM Configurar firewall para permitir conexiones IPP
 REM ====================================================================
 echo.
 echo Configurando firewall para permitir conexiones IPP...
+
+REM Puerto fijo para cliente USB
+set "IPP_PORT=631"
 echo Puerto: %IPP_PORT%
 echo.
 
-set "RULE_NAME=PrinterShare_IPP_%IPP_PORT%"
+set "RULE_NAME=PrinterShare_IPP_631"
 
 REM Eliminar regla existente si existe
 netsh advfirewall firewall delete rule name="%RULE_NAME%" >nul 2>&1
@@ -507,8 +449,20 @@ if not "!SKIP_CLIENT!"=="true" (
         (
             echo @echo off
             echo title Cliente USB - !SELECTED_PRINTER!
+            echo echo.
+            echo echo ====================================================================
+            echo echo   CLIENTE USB - COMPARTIR IMPRESORA
+            echo echo ====================================================================
+            echo echo.
+            echo echo Impresora: !SELECTED_PRINTER!
+            echo echo Servidor: %SERVER_IP%:%SERVER_PORT%
+            echo echo.
+            echo echo Escuchando en puerto 631...
+            echo echo.
             echo cd /d "%CONFIG_DIR%"
             echo java -jar usb-client.jar --spring.profiles.active=usb-client --app.server.ip=%SERVER_IP% --app.server.port=%SERVER_PORT%
+            echo echo.
+            echo echo Cliente USB detenido.
             echo pause
         ) > "!START_SCRIPT!"
         
@@ -542,10 +496,7 @@ if not "!SKIP_CLIENT!"=="true" (
 
 REM Limpiar archivos temporales
 del "%TEMP_PRINTERS%" 2>nul
-del "%TEMP_JSON%" 2>nul
-del "%TEMP_RESPONSE%" 2>nul
 del "%TEMP_PS_SCRIPT%" 2>nul
-del "%TEMP_CURL_SCRIPT%" 2>nul
 
 REM ====================================================================
 REM Resumen final y instrucciones
@@ -560,24 +511,25 @@ echo Impresora: !SELECTED_PRINTER!
 echo Computadora: %HOSTNAME%
 echo IP: !IP_ADDRESS!
 echo.
-if "!SERVER_REGISTERED!"=="true" (
-    echo [OK] Impresora registrada en el servidor central
+if "!SERVER_ACCESSIBLE!"=="true" (
+    echo [INFO] El cliente USB se registrara automaticamente en el servidor
     echo      URL: http://%SERVER_IP%:%SERVER_PORT%
 ) else (
-    echo [INFO] Impresora NO registrada en servidor (solo local)
+    echo [AVISO] Servidor no accesible - verifica la conectividad
 )
 echo.
 echo ====================================================================
 echo   COMO USAR ESTA IMPRESORA DESDE OTRAS COMPUTADORAS
 echo ====================================================================
 echo.
-if "!SERVER_REGISTERED!"=="true" (
+if "!SERVER_ACCESSIBLE!"=="true" (
     echo METODO 1 - A traves del Servidor de Impresoras (RECOMENDADO):
     echo.
-    echo   1. Abre un navegador en la otra PC
-    echo   2. Ve a: http://%SERVER_IP%:%SERVER_PORT%
-    echo   3. La impresora "!PRINTER_ALIAS!" aparecera en la lista
-    echo   4. Sigue las instrucciones para instalarla
+    echo   1. Espera 10 segundos a que el cliente USB se registre
+    echo   2. Abre un navegador en otra PC
+    echo   3. Ve a: http://%SERVER_IP%:%SERVER_PORT%
+    echo   4. La impresora "!PRINTER_ALIAS!" aparecera en la lista
+    echo   5. Sigue las instrucciones para instalarla
     echo.
     echo   Panel de administracion:
     echo      http://%SERVER_IP%:%SERVER_PORT%/admin/printers
@@ -617,9 +569,14 @@ echo   Log: %LOG_FILE%
 echo.
 echo ====================================================================
 echo.
-if "!SERVER_REGISTERED!"=="true" (
-    echo Tu impresora ya esta disponible en:
-    echo    http://%SERVER_IP%:%SERVER_PORT%
+if "!SERVER_ACCESSIBLE!"=="true" (
+    echo Verifica que la impresora aparezca en:
+    echo    http://%SERVER_IP%:%SERVER_PORT%/admin/printers
+    echo.
+    echo Si no aparece despues de 30 segundos:
+    echo    1. Revisa la ventana del Cliente USB
+    echo    2. Verifica que no haya errores
+    echo    3. Reinicia el cliente si es necesario
     echo.
 )
 echo Presiona cualquier tecla para cerrar...
