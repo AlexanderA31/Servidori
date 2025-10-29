@@ -46,6 +46,7 @@ es\ucm\fdi\iu\service\PrintQueueService.class
 es\ucm\fdi\iu\util\NetworkUtils.class
 es\ucm\fdi\iu\model\User.class
 es\ucm\fdi\iu\model\Token.class
+es\ucm\fdi\iu\service\PrintDocumentConverter.class
 es\ucm\fdi\iu\service\PrinterAutoConfigService.class
 es\ucm\fdi\iu\IwUserDetailsService.class
 es\ucm\fdi\iu\repository\PrinterRepository.class

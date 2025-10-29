@@ -37,15 +37,18 @@ public class MultiPortIppServerService {
     private final IppPrintService ippPrintService;
     private final PrinterRepository printerRepository;
     private final PrintQueueService printQueueService;
+    private final PrintDocumentConverter documentConverter;
     
     private static final int BASE_PORT = 8631;
     
     public MultiPortIppServerService(IppPrintService ippPrintService, 
                                       PrinterRepository printerRepository,
-                                      PrintQueueService printQueueService) {
+                                      PrintQueueService printQueueService,
+                                      PrintDocumentConverter documentConverter) {
         this.ippPrintService = ippPrintService;
         this.printerRepository = printerRepository;
         this.printQueueService = printQueueService;
+        this.documentConverter = documentConverter;
     }
 
     @PostConstruct
@@ -170,6 +173,31 @@ public class MultiPortIppServerService {
             }
             
             log.info("  📦 Datos recibidos: {} bytes", totalBytes);
+            
+            // Detectar tipo de archivo por los primeros bytes (magic numbers)
+            String fileType = detectFileType(data);
+            log.info("  📋 Tipo detectado: {}", fileType);
+            
+            // Mostrar primeros bytes para diagnóstico
+            if (data.length > 0) {
+                byte[] preview = Arrays.copyOf(data, Math.min(50, data.length));
+                StringBuilder hex = new StringBuilder();
+                StringBuilder ascii = new StringBuilder();
+                
+                for (int i = 0; i < preview.length; i++) {
+                    hex.append(String.format("%02X ", preview[i]));
+                    char c = (char)(preview[i] & 0xFF);
+                    ascii.append(c >= 32 && c < 127 ? c : '.');
+                    if ((i + 1) % 16 == 0) {
+                        hex.append("\n      ");
+                        ascii.append("\n      ");
+                    }
+                }
+                
+                log.info("  🔍 Primeros bytes (hex):\n      {}", hex.toString());
+                log.info("  🔍 Primeros bytes (ascii):\n      {}", ascii.toString());
+            }
+            
             log.info("  🖨️  Impresora destino: {}", printer.getAlias());
             
             // Determinar nombre de archivo y usuario
@@ -232,9 +260,18 @@ public class MultiPortIppServerService {
             } else {
                 // Conexión externa normal - crear trabajo en cola
                 log.info("  💻 Conexión externa - registrando en cola");
+                
+                // IMPORTANTE: Procesar documento antes de guardar en cola
+                log.info("  🔄 Procesando documento para impresión...");
+                byte[] processedData = documentConverter.processForPrinting(data, currentPrinter.get().getModel());
+                
+                if (processedData.length != data.length) {
+                    log.info("  ✅ Documento convertido: {} bytes → {} bytes", data.length, processedData.length);
+                }
+                
                 try {
                     printQueueService.addJob(currentPrinter.get(), fileName, ownerName, 
-                                            currentPrinter.get().getInstance(), data);
+                                            currentPrinter.get().getInstance(), processedData);
                     log.info("  ✅ Trabajo registrado en cola de impresión");
                     success = true;
                 } catch (Exception e) {
@@ -381,6 +418,64 @@ public class MultiPortIppServerService {
                 log.error("Error cerrando puerto para impresora {}", printerId, e);
             }
         }
+    }
+    
+    /**
+     * Detecta el tipo de archivo por magic numbers
+     */
+    private String detectFileType(byte[] data) {
+        if (data == null || data.length < 4) {
+            return "UNKNOWN (muy pequeño)";
+        }
+        
+        // PDF: %PDF
+        if (data[0] == 0x25 && data[1] == 0x50 && data[2] == 0x44 && data[3] == 0x46) {
+            return "PDF";
+        }
+        
+        // PostScript: %!
+        if (data[0] == 0x25 && data[1] == 0x21) {
+            return "PostScript";
+        }
+        
+        // PCL: ESC E (reset) o ESC &
+        if (data[0] == 0x1B && (data[1] == 0x45 || data[1] == 0x26)) {
+            return "PCL";
+        }
+        
+        // PNG: 89 50 4E 47
+        if (data[0] == (byte)0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47) {
+            return "PNG";
+        }
+        
+        // JPEG: FF D8 FF
+        if (data[0] == (byte)0xFF && data[1] == (byte)0xD8 && data[2] == (byte)0xFF) {
+            return "JPEG";
+        }
+        
+        // IPP request (versión 1.x o 2.x)
+        if (data.length >= 8 && data[0] >= 0x01 && data[0] <= 0x02 && data[1] >= 0x00 && data[1] <= 0x09) {
+            return "IPP Protocol Request";
+        }
+        
+        // Texto plano (todos caracteres imprimibles)
+        boolean isText = true;
+        int printable = 0;
+        for (int i = 0; i < Math.min(100, data.length); i++) {
+            byte b = data[i];
+            if ((b >= 32 && b < 127) || b == 9 || b == 10 || b == 13) {
+                printable++;
+            } else if (b < 0) {
+                // Byte fuera de rango ASCII (posible UTF-8)
+                printable++;
+            }
+        }
+        
+        if (printable > Math.min(90, data.length * 0.9)) {
+            return "Texto plano (posible UTF-8)";
+        }
+        
+        return "UNKNOWN/BINARIO";
     }
     
     /**
