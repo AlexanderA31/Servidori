@@ -17,12 +17,30 @@ REM Verificar permisos de administrador
 net session >nul 2>&1
 if %errorLevel% neq 0 (
     echo.
-    echo Solicitando permisos de administrador...
-    powershell -Command "Start-Process '%~f0' -Verb RunAs"
-    exit /b
+    echo ====================================================================
+    echo   PERMISOS DE ADMINISTRADOR REQUERIDOS
+    echo ====================================================================
+    echo.
+    echo Este script necesita permisos de administrador para:
+    echo   - Configurar comparticion de impresoras
+    echo   - Crear reglas de firewall
+    echo   - Registrar tareas programadas
+    echo.
+    echo Por favor, ejecuta este script como Administrador:
+    echo   1. Click derecho en el archivo .bat
+    echo   2. Selecciona "Ejecutar como administrador"
+    echo.
+    echo ====================================================================
+    echo.
+    pause
+    exit /b 1
 )
 
 title Compartir Impresora USB/Local - Servidor %SERVER_IP%
+
+REM Inicializar log
+echo [%DATE% %TIME%] Iniciando script de comparticion de impresora > "%LOG_FILE%"
+echo [%DATE% %TIME%] Servidor: %SERVER_IP%:%SERVER_PORT% >> "%LOG_FILE%"
 
 cls
 echo.
@@ -31,6 +49,7 @@ echo   COMPARTIR IMPRESORA USB/LOCAL CON EL SERVIDOR
 echo ====================================================================
 echo.
 echo   Servidor: %SERVER_IP%:%SERVER_PORT%
+echo   Log: %LOG_FILE%
 echo.
 echo ====================================================================
 echo.
@@ -198,7 +217,14 @@ if not exist "%TEMP_PRINTERS%" (
     echo.
     echo ERROR: No se pudieron listar las impresoras
     echo El comando PowerShell fallo
-    goto :error_exit
+    echo.
+    echo Intentando metodo alternativo...
+    wmic printer get name,portname,drivername /format:csv > "%TEMP_PRINTERS%" 2>&1
+    
+    if not exist "%TEMP_PRINTERS%" (
+        echo ERROR: Tampoco funciono el metodo alternativo
+        goto :error_exit
+    )
 )
 
 REM Verificar si el archivo tiene contenido
@@ -312,14 +338,26 @@ REM Crear script PowerShell para hacer la peticion HTTP
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%TEMP_CURL_SCRIPT%"
 
 if errorlevel 1 (
-    echo ERROR: No se pudo conectar al servidor
+    echo [AVISO] No se pudo conectar al servidor
     echo.
     echo POSIBLES CAUSAS:
     echo   1. El servidor no esta accesible en %SERVER_IP%:%SERVER_PORT%
     echo   2. Firewall bloqueando la conexion
     echo   3. Servidor de impresoras no esta ejecutandose
     echo.
-    goto :error_exit
+    echo Verifica que el servidor este ejecutandose y accesible.
+    echo.
+    set /p "CONTINUE_ANYWAY=Deseas continuar con la configuracion local? (S/N): "
+    
+    if /i "!CONTINUE_ANYWAY!"=="N" (
+        goto :error_exit
+    )
+    
+    echo.
+    echo Continuando con configuracion local solamente...
+    echo La impresora no sera registrada en el servidor.
+    echo.
+    set "IPP_PORT=631"
 )
 
 REM Leer la respuesta
@@ -512,6 +550,15 @@ echo ====================================================================
 echo.
 echo Revisa los mensajes anteriores para mas detalles.
 echo.
-echo Presiona cualquier tecla para cerrar esta ventana...
-pause >nul
+echo Log guardado en: %LOG_FILE%
+echo.
+echo Si el problema persiste:
+echo   1. Verifica que tengas permisos de administrador
+echo   2. Asegurate de que haya una impresora USB conectada
+echo   3. Verifica que el servidor este accesible en %SERVER_IP%:%SERVER_PORT%
+echo   4. Revisa el firewall de Windows
+echo.
+echo ====================================================================
+echo.
+pause
 exit /b 1
