@@ -264,21 +264,25 @@ public class PrintQueueService {
             boolean success = false;
             
             // DETECCIÓN DE IMPRESORAS COMPARTIDAS USB
-            // Las impresoras compartidas USB tienen "Compartida-USB" en su location
-            // y deben enviarse a localhost:ippPort en vez de a la IP física del cliente
+            // Las impresoras compartidas USB están en otra PC (cliente USB)
+            // Enviar DIRECTAMENTE a la IP del cliente, NO a localhost
             boolean isSharedUSB = printer.getLocation() != null && 
                                  printer.getLocation().contains("Compartida-USB");
             
-            if (isSharedUSB && printer.getIppPort() != null && printer.getIppPort() >= 8631) {
-                log.info("🔄 Impresora compartida USB detectada - usando servidor local puerto {}", printer.getIppPort());
-                success = ippPrintService.sendToRawPort("localhost", file, printer.getIppPort());
-                if (success) {
-                    log.info("✅ Enviado exitosamente a servidor local puerto {}", printer.getIppPort());
-                    return true;
-                } else {
-                    log.warn("⚠️ No se pudo enviar al servidor local - la computadora con la impresora USB podría estar desconectada");
-                    return false;
+            if (isSharedUSB) {
+                log.info("🔄 Impresora compartida USB detectada en cliente {}", ip);
+                // Intentar múltiples puertos en el cliente USB
+                int[] portsToTry = {631, 9100, 515};
+                for (int port : portsToTry) {
+                    log.debug("  Intentando puerto {} en cliente USB {}", port, ip);
+                    success = ippPrintService.sendToRawPort(ip, file, port);
+                    if (success) {
+                        log.info("✅ Enviado exitosamente a cliente USB {}:{}", ip, port);
+                        return true;
+                    }
                 }
+                log.warn("⚠️ No se pudo conectar al cliente USB {} - computadora podría estar desconectada", ip);
+                return false;
             }
             
             // Impresoras de red normales (incluso si tienen ippPort asignado)
