@@ -11,6 +11,7 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.Optional;
 
 /**
  * Servidor IPP Multi-Puerto
@@ -178,10 +179,22 @@ public class MultiPortIppServerService {
             log.info("  👤 Usuario: {}", ownerName);
             log.info("  📄 Archivo: {}", fileName);
             
+            // Verificar que la impresora todavía existe en la base de datos
+            Optional<Printer> currentPrinter = printerRepository.findById(printer.getId());
+            if (!currentPrinter.isPresent()) {
+                log.error("  ❌ Impresora ID {} ya no existe en la base de datos", printer.getId());
+                log.error("  ℹ️  Esta impresora fue eliminada pero su puerto {} sigue escuchando", port);
+                log.error("  ℹ️  Se requiere reiniciar el servicio para liberar el puerto");
+                out.write(new byte[]{0x01, 0x01, 0x05, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03});
+                out.flush();
+                return;
+            }
+            
             // Registrar trabajo en la cola de impresión
             boolean success = false;
             try {
-                printQueueService.addJob(printer, fileName, ownerName, printer.getInstance(), data);
+                printQueueService.addJob(currentPrinter.get(), fileName, ownerName, 
+                                        currentPrinter.get().getInstance(), data);
                 log.info("  ✅ Trabajo registrado en cola de impresión");
                 success = true;
             } catch (Exception e) {
@@ -311,6 +324,22 @@ public class MultiPortIppServerService {
         Optional<Printer> printer = printerRepository.findById(printerId);
         return printer.map(p -> p.getIppPort() != null ? p.getIppPort() : BASE_PORT)
                       .orElse(BASE_PORT);
+    }
+    
+    /**
+     * Cierra el puerto de una impresora eliminada
+     */
+    public void closePrinterPort(long printerId) {
+        ServerSocket socket = serverSockets.remove(printerId);
+        if (socket != null) {
+            try {
+                socket.close();
+                printerByPort.remove(printerId);
+                log.info("✅ Puerto cerrado para impresora ID {}", printerId);
+            } catch (IOException e) {
+                log.error("Error cerrando puerto para impresora {}", printerId, e);
+            }
+        }
     }
     
     /**

@@ -65,8 +65,11 @@ public class AdminController {
         @Autowired
     private PrintQueueService printQueueService;
     
-    @Autowired
+        @Autowired
     private es.ucm.fdi.iu.service.NetworkDiagnosticService networkDiagnosticService;
+    
+    @Autowired
+    private es.ucm.fdi.iu.service.MultiPortIppServerService multiPortIppServerService;
 
                                                                     // ========== DASHBOARD PRINCIPAL ==========
     
@@ -1523,6 +1526,12 @@ public class AdminController {
                 
                 for (Department dept : departments) {
                     dept.getPrinters().remove(printer);
+                }
+                
+                                // Cerrar puerto IPP si existe
+                if (printer.getIppPort() != null) {
+                    log.info("Cerrando puerto IPP {} para impresora {}", printer.getIppPort(), printerName);
+                    multiPortIppServerService.closePrinterPort(id);
                 }
                 
                 // Eliminar impresora
