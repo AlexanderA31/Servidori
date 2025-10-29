@@ -271,17 +271,33 @@ public class PrintQueueService {
             
             if (isSharedUSB) {
                 log.info("🔄 Impresora compartida USB detectada en cliente {}", ip);
-                // Intentar múltiples puertos en el cliente USB
-                int[] portsToTry = {631, 9100, 515};
-                for (int port : portsToTry) {
-                    log.debug("  Intentando puerto {} en cliente USB {}", port, ip);
-                    success = ippPrintService.sendToRawPort(ip, file, port);
+                
+                // Usar el puerto ippPort asignado en el servidor de impresoras del cliente
+                Integer clientPort = printer.getIppPort();
+                if (clientPort != null && clientPort > 0) {
+                    log.debug("  Usando puerto IPP asignado {} en cliente USB {}", clientPort, ip);
+                    success = ippPrintService.sendToRawPort(ip, file, clientPort);
                     if (success) {
-                        log.info("✅ Enviado exitosamente a cliente USB {}:{}", ip, port);
+                        log.info("✅ Enviado exitosamente a cliente USB {}:{}", ip, clientPort);
                         return true;
+                    } else {
+                        log.warn("⚠️ No se pudo conectar al puerto {} del cliente USB {}", clientPort, ip);
+                    }
+                } else {
+                    // Fallback: intentar múltiples puertos comunes si no hay ippPort
+                    log.warn("⚠️ No hay puerto IPP asignado, intentando puertos comunes");
+                    int[] portsToTry = {631, 9100, 515};
+                    for (int port : portsToTry) {
+                        log.debug("  Intentando puerto {} en cliente USB {}", port, ip);
+                        success = ippPrintService.sendToRawPort(ip, file, port);
+                        if (success) {
+                            log.info("✅ Enviado exitosamente a cliente USB {}:{}", ip, port);
+                            return true;
+                        }
                     }
                 }
-                log.warn("⚠️ No se pudo conectar al cliente USB {} - computadora podría estar desconectada", ip);
+                
+                log.warn("⚠️ No se pudo conectar al cliente USB {} - computadora podría estar desconectada o puerto incorrecto", ip);
                 return false;
             }
             
