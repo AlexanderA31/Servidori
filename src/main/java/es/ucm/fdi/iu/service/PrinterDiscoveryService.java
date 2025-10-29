@@ -497,11 +497,11 @@ public class PrinterDiscoveryService {
             snmp = new Snmp(transport);
             transport.listen();
             
-            // Crear target
+            // Crear target con más reintentos para cross-VLAN
             CommunityTarget target = new CommunityTarget();
             target.setCommunity(new OctetString(SNMP_COMMUNITY));
             target.setAddress(new UdpAddress(ip + "/" + SNMP_PORT));
-            target.setRetries(1);
+            target.setRetries(3); // Aumentado de 1 a 3 para redes cross-VLAN
             target.setTimeout(snmpTimeout);
             target.setVersion(SnmpConstants.version2c);
             
