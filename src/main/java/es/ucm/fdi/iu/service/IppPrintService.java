@@ -310,17 +310,16 @@ public class IppPrintService {
             boolean success = false;
             
             // DETECCIÓN DE IMPRESORAS COMPARTIDAS USB
-            // Las impresoras compartidas USB tienen "Compartida-USB" en su location
-            // y deben enviarse a localhost:ippPort en vez de a la IP física del cliente
+            // Las pruebas de impresión NO funcionan en impresoras compartidas USB
+            // porque el servidor no puede comunicarse directamente con el cliente USB
             boolean isSharedUSB = printer.getLocation() != null && 
                                  printer.getLocation().contains("Compartida-USB");
             
-            if (isSharedUSB && printer.getIppPort() != null && printer.getIppPort() >= 8631) {
-                log.info("🔄 Impresora compartida USB detectada - usando servidor local puerto {}", printer.getIppPort());
-                success = sendToRawPort("localhost", tempFile, printer.getIppPort());
-                if (success) {
-                    log.info("✅ Página enviada exitosamente a servidor local puerto {}", printer.getIppPort());
-                }
+            if (isSharedUSB) {
+                log.warn("⚠️ Impresora compartida USB detectada");
+                log.warn("⚠️ Las pruebas de impresión no están soportadas para impresoras USB compartidas");
+                log.warn("⚠️ Para probar esta impresora, envía un trabajo desde un cliente externo");
+                return false;
             }
             // Impresoras de red normales (incluso si tienen ippPort asignado)
             else if (printer.getIp() != null && !printer.getIp().startsWith("LOCAL")) {
