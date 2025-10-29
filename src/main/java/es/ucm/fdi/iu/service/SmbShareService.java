@@ -6,6 +6,7 @@ import jcifs.config.PropertyConfiguration;
 import jcifs.context.BaseContext;
 import jcifs.smb.*;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
@@ -29,6 +30,10 @@ import java.util.*;
 public class SmbShareService {
 
     private CIFSContext defaultContext;
+    
+    // Timeout configurable para conexiones SMB (ms)
+    @Value("${printer.discovery.port.timeout:1000}")
+    private int connectionTimeout;
     
     public SmbShareService() {
         try {
@@ -301,9 +306,9 @@ public class SmbShareService {
             for (String ip : ips) {
                 futures.add(executor.submit(() -> {
                     try {
-                        // Intentar conectar al puerto SMB (445)
+                        // Intentar conectar al puerto SMB (445) con timeout configurable
                         java.net.Socket socket = new java.net.Socket();
-                        socket.connect(new java.net.InetSocketAddress(ip, 445), 500);
+                        socket.connect(new java.net.InetSocketAddress(ip, 445), connectionTimeout);
                         socket.close();
                         
                         log.debug("Servidor SMB detectado en {}", ip);

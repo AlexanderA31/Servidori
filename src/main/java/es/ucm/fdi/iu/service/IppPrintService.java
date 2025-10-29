@@ -3,6 +3,7 @@ package es.ucm.fdi.iu.service;
 import es.ucm.fdi.iu.model.Job;
 import es.ucm.fdi.iu.model.Printer;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
@@ -21,6 +22,10 @@ import java.util.*;
 @Service
 @Slf4j
 public class IppPrintService {
+
+    // Timeout configurable para conexiones IPP (ms)
+    @Value("${printer.discovery.port.timeout:1000}")
+    private int connectionTimeout;
 
     /**
      * Información de una impresora IPP
@@ -109,7 +114,8 @@ public class IppPrintService {
             
             Socket socket = new Socket();
             try {
-                socket.connect(new InetSocketAddress(host, port), 2000);
+                // Usar timeout configurable para cross-VLAN
+                socket.connect(new InetSocketAddress(host, port), connectionTimeout);
                 socket.close();
                 
                 IppPrinterInfo info = new IppPrinterInfo();
@@ -355,7 +361,9 @@ public class IppPrintService {
             log.debug("Intentando enviar a {}:{}", ip, port);
             
             try (Socket socket = new Socket()) {
-                socket.connect(new InetSocketAddress(ip, port), 5000);
+                // Usar timeout configurable (mínimo 3 segundos para estabilidad)
+                int timeout = Math.max(connectionTimeout, 3000);
+                socket.connect(new InetSocketAddress(ip, port), timeout);
                 
                 try (OutputStream out = socket.getOutputStream();
                      FileInputStream fis = new FileInputStream(file.toFile())) {

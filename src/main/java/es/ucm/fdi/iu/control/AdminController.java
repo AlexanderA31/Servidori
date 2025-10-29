@@ -62,8 +62,11 @@ public class AdminController {
         @Autowired
     private es.ucm.fdi.iu.service.IppPrintService ippPrintService;
     
-    @Autowired
+        @Autowired
     private PrintQueueService printQueueService;
+    
+    @Autowired
+    private es.ucm.fdi.iu.service.NetworkDiagnosticService networkDiagnosticService;
 
                                                                     // ========== DASHBOARD PRINCIPAL ==========
     
@@ -1068,7 +1071,7 @@ public class AdminController {
         return printerDiscoveryService.getScanStatus();
     }
     
-    @PostMapping("/cancel-scan")
+        @PostMapping("/cancel-scan")
     @ResponseBody
     public Map<String, Object> cancelScan() {
         Map<String, Object> response = new HashMap<>();
@@ -1083,6 +1086,26 @@ public class AdminController {
             response.put("error", e.getMessage());
         }
         return response;
+    }
+    
+    /**
+     * Endpoint para diagnosticar conectividad de red a una VLAN específica
+     */
+    @PostMapping("/diagnose-network")
+    @ResponseBody
+    public es.ucm.fdi.iu.service.NetworkDiagnosticService.NetworkDiagnosticResult diagnoseNetwork(
+            @RequestBody Map<String, String> request) {
+        try {
+            String cidrRange = request.get("cidrRange");
+            log.info("🔍 Iniciando diagnóstico de red para: {}", cidrRange);
+            return networkDiagnosticService.diagnoseNetwork(cidrRange);
+        } catch (Exception e) {
+            log.error("❌ Error en diagnóstico de red", e);
+            es.ucm.fdi.iu.service.NetworkDiagnosticService.NetworkDiagnosticResult result = 
+                new es.ucm.fdi.iu.service.NetworkDiagnosticService.NetworkDiagnosticResult();
+            result.setError(e.getMessage());
+            return result;
+        }
     }
     
     @GetMapping("/printqueues/stats")
