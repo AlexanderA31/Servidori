@@ -10,6 +10,8 @@ import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -40,6 +42,11 @@ public class PrintQueueService {
     
     @Autowired
     private IppPrintService ippPrintService;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
+    private TransactionTemplate transactionTemplate;
     
     // Executor para procesar trabajos de impresión
     private ExecutorService executorService;
@@ -49,6 +56,9 @@ public class PrintQueueService {
     
     // Trabajos en proceso
     private final Set<Long> processingJobs = ConcurrentHashMap.newKeySet();
+    
+    // Trabajos marcados para cancelación
+    private final Set<Long> cancelledJobs = ConcurrentHashMap.newKeySet();
     
     // Directorio temporal para archivos de impresión
     private Path printSpoolDir;
@@ -71,6 +81,8 @@ public class PrintQueueService {
         log.info("🖨️  Iniciando Servicio de Colas de Impresión");
         log.info("========================================");
         
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+
         // Crear directorio de spool
         try {
             printSpoolDir = Paths.get(System.getProperty("java.io.tmpdir"), "print-spool");
@@ -192,6 +204,12 @@ public class PrintQueueService {
         boolean success = false;
         
         try {
+            if (cancelledJobs.contains(job.getId())) {
+                log.info("Trabajo {} cancelado antes de procesar.", job.getId());
+                removeJob(job);
+                return;
+            }
+
             // Verificar si el trabajo aún existe antes de procesar
             Job currentJob = entityManager.find(Job.class, job.getId());
             if (currentJob == null) {
@@ -249,6 +267,12 @@ public class PrintQueueService {
                 }
             }
             
+            if (cancelledJobs.contains(job.getId())) {
+                log.info("Trabajo {} cancelado durante el procesamiento.", job.getId());
+                removeJob(job);
+                return;
+            }
+            
             if (success) {
                 log.info("════════════════════════════════");
                 log.info("✅ TRABAJO {} COMPLETADO EXITOSAMENTE", job.getId());
@@ -278,6 +302,7 @@ public class PrintQueueService {
             log.error("❌ Error crítico procesando trabajo {}", job.getId(), e);
         } finally {
             processingJobs.remove(job.getId());
+            cancelledJobs.remove(job.getId());
         }
     }
     
@@ -442,7 +467,10 @@ public class PrintQueueService {
             }
             
             // Llamar al método transaccional para eliminar de BD
-            removeJobFromDatabase(job.getId());
+            transactionTemplate.execute(status -> {
+                removeJobFromDatabase(job.getId());
+                return null;
+            });
             
         } catch (Exception e) {
             log.error("❌ Error eliminando trabajo completado: {}", e.getMessage(), e);
@@ -453,7 +481,6 @@ public class PrintQueueService {
      * Método transaccional para eliminar el trabajo de la base de datos
      * Se ejecuta en su propia transacción Spring
      */
-    @Transactional
     public void removeJobFromDatabase(Long jobId) {
         try {
             Job managedJob = entityManager.find(Job.class, jobId);
@@ -575,11 +602,10 @@ public class PrintQueueService {
     @Transactional
     public synchronized boolean cancelJob(Long jobId) {
         try {
-            // Evitar que un trabajo en proceso sea eliminado de la BD
             if (processingJobs.contains(jobId)) {
                 log.warn("Intentando cancelar trabajo {} que está en proceso. Marcado para eliminación.", jobId);
-                // Opcional: añadir a una lista de "a eliminar después de procesar"
-                return false; 
+                cancelledJobs.add(jobId);
+                return true;
             }
 
             Job job = entityManager.find(Job.class, jobId);
