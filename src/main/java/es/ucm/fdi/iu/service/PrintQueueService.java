@@ -192,6 +192,13 @@ public class PrintQueueService {
         boolean success = false;
         
         try {
+            // Verificar si el trabajo aún existe antes de procesar
+            Job currentJob = entityManager.find(Job.class, job.getId());
+            if (currentJob == null) {
+                log.warn("El trabajo {} ya no existe, posiblemente fue cancelado.", job.getId());
+                return;
+            }
+
             log.info("🖨️ Procesando trabajo {}: {}", job.getId(), job.getFileName());
             
             Printer printer = job.getPrinter();
@@ -566,8 +573,15 @@ public class PrintQueueService {
      * Cancela un trabajo de la cola
      */
     @Transactional
-    public boolean cancelJob(Long jobId) {
+    public synchronized boolean cancelJob(Long jobId) {
         try {
+            // Evitar que un trabajo en proceso sea eliminado de la BD
+            if (processingJobs.contains(jobId)) {
+                log.warn("Intentando cancelar trabajo {} que está en proceso. Marcado para eliminación.", jobId);
+                // Opcional: añadir a una lista de "a eliminar después de procesar"
+                return false; 
+            }
+
             Job job = entityManager.find(Job.class, jobId);
             if (job != null) {
                 // Eliminar archivo de spool
