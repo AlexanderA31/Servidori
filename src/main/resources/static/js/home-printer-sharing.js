@@ -100,17 +100,28 @@ function downloadWindowsClientScript() {
     
     const ippUrl = selectedOption.dataset.ippuri;
     const printerName = selectedOption.dataset.name;
+    const printerLocation = selectedOption.dataset.location || '';
+    
+    // DETECTAR SI ES IMPRESORA USB COMPARTIDA
+    const isSharedUSB = printerLocation.includes('Compartida-USB');
     
     // Extraer puerto del URI IPP - CADA IMPRESORA TIENE SU PUERTO ÚNICO
     const urlParts = ippUrl.match(/ipp:\/\/([^:]+):(\d+)\/printers\/(.+)/);
     const serverIp = urlParts ? urlParts[1] : '10.1.16.31';
-    const serverPort = urlParts ? parseInt(urlParts[2]) : 8631;
+    let serverPort = urlParts ? parseInt(urlParts[2]) : 8631;
+    
+    // Para impresoras USB compartidas, el cliente debe conectarse al puerto 631 del servidor
+    // (el ippPort es para que otros clientes se conecten AL SERVIDOR, no al cliente USB)
+    if (isSharedUSB) {
+        console.log('Impresora USB compartida detectada - usando puerto del servidor');
+        serverPort = serverPort; // Mantener el puerto del servidor para impresoras USB también
+    }
+    
     const printerPath = urlParts ? urlParts[3] : printerName.replace(/\s/g, '_');
     const safeFileName = printerName.replace(/[^a-zA-Z0-9_-]/g, '_');
     const smbPath = '\\\\\\\\' + serverIp + '\\\\' + printerName.replace(/\s/g, '_');
     
-    
-    const batContent = generateBatWithEmbeddedPS(serverIp, serverPort, printerName, safeFileName);
+    const batContent = generateBatWithEmbeddedPS(serverIp, serverPort, printerName, safeFileName, isSharedUSB);
     downloadFile(batContent, 'instalar-' + safeFileName + '.bat', 'text/plain');
     
     // Mostrar instrucciones
@@ -392,9 +403,12 @@ function downloadLinuxScript() {
 }
 
 // Generar BAT con PowerShell embebido (para doble clic)
-function generateBatWithEmbeddedPS(serverIp, serverPort, printerName, safeFileName) {
+function generateBatWithEmbeddedPS(serverIp, serverPort, printerName, safeFileName, isSharedUSB) {
     // Escapar el nombre de la impresora para PowerShell
     const printerNameEscaped = printerName.replace(/'/g, "''");
+    
+    // Mensaje especial para impresoras USB compartidas
+    const usbNote = isSharedUSB ? ' (Cliente USB conectado al servidor)' : ' (PUERTO UNICO FIJO)';
     
     const bat = `@echo off
 REM ====================================================================
@@ -421,7 +435,7 @@ echo ====================================================================
 echo.
 echo   Impresora: ${printerName}
 echo   Servidor: ${serverIp}
-echo   Puerto: ${serverPort} (PUERTO UNICO FIJO)
+echo   Puerto: ${serverPort}${usbNote}
 echo.
 echo ====================================================================
 echo.

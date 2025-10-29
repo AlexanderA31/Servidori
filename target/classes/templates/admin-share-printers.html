@@ -207,6 +207,7 @@
                     option.textContent = printer.alias;
                     option.dataset.ippuri = printer.ippUri;
                     option.dataset.name = printer.alias;
+                    option.dataset.location = printer.location || ''; // Agregar ubicación para detectar USB
                     select.appendChild(option);
                 });
                 

@@ -8,6 +8,21 @@
     <link rel="stylesheet" th:href="@{/css/admin-modern.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-departments.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-printers.css}"/>
+    <style>
+        .port-badge.port-usb {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .port-badge.port-usb i {
+            font-size: 0.875rem;
+        }
+    </style>
     <link rel="stylesheet" th:href="@{/css/admin-sidebar-override.css}"/>
     <link rel="stylesheet" th:href="@{/css/pagination.css}"/>
 </head>
@@ -116,8 +131,17 @@
                                             <span class="ip-badge" th:text="${printer.ip}">IP</span>
                                         </td>
                                         <td>
-                                            <span class="port-badge" th:if="${printer.ippPort}" th:text="${printer.ippPort}">8631</span>
-                                            <span th:unless="${printer.ippPort}" class="text-muted">--</span>
+                                            <!-- Para impresoras USB compartidas, mostrar puerto 631 del cliente -->
+                                            <span th:if="${printer.location != null and #strings.contains(printer.location, 'Compartida-USB')}" 
+                                                  class="port-badge port-usb" 
+                                                  title="Puerto del cliente Windows (USB compartida)">
+                                                631 <i class="fas fa-usb"></i>
+                                            </span>
+                                            <!-- Para impresoras normales, mostrar ippPort del servidor -->
+                                            <span th:unless="${printer.location != null and #strings.contains(printer.location, 'Compartida-USB')}">
+                                                <span class="port-badge" th:if="${printer.ippPort}" th:text="${printer.ippPort}" title="Puerto IPP del servidor">8631</span>
+                                                <span th:unless="${printer.ippPort}" class="text-muted">--</span>
+                                            </span>
                                         </td>
                                         <td>
                                             <div th:if="${printer.instance != null}" class="user-info-cell">

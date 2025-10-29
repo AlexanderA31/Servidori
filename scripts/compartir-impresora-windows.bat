@@ -1,7 +1,7 @@
 @echo off
 REM ====================================================================
 REM Script para Compartir Impresora USB/Local con el Servidor Central
-REM Version 4.1 - Funcionalidad completa en batch (CORREGIDO)
+REM Version 4.2 - Con instalacion automatica de Java
 REM ====================================================================
 
 setlocal enabledelayedexpansion
@@ -33,6 +33,124 @@ echo.
 echo   Servidor: %SERVER_IP%:%SERVER_PORT%
 echo.
 echo ====================================================================
+echo.
+
+REM ====================================================================
+REM Verificar e instalar Java si es necesario
+REM ====================================================================
+echo.
+echo Verificando Java...
+echo.
+
+java -version >nul 2>&1
+if %errorLevel% neq 0 (
+    echo [AVISO] Java no esta instalado
+    echo.
+    echo Java es necesario para ejecutar el servidor IPP en esta computadora.
+    echo Este servidor permite recibir trabajos de impresion del servidor central.
+    echo.
+    set /p "INSTALL_JAVA=Deseas instalar Java automaticamente? (S/N): "
+    
+    if /i "!INSTALL_JAVA!"=="S" (
+        echo.
+        echo Descargando e instalando Java...
+        echo Esto puede tomar varios minutos...
+        echo.
+        
+        REM Descargar instalador de Java
+        set "JAVA_URL=https://download.oracle.com/java/17/latest/jdk-17_windows-x64_bin.exe"
+        set "JAVA_INSTALLER=%TEMP%\java_installer.exe"
+        
+        echo Descargando Java desde Oracle...
+        powershell -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://download.oracle.com/java/17/latest/jdk-17_windows-x64_bin.exe' -OutFile '%JAVA_INSTALLER%' -TimeoutSec 300; exit 0 } catch { Write-Host 'Error descargando Java'; exit 1 }"
+        
+        if !errorlevel! neq 0 (
+            echo.
+            echo [ERROR] No se pudo descargar Java automaticamente
+            echo.
+            echo Opciones:
+            echo   1. Descarga Java manualmente desde: https://www.java.com/es/download/
+            echo   2. Ejecuta este script nuevamente despues de instalar Java
+            echo   3. Continua sin Java (la impresora se registrara pero no recibira trabajos)
+            echo.
+            set /p "CONTINUE_WITHOUT_JAVA=Continuar sin Java? (S/N): "
+            
+            if /i "!CONTINUE_WITHOUT_JAVA!"=="N" (
+                echo.
+                echo Saliendo...
+                pause
+                exit /b 1
+            )
+            
+            set "SKIP_CLIENT=true"
+        ) else (
+            echo.
+            echo Java descargado exitosamente
+            echo Instalando Java...
+            echo.
+            echo IMPORTANTE: Sigue las instrucciones del instalador
+            echo.
+            
+            REM Instalar Java silenciosamente
+            start /wait "" "!JAVA_INSTALLER!" /s ADDLOCAL="ToolsFeature,SourceFeature,PublicjreFeature"
+            
+            REM Limpiar instalador
+            del "!JAVA_INSTALLER!" 2>nul
+            
+            echo.
+            echo Verificando instalacion...
+            
+            REM Refrescar variables de entorno
+            call refreshenv >nul 2>&1
+            
+            REM Buscar Java en ubicaciones comunes
+            set "JAVA_FOUND=false"
+            
+            for /d %%i in ("C:\Program Files\Java\jdk-*") do (
+                if exist "%%i\bin\java.exe" (
+                    set "PATH=%%i\bin;!PATH!"
+                    set "JAVA_HOME=%%i"
+                    set "JAVA_FOUND=true"
+                    echo [OK] Java encontrado en: %%i
+                    goto :java_found
+                )
+            )
+            
+            for /d %%i in ("C:\Program Files\Java\jre*") do (
+                if exist "%%i\bin\java.exe" (
+                    set "PATH=%%i\bin;!PATH!"
+                    set "JAVA_HOME=%%i"
+                    set "JAVA_FOUND=true"
+                    echo [OK] Java encontrado en: %%i
+                    goto :java_found
+                )
+            )
+            
+            :java_found
+            
+            if "!JAVA_FOUND!"=="false" (
+                echo [AVISO] Java se instalo pero no se encuentra en el PATH
+                echo          Reinicia esta computadora y ejecuta el script nuevamente
+                set "SKIP_CLIENT=true"
+            ) else (
+                echo [OK] Java instalado correctamente
+                java -version
+            )
+        )
+    ) else (
+        echo.
+        echo [INFO] Continuando sin Java
+        echo        La impresora se registrara pero no podra recibir trabajos del servidor
+        echo        Para habilitar la recepcion de trabajos, instala Java y ejecuta nuevamente
+        echo.
+        set "SKIP_CLIENT=true"
+    )
+) else (
+    echo [OK] Java esta instalado
+    java -version 2>&1 | findstr /i "version"
+    echo.
+)
+
 echo.
 
 REM Obtener informacion de la computadora
@@ -273,55 +391,65 @@ if not exist "%CONFIG_DIR%" mkdir "%CONFIG_DIR%"
     echo REGISTERED_AT=%DATE% %TIME%
 ) > "%CONFIG_FILE%"
 
-REM Descargar cliente USB desde el servidor
-echo.
-echo Descargando cliente USB desde el servidor...
-echo.
-
-set "CLIENT_JAR=%CONFIG_DIR%\usb-client.jar"
-set "CLIENT_URL=http://%SERVER_IP%:%SERVER_PORT%/download/usb-client"
-
-REM Intentar descargar el cliente
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "try { Invoke-WebRequest -Uri '%CLIENT_URL%' -OutFile '%CLIENT_JAR%' -TimeoutSec 30; exit 0 } catch { Write-Host 'Error descargando cliente'; exit 1 }"
-
-if errorlevel 1 (
-    echo [AVISO] No se pudo descargar el cliente automaticamente
-    echo          Puedes descargarlo manualmente desde:
-    echo          %CLIENT_URL%
+REM Descargar e iniciar cliente USB desde el servidor
+if not "!SKIP_CLIENT!"=="true" (
     echo.
-    echo [INFO] Continuando sin cliente automatico...
-    echo        La impresora esta registrada pero no escuchara en puerto 631
-    echo.
-) else (
-    echo [OK] Cliente USB descargado: %CLIENT_JAR%
+    echo Descargando cliente USB desde el servidor...
     echo.
     
-    REM Crear script para iniciar el cliente
-    set "START_SCRIPT=%CONFIG_DIR%\start-client.bat"
-    (
-        echo @echo off
-        echo title Cliente USB - !SELECTED_PRINTER!
-        echo cd /d "%CONFIG_DIR%"
-        echo java -jar usb-client.jar --spring.profiles.active=usb-client --app.server.ip=%SERVER_IP% --app.server.port=%SERVER_PORT%
-        echo pause
-    ) > "!START_SCRIPT!"
+    set "CLIENT_JAR=%CONFIG_DIR%\usb-client.jar"
+    set "CLIENT_URL=http://%SERVER_IP%:%SERVER_PORT%/api/download/usb-client"
     
-    REM Crear tarea programada para inicio automatico
-    echo Configurando inicio automatico...
-    schtasks /create /tn "PrinterShareClient" /tr "\"!START_SCRIPT!\"" /sc onlogon /rl highest /f >nul 2>&1
+    REM Intentar descargar el cliente
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "try { Invoke-WebRequest -Uri '%CLIENT_URL%' -OutFile '%CLIENT_JAR%' -TimeoutSec 60; exit 0 } catch { Write-Host 'Error descargando cliente'; exit 1 }"
     
-    if !errorlevel! equ 0 (
-        echo [OK] Cliente configurado para inicio automatico
+    if errorlevel 1 (
+        echo [AVISO] No se pudo descargar el cliente automaticamente
+        echo          Puedes descargarlo manualmente desde:
+        echo          %CLIENT_URL%
+        echo.
+        echo [INFO] Continuando sin cliente automatico...
+        echo        La impresora esta registrada pero no escuchara en puerto 631
+        echo.
     ) else (
-        echo [AVISO] No se pudo configurar inicio automatico
+        echo [OK] Cliente USB descargado: %CLIENT_JAR%
+        echo.
+        
+        REM Crear script para iniciar el cliente
+        set "START_SCRIPT=%CONFIG_DIR%\start-client.bat"
+        (
+            echo @echo off
+            echo title Cliente USB - !SELECTED_PRINTER!
+            echo cd /d "%CONFIG_DIR%"
+            echo java -jar usb-client.jar --spring.profiles.active=usb-client --app.server.ip=%SERVER_IP% --app.server.port=%SERVER_PORT%
+            echo pause
+        ) > "!START_SCRIPT!"
+        
+        REM Crear tarea programada para inicio automatico
+        echo Configurando inicio automatico...
+        schtasks /create /tn "PrinterShareClient" /tr "\"!START_SCRIPT!\"" /sc onlogon /rl highest /f >nul 2>&1
+        
+        if !errorlevel! equ 0 (
+            echo [OK] Cliente configurado para inicio automatico
+        ) else (
+            echo [AVISO] No se pudo configurar inicio automatico
+        )
+        
+        echo.
+        echo Iniciando cliente USB en segundo plano...
+        start "Cliente USB - !SELECTED_PRINTER!" /MIN cmd /c "!START_SCRIPT!"
+        
+        timeout /t 3 /nobreak >nul
+        
+        echo [OK] Cliente USB iniciado
+        echo      Puerto de escucha: 631
+        echo.
     )
-    
+) else (
     echo.
-    echo Iniciando cliente USB en segundo plano...
-    start "Cliente USB - !SELECTED_PRINTER!" /MIN cmd /c "!START_SCRIPT!"
-    
-    echo [OK] Cliente USB iniciado
-    echo      Puerto de escucha: 631
+    echo [INFO] Cliente USB no se iniciara (Java no disponible)
+    echo        Instala Java y ejecuta este script nuevamente para habilitar
+    echo        la recepcion de trabajos de impresion desde el servidor
     echo.
 )
 

@@ -962,12 +962,15 @@ public class ApiController {
                 "SELECT p FROM Printer p ORDER BY p.alias", Printer.class)
                 .getResultList();
         
-                for (Printer p : printers) {
+                        for (Printer p : printers) {
             Map<String, String> printerData = new HashMap<>();
             printerData.put("id", String.valueOf(p.getId()));
             printerData.put("alias", p.getAlias());
             printerData.put("model", p.getModel() != null ? p.getModel() : "");
-            printerData.put("location", p.getLocation() != null ? p.getLocation() : "");
+            
+            // Location (IMPORTANTE para detectar impresoras USB compartidas)
+            String location = p.getLocation() != null ? p.getLocation() : "";
+            printerData.put("location", location);
             
             // IP física de la impresora (solo para información, NO para conexión)
             printerData.put("printerIp", p.getIp() != null ? p.getIp() : "");
@@ -980,6 +983,10 @@ public class ApiController {
             String safeName = p.getAlias().replace(" ", "_");
             String ippUri = String.format("ipp://%s:%d/printers/%s", serverIp, ippPort, safeName);
             printerData.put("ippUri", ippUri);
+            
+            // Indicar si es impresora USB compartida (para referencia del cliente)
+            boolean isSharedUSB = location.contains("Compartida-USB");
+            printerData.put("isSharedUSB", String.valueOf(isSharedUSB));
             
             printersList.add(printerData);
         }
