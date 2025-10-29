@@ -190,15 +190,56 @@ public class MultiPortIppServerService {
                 return;
             }
             
-            // Registrar trabajo en la cola de impresión
             boolean success = false;
-            try {
-                printQueueService.addJob(currentPrinter.get(), fileName, ownerName, 
-                                        currentPrinter.get().getInstance(), data);
-                log.info("  ✅ Trabajo registrado en cola de impresión");
-                success = true;
-            } catch (Exception e) {
-                log.error("  ❌ Error registrando trabajo en cola: {}", e.getMessage());
+            
+            // DETECCIÓN DE BUCLE INFINITO
+            // Si la conexión viene de localhost Y es una impresora compartida USB,
+            // NO crear nuevo trabajo sino REENVIAR directamente al cliente USB
+            boolean isLocalhost = clientSocket.getInetAddress().isLoopbackAddress() || 
+                                 "127.0.0.1".equals(clientSocket.getInetAddress().getHostAddress());
+            boolean isSharedUSB = currentPrinter.get().getLocation() != null && 
+                                 currentPrinter.get().getLocation().contains("Compartida-USB");
+            
+            if (isLocalhost && isSharedUSB) {
+                log.info("  🔄 Trabajo interno del servidor detectado - reenviando directo a cliente USB");
+                log.info("  📤 Destino: {}:631", currentPrinter.get().getIp());
+                
+                // Guardar datos en archivo temporal
+                try {
+                    File tempFile = File.createTempFile("ipp-forward-", ".dat");
+                    try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+                        fos.write(data);
+                    }
+                    
+                    // Enviar directamente al cliente USB (puerto 631)
+                    success = ippPrintService.sendToRawPort(
+                        currentPrinter.get().getIp(), 
+                        tempFile.toPath(), 
+                        631
+                    );
+                    
+                    // Limpiar archivo temporal
+                    tempFile.delete();
+                    
+                    if (success) {
+                        log.info("  ✅ Reenviado exitosamente a cliente USB");
+                    } else {
+                        log.warn("  ⚠️ Fallo al reenviar - cliente USB podría estar desconectado");
+                    }
+                } catch (Exception e) {
+                    log.error("  ❌ Error reenviando a cliente USB: {}", e.getMessage());
+                }
+            } else {
+                // Conexión externa normal - crear trabajo en cola
+                log.info("  💻 Conexión externa - registrando en cola");
+                try {
+                    printQueueService.addJob(currentPrinter.get(), fileName, ownerName, 
+                                            currentPrinter.get().getInstance(), data);
+                    log.info("  ✅ Trabajo registrado en cola de impresión");
+                    success = true;
+                } catch (Exception e) {
+                    log.error("  ❌ Error registrando trabajo en cola: {}", e.getMessage());
+                }
             }
             
             // Responder al cliente
