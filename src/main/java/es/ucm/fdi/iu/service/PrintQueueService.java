@@ -10,6 +10,8 @@ import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -41,9 +43,10 @@ public class PrintQueueService {
     @Autowired
     private IppPrintService ippPrintService;
     
-    // Auto-referencia para llamadas transaccionales
     @Autowired
-    private PrintQueueService self;
+    private PlatformTransactionManager transactionManager;
+    
+    private TransactionTemplate transactionTemplate;
     
     // Executor para procesar trabajos de impresión
     private ExecutorService executorService;
@@ -74,6 +77,9 @@ public class PrintQueueService {
         log.info("========================================");
         log.info("🖨️  Iniciando Servicio de Colas de Impresión");
         log.info("========================================");
+        
+        // Crear TransactionTemplate para transacciones programáticas
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
         
         // Crear directorio de spool
         try {
@@ -438,35 +444,31 @@ public class PrintQueueService {
                 log.debug("   Archivo de spool eliminado");
             }
             
-            // Llamar al método transaccional a través del proxy de Spring
-            self.removeJobFromDatabase(job.getId());
+            // Ejecutar eliminación en una nueva transacción
+            transactionTemplate.execute(status -> {
+                try {
+                    Job managedJob = entityManager.find(Job.class, job.getId());
+                    if (managedJob != null) {
+                        entityManager.remove(managedJob);
+                        entityManager.flush();
+                        log.debug("   Trabajo {} eliminado de la base de datos", job.getId());
+                        log.info("✅ Trabajo {} eliminado completamente de la cola", job.getId());
+                    } else {
+                        log.warn("   Trabajo {} ya no existe en la BD", job.getId());
+                    }
+                } catch (Exception e) {
+                    log.error("❌ Error en transacción de eliminación: {}", e.getMessage());
+                    status.setRollbackOnly();
+                    throw e;
+                }
+                return null;
+            });
             
         } catch (Exception e) {
             log.error("❌ Error eliminando trabajo completado: {}", e.getMessage(), e);
         }
     }
     
-    /**
-     * Método transaccional para eliminar un trabajo de la base de datos
-     * Este método DEBE ser público para que Spring pueda crear el proxy transaccional
-     */
-    @Transactional
-    public void removeJobFromDatabase(Long jobId) {
-        try {
-            Job managedJob = entityManager.find(Job.class, jobId);
-            if (managedJob != null) {
-                entityManager.remove(managedJob);
-                entityManager.flush();
-                log.debug("   Trabajo {} eliminado de la base de datos", jobId);
-                log.info("✅ Trabajo {} eliminado completamente de la cola", jobId);
-            } else {
-                log.warn("   Trabajo {} ya no existe en la BD", jobId);
-            }
-        } catch (Exception e) {
-            log.error("❌ Error en transacción de eliminación: {}", e.getMessage());
-            throw e; // Propagar para rollback
-        }
-    }
     
     /**
      * Inicia el procesador de colas en background
