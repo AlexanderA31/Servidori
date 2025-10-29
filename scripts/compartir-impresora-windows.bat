@@ -269,9 +269,61 @@ if not exist "%CONFIG_DIR%" mkdir "%CONFIG_DIR%"
     echo PRINTER_NAME=!SELECTED_PRINTER!
     echo SERVER_IP=%SERVER_IP%
     echo SERVER_PORT=%SERVER_PORT%
-    echo IPP_PORT=%IPP_PORT%
+    echo IPP_PORT=631
     echo REGISTERED_AT=%DATE% %TIME%
 ) > "%CONFIG_FILE%"
+
+REM Descargar cliente USB desde el servidor
+echo.
+echo Descargando cliente USB desde el servidor...
+echo.
+
+set "CLIENT_JAR=%CONFIG_DIR%\usb-client.jar"
+set "CLIENT_URL=http://%SERVER_IP%:%SERVER_PORT%/download/usb-client"
+
+REM Intentar descargar el cliente
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "try { Invoke-WebRequest -Uri '%CLIENT_URL%' -OutFile '%CLIENT_JAR%' -TimeoutSec 30; exit 0 } catch { Write-Host 'Error descargando cliente'; exit 1 }"
+
+if errorlevel 1 (
+    echo [AVISO] No se pudo descargar el cliente automaticamente
+    echo          Puedes descargarlo manualmente desde:
+    echo          %CLIENT_URL%
+    echo.
+    echo [INFO] Continuando sin cliente automatico...
+    echo        La impresora esta registrada pero no escuchara en puerto 631
+    echo.
+) else (
+    echo [OK] Cliente USB descargado: %CLIENT_JAR%
+    echo.
+    
+    REM Crear script para iniciar el cliente
+    set "START_SCRIPT=%CONFIG_DIR%\start-client.bat"
+    (
+        echo @echo off
+        echo title Cliente USB - !SELECTED_PRINTER!
+        echo cd /d "%CONFIG_DIR%"
+        echo java -jar usb-client.jar --spring.profiles.active=usb-client --app.server.ip=%SERVER_IP% --app.server.port=%SERVER_PORT%
+        echo pause
+    ) > "!START_SCRIPT!"
+    
+    REM Crear tarea programada para inicio automatico
+    echo Configurando inicio automatico...
+    schtasks /create /tn "PrinterShareClient" /tr "\"!START_SCRIPT!\"" /sc onlogon /rl highest /f >nul 2>&1
+    
+    if !errorlevel! equ 0 (
+        echo [OK] Cliente configurado para inicio automatico
+    ) else (
+        echo [AVISO] No se pudo configurar inicio automatico
+    )
+    
+    echo.
+    echo Iniciando cliente USB en segundo plano...
+    start "Cliente USB - !SELECTED_PRINTER!" /MIN cmd /c "!START_SCRIPT!"
+    
+    echo [OK] Cliente USB iniciado
+    echo      Puerto de escucha: 631
+    echo.
+)
 
 REM Limpiar archivos temporales
 del "%TEMP_PRINTERS%" 2>nul
@@ -289,14 +341,21 @@ echo   Otras computadoras pueden conectarse usando:
 echo.
 echo   Desde el Servidor de Impresoras:
 echo      - La impresora aparecera automaticamente en la tabla
-echo      - Puerto IPP asignado: %IPP_PORT%
+echo      - Puerto IPP del servidor: %IPP_PORT%
+echo      - Puerto IPP local (cliente): 631
 echo.
 echo   Conexion directa SMB (Windows):
 echo      \\%HOSTNAME%\!SHARE_NAME!
 echo.
+echo   Cliente USB:
+echo      - Ejecutandose en: %CONFIG_DIR%
+ echo      - Puerto de escucha: 631
+echo      - Logs: %CONFIG_DIR%\logs
+echo.
 echo   IMPORTANTE:
 echo      - Esta computadora debe estar ENCENDIDA
 echo      - La impresora debe estar CONECTADA
+echo      - El cliente USB debe estar ejecutandose
 echo      - No suspender la computadora
 echo.
 echo ====================================================================

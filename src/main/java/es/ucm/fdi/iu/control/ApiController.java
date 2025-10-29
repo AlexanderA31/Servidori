@@ -875,6 +875,33 @@ public class ApiController {
         }
     }
     
+        /**
+     * Endpoint público para descargar el cliente USB (JAR ejecutable)
+     */
+    @GetMapping("/download/usb-client")
+    public ResponseEntity<byte[]> downloadUsbClient() {
+        try {
+            // El JAR se encuentra en target/ después de compilar
+            java.nio.file.Path jarPath = java.nio.file.Paths.get("target/iu-0.0.1-SNAPSHOT.jar");
+            
+            if (!java.nio.file.Files.exists(jarPath)) {
+                log.error("Cliente USB (JAR) no encontrado en: {}", jarPath.toAbsolutePath());
+                return ResponseEntity.notFound().build();
+            }
+            
+            byte[] jarBytes = java.nio.file.Files.readAllBytes(jarPath);
+            log.info("Sirviendo cliente USB: {} bytes", jarBytes.length);
+            
+            return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=usb-client.jar")
+                .header("Content-Type", "application/java-archive")
+                .body(jarBytes);
+        } catch (Exception e) {
+            log.error("Error leyendo cliente USB (JAR)", e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
     /**
      * Endpoint público para descargar el script de compartir impresora Linux
      */
