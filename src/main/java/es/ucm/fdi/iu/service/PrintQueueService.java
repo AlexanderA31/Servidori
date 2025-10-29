@@ -196,7 +196,14 @@ public class PrintQueueService {
             
             Printer printer = job.getPrinter();
             
-            while (!success && retries < MAX_RETRIES) {
+            // Detectar si es impresora USB compartida
+            boolean isSharedUSB = printer.getLocation() != null && 
+                                 printer.getLocation().contains("Compartida-USB");
+            
+            // Para USB compartidas, solo 1 intento (el cliente debe estar corriendo)
+            int maxRetries = isSharedUSB ? 1 : MAX_RETRIES;
+            
+            while (!success && retries < maxRetries) {
                 try {
                     // Buscar archivo en spool
                     Path spoolFile = findSpoolFile(job);
@@ -213,10 +220,16 @@ public class PrintQueueService {
                     
                     if (!success) {
                         retries++;
-                        if (retries < MAX_RETRIES) {
-                            log.warn("⚠️ Intento {}/{} falló, reintentando en 5 segundos...", 
-                                retries, MAX_RETRIES);
-                            Thread.sleep(5000);
+                        if (retries < maxRetries) {
+                            if (isSharedUSB) {
+                                log.error("❌ Cliente USB no responde - trabajo cancelado");
+                                log.error("   Verifica que el cliente esté encendido y ejecutando el servicio");
+                                break; // No reintentar para USB
+                            } else {
+                                log.warn("⚠️ Intento {}/{} falló, reintentando en 5 segundos...", 
+                                    retries, maxRetries);
+                                Thread.sleep(5000);
+                            }
                         }
                     }
                     
@@ -270,40 +283,35 @@ public class PrintQueueService {
                                  printer.getLocation().contains("Compartida-USB");
             
             if (isSharedUSB) {
-                log.info("🔄 Impresora compartida USB detectada en cliente {}", ip);
-                log.debug("💡 ippPort ({}) es del SERVIDOR, no del cliente", printer.getIppPort());
-                log.debug("📡 Enviando al puerto 631 (IPP) del cliente Windows");
+                log.info("════════════════════════════════");
+                log.info("🔄 IMPRESORA USB COMPARTIDA DETECTADA");
+                log.info("════════════════════════════════");
+                log.info("   Impresora: {}", printer.getAlias());
+                log.info("   Cliente USB: {}", ip);
+                log.info("   Puerto servidor (ippPort): {} (NO SE USA)", printer.getIppPort());
+                log.info("   Puerto cliente: 631 (IPP estándar)");
+                log.info("════════════════════════════════");
                 
-                // Para impresoras compartidas USB:
-                // - El cliente Windows ejecuta PrinterShareService escuchando en puerto 631
-                // - El ippPort (ej: 8639) es para que OTROS CLIENTES se conecten AL SERVIDOR
-                // - Aquí necesitamos enviar AL CLIENTE, por lo tanto puerto 631
-                
-                log.debug("  Intentando puerto 631 (PrinterShareService) en cliente USB {}", ip);
+                log.info("📡 Enviando trabajo al cliente USB {}:631...", ip);
                 success = ippPrintService.sendToRawPort(ip, file, 631);
+                
                 if (success) {
-                    log.info("✅ Enviado exitosamente a cliente USB {}:631", ip);
+                    log.info("════════════════════════════════");
+                    log.info("✅ TRABAJO ENVIADO EXITOSAMENTE AL CLIENTE USB");
+                    log.info("════════════════════════════════");
                     return true;
+                } else {
+                    log.error("════════════════════════════════");
+                    log.error("❌ NO SE PUDO CONECTAR AL CLIENTE USB");
+                    log.error("════════════════════════════════");
+                    log.error("   Cliente: {}:631", ip);
+                    log.error("   Posibles causas:");
+                    log.error("   1. La computadora cliente está APAGADA");
+                    log.error("   2. El servicio USB client NO está ejecutándose");
+                    log.error("   3. Firewall bloqueando puerto 631");
+                    log.error("════════════════════════════════");
+                    return false;
                 }
-                
-                // Fallback: intentar otros puertos si 631 falla
-                log.warn("⚠️ Puerto 631 no disponible, intentando puertos alternativos");
-                int[] portsToTry = {9100, 515};
-                for (int port : portsToTry) {
-                    log.debug("  Intentando puerto {} en cliente USB {}", port, ip);
-                    success = ippPrintService.sendToRawPort(ip, file, port);
-                    if (success) {
-                        log.info("✅ Enviado exitosamente a cliente USB {}:{}", ip, port);
-                        return true;
-                    }
-                }
-                
-                log.warn("⚠️ No se pudo conectar al cliente USB {}", ip);
-                log.warn("⚠️ Verifica que:");
-                log.warn("   1. La computadora cliente esté encendida");
-                log.warn("   2. El servidor de compartir impresoras esté ejecutándose en el cliente");
-                log.warn("   3. El firewall del cliente permita conexiones al puerto 631");
-                return false;
             }
             
             // Impresoras de red normales (incluso si tienen ippPort asignado)
