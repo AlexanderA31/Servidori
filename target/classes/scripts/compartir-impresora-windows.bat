@@ -501,6 +501,21 @@ echo.
 echo ====================================================================
 echo.
 echo.
+if "!CLIENT_DOWNLOADED!"=="true" (
+    echo [OK] Todo listo! Archivos instalados en:
+    echo      %CONFIG_DIR%
+    echo.
+    if "!SKIP_CLIENT!"=="true" (
+        echo [!] Recuerda instalar Java para que funcione el cliente
+    ) else (
+        echo [OK] Cliente USB ejecutandose
+    )
+) else (
+    echo [X] ERROR: No se pudo descargar el cliente JAR
+    echo     Contacta al administrador del servidor
+)
+echo.
+echo.
 echo Presiona cualquier tecla para cerrar esta ventana...
 pause >nul
 exit /b 0
