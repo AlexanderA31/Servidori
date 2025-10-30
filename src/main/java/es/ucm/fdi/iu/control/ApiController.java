@@ -793,7 +793,7 @@ public class ApiController {
                 return response;
             }
             
-                                    // Crear nueva impresora
+                                                // Crear nueva impresora
             Printer printer = new Printer();
             printer.setAlias(alias);
             printer.setModel(model);
@@ -802,33 +802,29 @@ public class ApiController {
             printer.setProtocol(protocol);
             printer.setPort(port);
             
-            // Para impresoras USB compartidas:
-            // - ippPort = 631 (puerto del cliente USB - conexión DIRECTA)
-            // - ip = IP del cliente USB (ej: 10.1.1.39)
-            // Los clientes se conectan DIRECTAMENTE al cliente USB, no al servidor
-            //
-            // Para impresoras de red normales:
-            // - ippPort = 863X (puerto dedicado del servidor)
-            // - ip = IP de la impresora física
-            boolean isSharedUSB = location != null && location.contains("Compartida-USB");
+            // TODAS las impresoras (incluyendo USB compartidas) usan puerto 863X del servidor
+            // El servidor actúa como intermediario:
+            // - Cliente se conecta al servidor en puerto 863X
+            // - Servidor detecta si es USB compartida y reenvía a cliente USB en puerto 631
+            // - Si es impresora de red, la envía directamente a la impresora
             
+            // Asignar puerto IPP único y dedicado para TODAS las impresoras
+            Integer maxPort = entityManager.createQuery(
+                "SELECT MAX(p.ippPort) FROM Printer p", Integer.class)
+                .getSingleResult();
+            int nextPort = (maxPort != null) ? maxPort + 1 : 8631;
+            printer.setIppPort(nextPort);
+            
+            boolean isSharedUSB = location != null && location.contains("Compartida-USB");
             if (isSharedUSB) {
-                // USB compartida: puerto 631 SIEMPRE
-                printer.setIppPort(631);
-                log.info("✅ Impresora USB compartida registrada: {} en {}:631 (conexión directa al cliente)", 
-                    alias, ip);
+                log.info("✅ Impresora USB compartida registrada: {} con puerto IPP {} (servidor actúa como intermediario a {}:631)", 
+                    alias, nextPort, ip);
             } else {
-                // Impresora de red: puerto 863X dedicado
-                Integer maxPort = entityManager.createQuery(
-                    "SELECT MAX(p.ippPort) FROM Printer p WHERE p.ippPort > 8630", Integer.class)
-                    .getSingleResult();
-                int nextPort = (maxPort != null) ? maxPort + 1 : 8631;
-                printer.setIppPort(nextPort);
-                log.info("✅ Impresora de red registrada: {} con puerto IPP {} (servidor)", 
+                log.info("✅ Impresora de red registrada: {} con puerto IPP {}", 
                     alias, nextPort);
             }
             
-            printer.setDeviceUri("ipp://" + ip + ":" + printer.getIppPort() + "/printers/" + alias.replace(" ", "_"));
+            printer.setDeviceUri("ipp://" + ip + ":" + port + "/printers/" + alias.replace(" ", "_"));
             printer.setInstance(user);
             printer.setInk(100);
             printer.setPaper(100);
@@ -1024,7 +1020,7 @@ public class ApiController {
                 "SELECT p FROM Printer p ORDER BY p.alias", Printer.class)
                 .getResultList();
         
-                                                for (Printer p : printers) {
+                                                                        for (Printer p : printers) {
             Map<String, String> printerData = new HashMap<>();
             printerData.put("id", String.valueOf(p.getId()));
             printerData.put("alias", p.getAlias());
@@ -1036,37 +1032,27 @@ public class ApiController {
             boolean isSharedUSB = location.contains("Compartida-USB");
             printerData.put("isSharedUSB", String.valueOf(isSharedUSB));
             
-            // Puerto IPP
+            // Puerto IPP dedicado de esta impresora en el SERVIDOR
             int ippPort = p.getIppPort() != null ? p.getIppPort() : 8631;
             printerData.put("ippPort", String.valueOf(ippPort));
             
-            // IP y URI dependen del tipo de impresora:
-            String connectionIp;
-            String ippUri;
+            // IP física de la impresora (para información)
+            printerData.put("printerIp", p.getIp() != null ? p.getIp() : "");
+            
+            // TODAS las conexiones van AL SERVIDOR en su puerto dedicado
+            // El servidor se encarga de reenviar a donde corresponda:
+            // - USB compartida: servidor reenvía a cliente USB en puerto 631
+            // - Red normal: servidor reenvía a impresora directamente
             String safeName = p.getAlias().replace(" ", "_");
+            String ippUri = String.format("ipp://%s:%d/printers/%s", serverIp, ippPort, safeName);
+            printerData.put("ippUri", ippUri);
+            printerData.put("connectionType", "server");
             
             if (isSharedUSB) {
-                // IMPRESORA USB COMPARTIDA:
-                // - Conexión DIRECTA al cliente USB
-                // - IP = IP del cliente USB (ej: 10.1.1.39)
-                // - Puerto = 631 (cliente USB)
-                connectionIp = p.getIp() != null ? p.getIp() : serverIp;
-                ippUri = String.format("ipp://%s:631/printers/%s", connectionIp, safeName);
-                printerData.put("printerIp", connectionIp);
-                printerData.put("connectionType", "direct-to-usb-client");
-                log.debug("Impresora USB: {} - Conexión directa a {}:631", p.getAlias(), connectionIp);
-            } else {
-                // IMPRESORA DE RED NORMAL:
-                // - Conexión al servidor (10.1.16.31)
-                // - IP = IP del servidor
-                // - Puerto = Puerto dedicado (863X)
-                connectionIp = serverIp;
-                ippUri = String.format("ipp://%s:%d/printers/%s", serverIp, ippPort, safeName);
-                printerData.put("printerIp", p.getIp() != null ? p.getIp() : "");
-                printerData.put("connectionType", "server");
+                log.debug("Impresora USB: {} - Clientes se conectan a servidor {}:{} (servidor reenvía a {}:631)", 
+                    p.getAlias(), serverIp, ippPort, p.getIp());
             }
             
-            printerData.put("ippUri", ippUri);
             printersList.add(printerData);
         }
         
