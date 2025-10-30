@@ -3,6 +3,7 @@ package es.ucm.fdi.iu;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.env.Environment;
@@ -14,9 +15,12 @@ import java.text.SimpleDateFormat;
 /**
  * This code will execute when the application first starts.
  * 
+ * Only loads in server mode (NOT in usb-client) because it needs ServletContext
+ * 
  * @author mfreire
  */
 @Component
+@ConditionalOnProperty(name = "app.mode", havingValue = "server", matchIfMissing = true)
 public class StartupConfig {
 	
 	private static final Logger log = LogManager.getLogger(StartupConfig.class);
