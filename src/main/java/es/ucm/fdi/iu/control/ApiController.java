@@ -8,6 +8,7 @@ import es.ucm.fdi.iu.model.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,10 +31,13 @@ import java.util.regex.Pattern;
  * operations except "login", which itself requires valid username & password.
  * Most operations return the requesting user's full view of the system.
  * Note that users can typically not view other user's data.
+ * 
+ * Only loads in server mode (NOT in usb-client)
  */
 @RestController
 @CrossOrigin
 @RequestMapping("api")
+@ConditionalOnProperty(name = "app.mode", havingValue = "server", matchIfMissing = true)
 public class ApiController {
 
     private static final Logger log = LogManager.getLogger(AdminController.class);

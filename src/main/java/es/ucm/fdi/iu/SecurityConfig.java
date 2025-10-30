@@ -1,6 +1,7 @@
 package es.ucm.fdi.iu;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -20,10 +21,13 @@ import org.springframework.security.web.SecurityFilterChain;
  * https://spring.io/guides/topicals/spring-security-architecture/, it is not
  * a bad idea to also use method security (via @Secured annotations in methods) 
  * 
+ * Only loads in server mode (NOT in usb-client)
+ * 
  * @author mfreire
  */
 @Configuration
 @EnableWebSecurity
+@ConditionalOnProperty(name = "app.mode", havingValue = "server", matchIfMissing = true)
 public class SecurityConfig {
 
 	@Autowired

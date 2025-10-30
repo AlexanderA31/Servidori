@@ -3,6 +3,7 @@ package es.ucm.fdi.iu.service;
 import es.ucm.fdi.iu.model.Printer;
 import es.ucm.fdi.iu.repository.PrinterRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -24,9 +25,12 @@ import java.util.Optional;
  * 
  * Esto permite que Windows identifique correctamente cada impresora
  * sin necesidad de protocolo IPP completo.
+ * 
+ * Only loads in server mode (NOT in usb-client)
  */
 @Service
 @Slf4j
+@ConditionalOnProperty(name = "app.mode", havingValue = "server", matchIfMissing = true)
 public class MultiPortIppServerService {
 
     private final Map<Long, ServerSocket> serverSockets = new ConcurrentHashMap<>();

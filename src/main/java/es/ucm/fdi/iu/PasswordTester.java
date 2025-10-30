@@ -2,6 +2,7 @@ package es.ucm.fdi.iu;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -11,9 +12,12 @@ import org.apache.logging.log4j.Logger;
 /**
  * Tests password encoding and validation
  * This component runs at startup to verify password configuration
+ * 
+ * Only loads in server mode (NOT in usb-client)
  */
 @Component
 @Order(2)
+@ConditionalOnProperty(name = "app.mode", havingValue = "server", matchIfMissing = true)
 public class PasswordTester implements CommandLineRunner {
 
     private static final Logger log = LogManager.getLogger(PasswordTester.class);

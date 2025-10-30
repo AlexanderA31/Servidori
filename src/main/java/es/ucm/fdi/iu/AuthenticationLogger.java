@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
 import org.springframework.stereotype.Component;
@@ -12,8 +13,11 @@ import java.io.IOException;
 
 /**
  * Logs authentication failures with detailed information
+ * 
+ * Only loads in server mode (NOT in usb-client)
  */
 @Component
+@ConditionalOnProperty(name = "app.mode", havingValue = "server", matchIfMissing = true)
 public class AuthenticationLogger extends SimpleUrlAuthenticationFailureHandler {
     
     private static final Logger log = LogManager.getLogger(AuthenticationLogger.class);

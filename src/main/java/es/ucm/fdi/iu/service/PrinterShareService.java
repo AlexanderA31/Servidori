@@ -6,6 +6,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
@@ -19,8 +20,11 @@ import java.util.List;
  * Servicio multiplataforma para compartir impresoras vía SMB/Samba.
  * - En Linux: Configura Samba (/etc/samba/smb.conf)
  * - En Windows: Usa comandos nativos de Windows (net share, etc.)
+ * 
+ * Only loads in server mode (NOT in usb-client)
  */
 @Service
+@ConditionalOnProperty(name = "app.mode", havingValue = "server", matchIfMissing = true)
 public class PrinterShareService {
 
     private static final Logger log = LogManager.getLogger(PrinterShareService.class);

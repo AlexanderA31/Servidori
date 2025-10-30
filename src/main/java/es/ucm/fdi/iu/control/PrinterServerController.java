@@ -5,6 +5,7 @@ import jakarta.persistence.EntityManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -22,9 +23,12 @@ import java.util.stream.Collectors;
  * - Lista de impresoras disponibles en formato IPP
  * - Scripts de instalacion para clientes
  * - Instrucciones de configuracion
+ * 
+ * Only loads in server mode (NOT in usb-client)
  */
 @Controller
 @RequestMapping("/print-server")
+@ConditionalOnProperty(name = "app.mode", havingValue = "server", matchIfMissing = true)
 public class PrinterServerController {
 
     private static final Logger log = LogManager.getLogger(PrinterServerController.class);
