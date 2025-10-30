@@ -1,18 +1,8 @@
 @echo off
 REM ====================================================================
 REM COMPARTIR IMPRESORA USB CON SERVIDOR - VERSION COMPLETA
-REM Version 8.0 - SIN instalacion automatica de Java (solo instrucciones)
+REM Version 8.1 - Flujo simplificado sin reinicio de CMD
 REM ====================================================================
-
-REM Asegurar que la terminal NO se cierre en caso de error
-if "%1"=="" (
-    cmd /k "%~f0 run"
-    exit /b
-)
-
-if "%1"=="run" (
-    shift
-)
 
 setlocal enabledelayedexpansion
 
@@ -308,7 +298,8 @@ if errorlevel 1 (
     echo   %APPDATA%\PrinterShare\start-client.bat
     echo.
     set "SKIP_CLIENT=true"
-    pause
+    echo.
+    echo Continuando con la descarga del cliente...
 ) else (
     echo [OK] Java ya esta instalado
     java -version 2>&1 | findstr /i "version"
@@ -509,6 +500,7 @@ echo Log: %LOG_FILE%
 echo.
 echo ====================================================================
 echo.
-pause
-
+echo.
+echo Presiona cualquier tecla para cerrar esta ventana...
+pause >nul
 exit /b 0
