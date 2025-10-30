@@ -1,8 +1,18 @@
 @echo off
 REM ====================================================================
 REM COMPARTIR IMPRESORA USB CON SERVIDOR - VERSION COMPLETA
-REM Version 7.0 - Con instalacion automatica de Java
+REM Version 7.1 - Con instalacion automatica de Java mejorada
 REM ====================================================================
+
+REM Asegurar que la terminal NO se cierre en caso de error
+if "%1"=="" (
+    cmd /k "%~f0 run"
+    exit /b
+)
+
+if "%1"=="run" (
+    shift
+)
 
 setlocal enabledelayedexpansion
 
@@ -279,6 +289,8 @@ if errorlevel 1 (
     set /p "INSTALL_JAVA=Instalar Java? (S/N): "
     
     if /i "!INSTALL_JAVA!"=="S" (
+        REM Asegurar que no se cierre en caso de error
+        setlocal
         echo.
         echo ====================================================================
         echo   INSTALACION DE JAVA
@@ -292,26 +304,27 @@ if errorlevel 1 (
         REM Intentar multiples URLs de descarga
         set "JAVA_DOWNLOADED=false"
         
-        echo [1/3] Intentando descarga desde Java.com...
-        powershell -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Write-Host '      Descargando...' -NoNewline; Invoke-WebRequest -Uri 'https://javadl.oracle.com/webapps/download/AutoDL?BundleId=249837_d8aa705069af427f9b83e66b34f5e380' -OutFile '%JAVA_INSTALLER%' -TimeoutSec 300; Write-Host ' OK' -ForegroundColor Green; exit 0 } catch { Write-Host ' FALLO' -ForegroundColor Red; Write-Host '      Error:' $_.Exception.Message; exit 1 }" 2>nul
+        echo [1/3] Intentando descarga desde Adoptium ^(OpenJDK^)...
+        powershell -NoProfile -ExecutionPolicy Bypass -Command "& { try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Write-Host '      Descargando JRE 17...' -NoNewline; $url = 'https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.9%%2B9/OpenJDK17U-jre_x64_windows_hotspot_17.0.9_9.msi'; Invoke-WebRequest -Uri $url -OutFile '%JAVA_INSTALLER%' -TimeoutSec 600 -UseBasicParsing; Write-Host ' OK' -ForegroundColor Green; exit 0 } catch { Write-Host ' ERROR' -ForegroundColor Red; exit 1 } }" 2>&1
         
-        if not errorlevel 1 (
-            set "JAVA_DOWNLOADED=true"
-            goto :java_download_ok
-        )
-        
-        echo [2/3] Intentando descarga alternativa...
-        powershell -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Write-Host '      Descargando...' -NoNewline; Invoke-WebRequest -Uri 'https://download.oracle.com/java/17/latest/jdk-17_windows-x64_bin.exe' -OutFile '%JAVA_INSTALLER%' -TimeoutSec 300; Write-Host ' OK' -ForegroundColor Green; exit 0 } catch { Write-Host ' FALLO' -ForegroundColor Red; exit 1 }" 2>nul
-        
-        if not errorlevel 1 (
-            set "JAVA_DOWNLOADED=true"
-            goto :java_download_ok
-        )
-        
-        echo [3/3] Intentando desde Adoptium...
-        powershell -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Write-Host '      Descargando...' -NoNewline; Invoke-WebRequest -Uri 'https://api.adoptium.net/v3/binary/latest/17/ga/windows/x64/jre/hotspot/normal/eclipse?project=jdk' -OutFile '%JAVA_INSTALLER%' -TimeoutSec 300; Write-Host ' OK' -ForegroundColor Green; exit 0 } catch { Write-Host ' FALLO' -ForegroundColor Red; exit 1 }" 2>nul
-        
-        if not errorlevel 1 (
+        if errorlevel 1 (
+            echo [2/3] Intentando descarga desde Java.com...
+            powershell -NoProfile -ExecutionPolicy Bypass -Command "& { try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Write-Host '      Descargando...' -NoNewline; Invoke-WebRequest -Uri 'https://javadl.oracle.com/webapps/download/AutoDL?BundleId=249837_d8aa705069af427f9b83e66b34f5e380' -OutFile '%JAVA_INSTALLER%' -TimeoutSec 600 -UseBasicParsing; Write-Host ' OK' -ForegroundColor Green; exit 0 } catch { Write-Host ' ERROR' -ForegroundColor Red; exit 1 } }" 2>&1
+            
+            if errorlevel 1 (
+                echo [3/3] Usando bitsadmin como alternativa...
+                bitsadmin /transfer "JavaDownload" /priority foreground "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.9+9/OpenJDK17U-jre_x64_windows_hotspot_17.0.9_9.msi" "%JAVA_INSTALLER%" 2>nul
+                
+                if errorlevel 1 (
+                    set "JAVA_DOWNLOADED=false"
+                ) else (
+                    echo       Descarga completada
+                    set "JAVA_DOWNLOADED=true"
+                )
+            ) else (
+                set "JAVA_DOWNLOADED=true"
+            )
+        ) else (
             set "JAVA_DOWNLOADED=true"
         )
         
@@ -360,13 +373,22 @@ if errorlevel 1 (
             echo Instalando...
             echo.
             
-            REM Intentar instalacion silenciosa
-            start /wait "" "%JAVA_INSTALLER%" /s INSTALL_SILENT=1 STATIC=0 AUTO_UPDATE=0 WEB_JAVA=1 REBOOT=0 SPONSORS=0 2>nul
-            
-            REM Si falla, intentar instalacion normal
-            if errorlevel 1 (
-                echo [INFO] Instalacion silenciosa fallo, intentando modo normal...
-                start /wait "" "%JAVA_INSTALLER%"
+            REM Detectar si es MSI o EXE
+            echo %JAVA_INSTALLER% | findstr /i ".msi" >nul
+            if not errorlevel 1 (
+                echo Instalando via MSI...
+                msiexec /i "%JAVA_INSTALLER%" /quiet /norestart ADDLOCAL=FeatureJavaHome,FeatureJarFileRunWith,FeatureOracleJavaSoft 2>nul
+                if errorlevel 1 (
+                    echo [INFO] Instalacion silenciosa fallo, mostrando interfaz...
+                    msiexec /i "%JAVA_INSTALLER%" /passive /norestart
+                )
+            ) else (
+                echo Instalando via EXE...
+                start /wait "" "%JAVA_INSTALLER%" /s INSTALL_SILENT=1 STATIC=0 AUTO_UPDATE=0 WEB_JAVA=1 REBOOT=0 SPONSORS=0 2>nul
+                if errorlevel 1 (
+                    echo [INFO] Instalacion silenciosa fallo, mostrando interfaz...
+                    start /wait "" "%JAVA_INSTALLER%"
+                )
             )
             
             timeout /t 5 /nobreak >nul
@@ -425,6 +447,7 @@ if errorlevel 1 (
         )
         
         :skip_java_install
+        endlocal
     ) else (
         echo.
         echo [INFO] Continuando sin Java
