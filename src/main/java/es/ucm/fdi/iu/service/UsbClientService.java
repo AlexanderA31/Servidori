@@ -340,30 +340,9 @@ public class UsbClientService {
                 log.info("   📄 Tipo: RAW/Binario ({} bytes)", header.length);
             }
             
-            // MÉTODO 1: Usar PowerShell para imprimir PDF con la aplicación predeterminada
-            if (isPDF) {
-                log.info("   🔄 Método 1: Imprimir PDF con aplicación predeterminada...");
-                String psCommand = String.format(
-                    "powershell.exe -Command \"" +
-                    "$printer = Get-Printer -Name '%s'; " +
-                    "Start-Process -FilePath '%s' -ArgumentList '/t','/p','$($printer.Name)' -WindowStyle Hidden -Wait" +
-                    "\"",
-                    localPrinterName, file.toAbsolutePath().toString().replace("\\", "/")
-                );
-                
-                Process process = Runtime.getRuntime().exec(psCommand);
-                int exitCode = process.waitFor();
-                
-                if (exitCode == 0) {
-                    log.info("   ✅ PDF enviado exitosamente");
-                    return true;
-                } else {
-                    log.warn("   ⚠️ Método 1 falló (código: {}), probando alternativas...", exitCode);
-                }
-            }
-            
-            // MÉTODO 2: Enviar RAW directamente al puerto de la impresora
-            log.info("   🔄 Método 2: Envío RAW a la impresora...");
+            // MÉTODO 1: Enviar RAW directamente al puerto de la impresora (MEJOR para PDFs)
+            // NO intentamos abrir el PDF con aplicaciones, eso causa el diálogo "Abrir con..."
+            log.info("   🔄 Método 1: Envío RAW directo al puerto de impresora...");
             
             // Obtener el puerto de la impresora
             String printerPort = getPrinterPort(localPrinterName);
@@ -405,8 +384,8 @@ public class UsbClientService {
                 }
             }
             
-            // MÉTODO 3: Usar PowerShell Out-Printer (último recurso)
-            log.info("   🔄 Método 3: PowerShell Out-Printer...");
+            // MÉTODO 2: Usar PowerShell Out-Printer (último recurso)
+            log.info("   🔄 Método 2: PowerShell Out-Printer...");
             String outPrinterCommand = String.format(
                 "powershell.exe -Command \"Get-Content -Path '%s' -Raw | Out-Printer -Name '%s'\"",
                 file.toAbsolutePath(), localPrinterName
