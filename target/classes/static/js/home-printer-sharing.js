@@ -112,16 +112,19 @@ function downloadWindowsClientScript() {
     // DETECTAR SI ES IMPRESORA USB COMPARTIDA
     const isSharedUSB = printerLocation.includes('Compartida-USB');
     
-    // Extraer puerto del URI IPP - CADA IMPRESORA TIENE SU PUERTO ÚNICO
+    // Extraer información del URI IPP
     const urlParts = ippUrl.match(/ipp:\/\/([^:]+):(\d+)\/printers\/(.+)/);
-    const serverIp = urlParts ? urlParts[1] : '10.1.16.31';
+    let serverIp = urlParts ? urlParts[1] : '10.1.16.31';
     let serverPort = urlParts ? parseInt(urlParts[2]) : 8631;
     
-    // Para impresoras USB compartidas, el cliente debe conectarse al puerto 631 del servidor
-    // (el ippPort es para que otros clientes se conecten AL SERVIDOR, no al cliente USB)
+    // CORRECCION: Para impresoras USB compartidas, conectarse directo al cliente USB
+    // - La IP es la del cliente USB (la PC que tiene la impresora conectada)
+    // - El puerto es 631 (donde escucha el cliente USB Java)
+    // - NO usar el puerto 86xx del servidor
     if (isSharedUSB) {
-        console.log('Impresora USB compartida detectada - usando puerto del servidor');
-        serverPort = serverPort; // Mantener el puerto del servidor para impresoras USB también
+        console.log('Impresora USB compartida detectada - conectando a puerto 631 del cliente USB');
+        serverPort = 631;  // Puerto estándar IPP donde escucha el cliente USB
+        // La IP (serverIp) ya es correcta - es la IP del cliente USB
     }
     
     const printerPath = urlParts ? urlParts[3] : printerName.replace(/\s/g, '_');
@@ -140,8 +143,12 @@ function downloadWindowsClientScript() {
                 '1. Haz <strong>DOBLE CLIC</strong> en el archivo BAT descargado<br>' +
                 '2. Se solicitarán permisos de administrador automáticamente<br>' +
                 '3. La impresora se instalará automáticamente<br><br>' +
-                '<strong>Puerto asignado: ' + serverPort + '</strong> (FIJO)<br><br>' +
-                '<strong>⚠️ Nota:</strong> Este puerto es exclusivo y nunca cambia',
+                (isSharedUSB ? 
+                    '<strong>🖨️ Impresora USB Compartida</strong><br>' +
+                    'Conectando a: ' + serverIp + ':631 (Cliente USB)<br><br>' +
+                    '<strong>⚠️ Nota:</strong> La PC con la impresora debe estar encendida' :
+                    '<strong>Puerto asignado: ' + serverPort + '</strong> (FIJO)<br><br>' +
+                    '<strong>⚠️ Nota:</strong> Este puerto es exclusivo y nunca cambia'),
                 'Instrucciones Simples'
             );
         }, 800);
@@ -453,7 +460,7 @@ function generateBatWithEmbeddedPS(serverIp, serverPort, printerName, safeFileNa
     const printerNameEscaped = printerName.replace(/'/g, "''");
     
     // Mensaje especial para impresoras USB compartidas
-    const usbNote = isSharedUSB ? ' (Cliente USB conectado al servidor)' : ' (PUERTO UNICO FIJO)';
+    const usbNote = isSharedUSB ? ' (Cliente USB en ' + serverIp + ')' : ' (PUERTO UNICO FIJO)';
     
     const bat = `@echo off
 REM ====================================================================
