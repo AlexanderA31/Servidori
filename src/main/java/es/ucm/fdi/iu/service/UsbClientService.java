@@ -431,11 +431,13 @@ public class UsbClientService {
     
     /**
      * Obtiene el puerto de una impresora usando PowerShell
+     * IMPORTANTE: Busca SOLO impresoras USB locales, no puertos de red
      */
     private String getPrinterPort(String printerName) {
         try {
+            // Buscar SOLO impresoras con puerto USB
             String command = String.format(
-                "powershell.exe -Command \"Get-Printer -Name '%s' | Select-Object -ExpandProperty PortName\"",
+                "powershell.exe -Command \"Get-Printer | Where-Object {$_.Name -eq '%s' -and ($_.PortName -like 'USB*' -or $_.Type -eq 'Local')} | Select-Object -First 1 -ExpandProperty PortName\"",
                 printerName
             );
             
@@ -445,7 +447,27 @@ public class UsbClientService {
             process.waitFor();
             
             if (port != null && !port.trim().isEmpty()) {
-                return port.trim();
+                String portName = port.trim();
+                log.debug("   Puerto detectado: {}", portName);
+                
+                // FILTRO: Ignorar puertos de red (IP_*)
+                if (portName.startsWith("IP_")) {
+                    log.warn("   ⚠️ Puerto {} es de RED, no USB. Buscando puerto USB alternativo...", portName);
+                    
+                    // Buscar puerto USB alternativo
+                    String usbCommand = "powershell.exe -Command \"Get-Printer | Where-Object {$_.PortName -like 'USB*'} | Select-Object -First 1 -ExpandProperty PortName\"";
+                    Process usbProcess = Runtime.getRuntime().exec(usbCommand);
+                    BufferedReader usbReader = new BufferedReader(new InputStreamReader(usbProcess.getInputStream()));
+                    String usbPort = usbReader.readLine();
+                    usbProcess.waitFor();
+                    
+                    if (usbPort != null && !usbPort.trim().isEmpty()) {
+                        log.info("   ✅ Puerto USB encontrado: {}", usbPort.trim());
+                        return usbPort.trim();
+                    }
+                }
+                
+                return portName;
             }
             
         } catch (Exception e) {
@@ -453,6 +475,7 @@ public class UsbClientService {
         }
         
         // Fallback: intentar con el nombre de la impresora como share
+        log.warn("   ⚠️ No se encontró puerto USB, usando fallback: \\\\localhost\\{}", printerName);
         return "\\\\localhost\\" + printerName;
     }
     
