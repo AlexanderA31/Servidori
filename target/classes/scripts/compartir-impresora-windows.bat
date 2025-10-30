@@ -299,36 +299,47 @@ if errorlevel 1 (
         echo Por favor espera, esto puede tardar varios minutos...
         echo.
         
-        set "JAVA_INSTALLER=%TEMP%\jre-installer.exe"
+        REM Metodo 1: Intentar con winget (Windows 10/11)
+        echo Metodo 1: Instalando con winget (Administrador de Paquetes de Windows)...
+        echo.
         
-        REM Intentar multiples URLs de descarga
-        set "JAVA_DOWNLOADED=false"
-        
-        echo [1/3] Intentando descarga desde Adoptium ^(OpenJDK^)...
-        powershell -NoProfile -ExecutionPolicy Bypass -Command "& { try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Write-Host '      Descargando JRE 17...' -NoNewline; $url = 'https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.9%%2B9/OpenJDK17U-jre_x64_windows_hotspot_17.0.9_9.msi'; Invoke-WebRequest -Uri $url -OutFile '%JAVA_INSTALLER%' -TimeoutSec 600 -UseBasicParsing; Write-Host ' OK' -ForegroundColor Green; exit 0 } catch { Write-Host ' ERROR' -ForegroundColor Red; exit 1 } }" 2>&1
-        
-        if errorlevel 1 (
-            echo [2/3] Intentando descarga desde Java.com...
-            powershell -NoProfile -ExecutionPolicy Bypass -Command "& { try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Write-Host '      Descargando...' -NoNewline; Invoke-WebRequest -Uri 'https://javadl.oracle.com/webapps/download/AutoDL?BundleId=249837_d8aa705069af427f9b83e66b34f5e380' -OutFile '%JAVA_INSTALLER%' -TimeoutSec 600 -UseBasicParsing; Write-Host ' OK' -ForegroundColor Green; exit 0 } catch { Write-Host ' ERROR' -ForegroundColor Red; exit 1 } }" 2>&1
+        winget --version >nul 2>&1
+        if not errorlevel 1 (
+            echo [OK] winget detectado
+            echo.
+            echo Instalando Java 17 JRE...
+            echo.
             
-            if errorlevel 1 (
-                echo [3/3] Usando bitsadmin como alternativa...
-                bitsadmin /transfer "JavaDownload" /priority foreground "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.9+9/OpenJDK17U-jre_x64_windows_hotspot_17.0.9_9.msi" "%JAVA_INSTALLER%" 2>nul
-                
-                if errorlevel 1 (
-                    set "JAVA_DOWNLOADED=false"
-                ) else (
-                    echo       Descarga completada
-                    set "JAVA_DOWNLOADED=true"
-                )
+            winget install --id EclipseAdoptium.Temurin.17.JRE --silent --accept-source-agreements --accept-package-agreements
+            
+            if not errorlevel 1 (
+                echo.
+                echo [OK] Java instalado exitosamente
+                goto :java_install_done
             ) else (
-                set "JAVA_DOWNLOADED=true"
+                echo.
+                echo [INFO] winget fallo, intentando descarga manual...
+                echo.
             )
         ) else (
-            set "JAVA_DOWNLOADED=true"
+            echo [INFO] winget no disponible, usando descarga manual...
+            echo.
         )
         
-        :java_download_ok
+        REM Metodo 2: Descarga manual
+        set "JAVA_INSTALLER=%TEMP%\jre-installer.msi"
+        set "JAVA_DOWNLOADED=false"
+        
+        echo Metodo 2: Descargando Java manualmente...
+        echo Por favor espera...
+        echo.
+        
+        echo Intentando descarga desde Java.com...
+        powershell -NoProfile -ExecutionPolicy Bypass -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Write-Host 'Descargando...'; Invoke-WebRequest -Uri 'https://javadl.oracle.com/webapps/download/AutoDL?BundleId=249837_d8aa705069af427f9b83e66b34f5e380' -OutFile '%JAVA_INSTALLER%' -TimeoutSec 600; Write-Host 'Descarga completada'; exit 0 } catch { Write-Host 'Error:' $_.Exception.Message; exit 1 }"
+        
+        if not errorlevel 1 (
+            set "JAVA_DOWNLOADED=true"
+        )
         
         if "!JAVA_DOWNLOADED!"=="false" (
             echo.
@@ -373,22 +384,19 @@ if errorlevel 1 (
             echo Instalando...
             echo.
             
-            REM Detectar si es MSI o EXE
-            echo %JAVA_INSTALLER% | findstr /i ".msi" >nul
-            if not errorlevel 1 (
-                echo Instalando via MSI...
-                msiexec /i "%JAVA_INSTALLER%" /quiet /norestart ADDLOCAL=FeatureJavaHome,FeatureJarFileRunWith,FeatureOracleJavaSoft 2>nul
-                if errorlevel 1 (
-                    echo [INFO] Instalacion silenciosa fallo, mostrando interfaz...
-                    msiexec /i "%JAVA_INSTALLER%" /passive /norestart
-                )
-            ) else (
-                echo Instalando via EXE...
-                start /wait "" "%JAVA_INSTALLER%" /s INSTALL_SILENT=1 STATIC=0 AUTO_UPDATE=0 WEB_JAVA=1 REBOOT=0 SPONSORS=0 2>nul
-                if errorlevel 1 (
-                    echo [INFO] Instalacion silenciosa fallo, mostrando interfaz...
-                    start /wait "" "%JAVA_INSTALLER%"
-                )
+            REM Instalar MSI (Adoptium usa MSI)
+            echo Instalando Java...
+            echo Esto puede tardar 2-3 minutos...
+            echo.
+            
+            msiexec /i "%JAVA_INSTALLER%" /quiet /norestart ADDLOCAL=FeatureJavaHome,FeatureJarFileRunWith,FeatureOracleJavaSoft
+            
+            if errorlevel 1 (
+                echo.
+                echo [INFO] Instalacion silenciosa fallo, abriendo instalador...
+                echo         Sigue las instrucciones en pantalla
+                echo.
+                msiexec /i "%JAVA_INSTALLER%"
             )
             
             timeout /t 5 /nobreak >nul
@@ -421,7 +429,7 @@ if errorlevel 1 (
                 )
             )
             
-            for /d %%i in ("C:\Program Files ^(x86^)\Java\jre*") do (
+            for /d %%i in ("C:\Program Files (x86)\Java\jre*") do (
                 if exist "%%i\bin\java.exe" (
                     set "JAVA_PATH=%%i\bin"
                     set "PATH=%%i\bin;!PATH!"
@@ -431,6 +439,8 @@ if errorlevel 1 (
             )
             
             :java_check_done
+            
+            :java_install_done
             
             if "!JAVA_FOUND!"=="true" (
                 echo [OK] Java instalado correctamente
