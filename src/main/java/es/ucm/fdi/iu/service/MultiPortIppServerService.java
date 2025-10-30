@@ -220,26 +220,24 @@ public class MultiPortIppServerService {
             
             boolean success = false;
             
-            // DETECCIÓN DE BUCLE INFINITO
-            // Si la conexión viene de localhost Y es una impresora compartida USB,
-            // NO crear nuevo trabajo sino REENVIAR directamente al cliente USB
-            boolean isLocalhost = clientSocket.getInetAddress().isLoopbackAddress() || 
-                                 "127.0.0.1".equals(clientSocket.getInetAddress().getHostAddress());
+            // DETECCIÓN DE IMPRESORA USB COMPARTIDA
+            // Si es una impresora USB compartida, SIEMPRE reenviar al cliente USB directamente
             boolean isSharedUSB = currentPrinter.get().getLocation() != null && 
                                  currentPrinter.get().getLocation().contains("Compartida-USB");
             
-            if (isLocalhost && isSharedUSB) {
-                log.info("  🔄 Trabajo interno del servidor detectado - reenviando directo a cliente USB");
-                log.info("  📤 Destino: {}:631", currentPrinter.get().getIp());
+            if (isSharedUSB) {
+                // REENVIAR DIRECTAMENTE AL CLIENTE USB (sin cola)
+                log.info("  🖨️  Impresora USB compartida detectada");
+                log.info("  📤 Reenviando directo a cliente USB: {}:631", currentPrinter.get().getIp());
                 
                 // Guardar datos en archivo temporal
                 try {
-                    File tempFile = File.createTempFile("ipp-forward-", ".dat");
+                    File tempFile = File.createTempFile("ipp-usb-", ".dat");
                     try (FileOutputStream fos = new FileOutputStream(tempFile)) {
                         fos.write(data);
                     }
                     
-                    // Enviar directamente al cliente USB (puerto 631)
+                    // Enviar directamente al cliente USB en puerto 631 (IPP estándar)
                     success = ippPrintService.sendToRawPort(
                         currentPrinter.get().getIp(), 
                         tempFile.toPath(), 
@@ -250,16 +248,21 @@ public class MultiPortIppServerService {
                     tempFile.delete();
                     
                     if (success) {
-                        log.info("  ✅ Reenviado exitosamente a cliente USB");
+                        log.info("  ✅ Trabajo reenviado exitosamente a cliente USB");
+                        log.info("  ℹ️  El cliente USB procesará e imprimirá el documento");
                     } else {
-                        log.warn("  ⚠️ Fallo al reenviar - cliente USB podría estar desconectado");
+                        log.error("  ❌ No se pudo conectar al cliente USB");
+                        log.error("  ℹ️  Verifica que:");
+                        log.error("      - La PC con la impresora esté encendida ({})", currentPrinter.get().getIp());
+                        log.error("      - El cliente USB esté ejecutándose");
+                        log.error("      - El puerto 631 no esté bloqueado por firewall");
                     }
                 } catch (Exception e) {
                     log.error("  ❌ Error reenviando a cliente USB: {}", e.getMessage());
                 }
             } else {
-                // Conexión externa normal - crear trabajo en cola
-                log.info("  💻 Conexión externa - registrando en cola");
+                // IMPRESORA DE RED NORMAL - usar cola de impresión
+                log.info("  🌐 Impresora de red - registrando en cola");
                 
                 // IMPORTANTE: Procesar documento antes de guardar en cola
                 log.info("  🔄 Procesando documento para impresión...");
