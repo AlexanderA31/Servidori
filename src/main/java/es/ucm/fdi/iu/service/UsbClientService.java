@@ -326,32 +326,134 @@ public class UsbClientService {
      */
     private boolean printToLocalPrinter(Path file) {
         try {
-            // Opción 1: Usar comando print de Windows
-            String command = String.format("print /D:\"%s\" \"%s\"", localPrinterName, file.toAbsolutePath());
+            log.info("   🖨️ Enviando a impresora: {}", localPrinterName);
             
-            log.debug("   Ejecutando: {}", command);
-            Process process = Runtime.getRuntime().exec(command);
+            // Detectar tipo de archivo
+            byte[] header = Files.readAllBytes(file);
+            boolean isPDF = header.length >= 4 && 
+                          header[0] == 0x25 && header[1] == 0x50 && 
+                          header[2] == 0x44 && header[3] == 0x46;
+            
+            if (isPDF) {
+                log.info("   📄 Tipo: PDF ({} bytes)", header.length);
+            } else {
+                log.info("   📄 Tipo: RAW/Binario ({} bytes)", header.length);
+            }
+            
+            // MÉTODO 1: Usar PowerShell para imprimir PDF con la aplicación predeterminada
+            if (isPDF) {
+                log.info("   🔄 Método 1: Imprimir PDF con aplicación predeterminada...");
+                String psCommand = String.format(
+                    "powershell.exe -Command \"" +
+                    "$printer = Get-Printer -Name '%s'; " +
+                    "Start-Process -FilePath '%s' -ArgumentList '/t','/p','$($printer.Name)' -WindowStyle Hidden -Wait" +
+                    "\"",
+                    localPrinterName, file.toAbsolutePath().toString().replace("\\", "/")
+                );
+                
+                Process process = Runtime.getRuntime().exec(psCommand);
+                int exitCode = process.waitFor();
+                
+                if (exitCode == 0) {
+                    log.info("   ✅ PDF enviado exitosamente");
+                    return true;
+                } else {
+                    log.warn("   ⚠️ Método 1 falló (código: {}), probando alternativas...", exitCode);
+                }
+            }
+            
+            // MÉTODO 2: Enviar RAW directamente al puerto de la impresora
+            log.info("   🔄 Método 2: Envío RAW a la impresora...");
+            
+            // Obtener el puerto de la impresora
+            String printerPort = getPrinterPort(localPrinterName);
+            log.debug("   Puerto de impresora: {}", printerPort);
+            
+            // Copiar archivo al puerto
+            String copyCommand = String.format("cmd.exe /c copy /B \"%s\" \"%s\"", 
+                file.toAbsolutePath(), printerPort);
+            
+            Process process = Runtime.getRuntime().exec(copyCommand);
+            
+            // Capturar salida para diagnóstico
+            BufferedReader stdInput = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+            
+            String s;
+            StringBuilder output = new StringBuilder();
+            while ((s = stdInput.readLine()) != null) {
+                output.append(s).append("\n");
+            }
+            
+            StringBuilder error = new StringBuilder();
+            while ((s = stdError.readLine()) != null) {
+                error.append(s).append("\n");
+            }
+            
             int exitCode = process.waitFor();
             
             if (exitCode == 0) {
+                log.info("   ✅ Datos enviados exitosamente al puerto {}", printerPort);
+                if (output.length() > 0) {
+                    log.debug("   Salida: {}", output.toString().trim());
+                }
+                return true;
+            } else {
+                log.error("   ❌ Error al copiar al puerto (código: {})", exitCode);
+                if (error.length() > 0) {
+                    log.error("   Error: {}", error.toString().trim());
+                }
+            }
+            
+            // MÉTODO 3: Usar PowerShell Out-Printer (último recurso)
+            log.info("   🔄 Método 3: PowerShell Out-Printer...");
+            String outPrinterCommand = String.format(
+                "powershell.exe -Command \"Get-Content -Path '%s' -Raw | Out-Printer -Name '%s'\"",
+                file.toAbsolutePath(), localPrinterName
+            );
+            
+            process = Runtime.getRuntime().exec(outPrinterCommand);
+            exitCode = process.waitFor();
+            
+            if (exitCode == 0) {
+                log.info("   ✅ Enviado con Out-Printer");
                 return true;
             }
             
-            // Opción 2: Copiar directamente al share de la impresora
-            log.debug("   Intento 1 falló, probando método alternativo...");
-            String printerShare = String.format("\\\\localhost\\%s", localPrinterName);
-            
-            // Crear comando copy
-            String copyCommand = String.format("copy /B \"%s\" \"%s\"", file.toAbsolutePath(), printerShare);
-            process = Runtime.getRuntime().exec(new String[]{"cmd.exe", "/c", copyCommand});
-            exitCode = process.waitFor();
-            
-            return exitCode == 0;
+            log.error("   ❌ Todos los métodos fallaron");
+            return false;
             
         } catch (Exception e) {
-            log.error("Error al enviar a impresora local", e);
+            log.error("   ❌ Excepción al enviar a impresora local", e);
             return false;
         }
+    }
+    
+    /**
+     * Obtiene el puerto de una impresora usando PowerShell
+     */
+    private String getPrinterPort(String printerName) {
+        try {
+            String command = String.format(
+                "powershell.exe -Command \"Get-Printer -Name '%s' | Select-Object -ExpandProperty PortName\"",
+                printerName
+            );
+            
+            Process process = Runtime.getRuntime().exec(command);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String port = reader.readLine();
+            process.waitFor();
+            
+            if (port != null && !port.trim().isEmpty()) {
+                return port.trim();
+            }
+            
+        } catch (Exception e) {
+            log.debug("Error obteniendo puerto de impresora", e);
+        }
+        
+        // Fallback: intentar con el nombre de la impresora como share
+        return "\\\\localhost\\" + printerName;
     }
     
     /**
