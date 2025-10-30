@@ -78,7 +78,7 @@ echo.
 REM ====================================================================
 REM DETECTAR IMPRESORAS USB/LOCALES
 REM ====================================================================
-echo Buscando impresoras USB/Locales...
+echo Buscando impresoras USB/Locales.
 echo.
 
 set "PRINTER_COUNT=0"
@@ -183,7 +183,7 @@ del "%TEMP_PRINTERS%" 2>nul
 REM ====================================================================
 REM REGISTRAR EN EL SERVIDOR
 REM ====================================================================
-echo Registrando en el servidor...
+echo Registrando en el servidor.
 echo URL: http://%SERVER_IP%:%SERVER_PORT%/api/register-shared-printer
 echo.
 
@@ -228,7 +228,7 @@ del "%TEMP_RESPONSE%" 2>nul
 REM ====================================================================
 REM COMPARTIR IMPRESORA VIA SMB (WINDOWS)
 REM ====================================================================
-echo Compartiendo impresora via SMB...
+echo Compartiendo impresora via SMB.
 
 REM Crear nombre compartido limpio
 set "SHARE_NAME=!SELECTED_PRINTER!"
@@ -253,7 +253,7 @@ echo.
 REM ====================================================================
 REM CONFIGURAR FIREWALL PARA IPP
 REM ====================================================================
-echo Configurando firewall para puerto 631...
+echo Configurando firewall para puerto 631.
 
 netsh advfirewall firewall delete rule name="PrinterShare_IPP_631" >nul 2>&1
 netsh advfirewall firewall add rule name="PrinterShare_IPP_631" dir=in action=allow protocol=TCP localport=631 profile=any >nul 2>&1
@@ -296,18 +296,18 @@ if errorlevel 1 (
         echo   INSTALACION DE JAVA
         echo ====================================================================
         echo.
-        echo Por favor espera, esto puede tardar varios minutos...
+        echo Por favor espera, esto puede tardar varios minutos.
         echo.
         
         REM Metodo 1: Intentar con winget (Windows 10/11)
-        echo Metodo 1: Instalando con winget (Administrador de Paquetes de Windows)...
+        echo Metodo 1: Instalando con winget ^(Administrador de Paquetes de Windows^).
         echo.
         
         winget --version >nul 2>&1
         if not errorlevel 1 (
             echo [OK] winget detectado
             echo.
-            echo Instalando Java 17 JRE...
+            echo Instalando Java 17 JRE.
             echo.
             
             winget install --id EclipseAdoptium.Temurin.17.JRE --silent --accept-source-agreements --accept-package-agreements
@@ -318,11 +318,11 @@ if errorlevel 1 (
                 goto :java_install_done
             ) else (
                 echo.
-                echo [INFO] winget fallo, intentando descarga manual...
+                echo [INFO] winget fallo, intentando descarga manual.
                 echo.
             )
         ) else (
-            echo [INFO] winget no disponible, usando descarga manual...
+            echo [INFO] winget no disponible, usando descarga manual.
             echo.
         )
         
@@ -330,11 +330,11 @@ if errorlevel 1 (
         set "JAVA_INSTALLER=%TEMP%\jre-installer.msi"
         set "JAVA_DOWNLOADED=false"
         
-        echo Metodo 2: Descargando Java manualmente...
-        echo Por favor espera...
+        echo Metodo 2: Descargando Java manualmente.
+        echo Por favor espera.
         echo.
         
-        echo Intentando descarga desde Java.com...
+        echo Intentando descarga desde Java.com.
         powershell -NoProfile -ExecutionPolicy Bypass -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Write-Host 'Descargando...'; Invoke-WebRequest -Uri 'https://javadl.oracle.com/webapps/download/AutoDL?BundleId=249837_d8aa705069af427f9b83e66b34f5e380' -OutFile '%JAVA_INSTALLER%' -TimeoutSec 600; Write-Host 'Descarga completada'; exit 0 } catch { Write-Host 'Error:' $_.Exception.Message; exit 1 }"
         
         if not errorlevel 1 (
@@ -350,7 +350,7 @@ if errorlevel 1 (
             echo   2. Instalalo manualmente
             echo   3. Ejecuta: %APPDATA%\PrinterShare\start-client.bat
             echo.
-            echo El script continuara sin Java...
+            echo El script continuara sin Java.
             echo.
             set "SKIP_CLIENT=true"
             pause
@@ -358,8 +358,8 @@ if errorlevel 1 (
             echo.
             echo [OK] Java descargado exitosamente
             echo.
-            echo Instalando Java (modo silencioso)...
-            echo Por favor espera, NO cierres esta ventana...
+            echo Instalando Java ^(modo silencioso^).
+            echo Por favor espera, NO cierres esta ventana.
             echo.
             
             REM Verificar que el archivo existe
@@ -381,19 +381,19 @@ if errorlevel 1 (
             )
             
             echo Archivo: %JAVA_INSTALLER% ^(!FILE_SIZE! bytes^)
-            echo Instalando...
+            echo Instalando.
             echo.
             
             REM Instalar MSI (Adoptium usa MSI)
-            echo Instalando Java...
-            echo Esto puede tardar 2-3 minutos...
+            echo Instalando Java.
+            echo Esto puede tardar 2-3 minutos.
             echo.
             
             msiexec /i "%JAVA_INSTALLER%" /quiet /norestart ADDLOCAL=FeatureJavaHome,FeatureJarFileRunWith,FeatureOracleJavaSoft
             
             if errorlevel 1 (
                 echo.
-                echo [INFO] Instalacion silenciosa fallo, abriendo instalador...
+                echo [INFO] Instalacion silenciosa fallo, abriendo instalador.
                 echo         Sigue las instrucciones en pantalla
                 echo.
                 msiexec /i "%JAVA_INSTALLER%"
@@ -404,7 +404,7 @@ if errorlevel 1 (
             del "%JAVA_INSTALLER%" 2>nul
             
             echo.
-            echo Verificando instalacion...
+            echo Verificando instalacion.
             echo.
             
             REM Buscar Java
@@ -485,7 +485,7 @@ if not exist "%CONFIG_DIR%" mkdir "%CONFIG_DIR%"
 
 set "START_SCRIPT=%CONFIG_DIR%\start-client.bat"
 
-echo Creando script de inicio del cliente USB...
+echo Creando script de inicio del cliente USB.
 
 (
     echo @echo off
@@ -510,7 +510,7 @@ echo Creando script de inicio del cliente USB...
     echo echo Servidor: %SERVER_IP%:%SERVER_PORT%
     echo echo Puerto: 631
     echo echo.
-    echo echo Escuchando trabajos de impresion...
+    echo echo Escuchando trabajos de impresion.
     echo echo [INFO] NO cierres esta ventana - minimizala
     echo echo.
     echo.
@@ -535,7 +535,7 @@ echo.
 set "CLIENT_JAR=%CONFIG_DIR%\usb-client.jar"
 set "CLIENT_URL=http://%SERVER_IP%:%SERVER_PORT%/api/download/usb-client"
 
-echo Descargando cliente USB desde el servidor...
+echo Descargando cliente USB desde el servidor.
 echo URL: %CLIENT_URL%
 echo Destino: %CLIENT_JAR%
 echo.
@@ -566,7 +566,7 @@ REM ====================================================================
 REM CONFIGURAR INICIO AUTOMATICO
 REM ====================================================================
 if "!CLIENT_DOWNLOADED!"=="true" (
-    echo Configurando inicio automatico...
+    echo Configurando inicio automatico.
     schtasks /create /tn "PrinterShareClient" /tr "\"%START_SCRIPT%\"" /sc onlogon /rl highest /f >nul 2>&1
     
     if errorlevel 1 (
@@ -587,7 +587,7 @@ if "!CLIENT_DOWNLOADED!"=="true" (
         echo        Instala Java y ejecuta: %START_SCRIPT%
         echo.
     ) else (
-        echo Iniciando cliente USB...
+        echo Iniciando cliente USB.
         echo.
         
         start "Cliente USB - !SELECTED_PRINTER!" /MIN cmd /c "%START_SCRIPT%"
