@@ -1,18 +1,23 @@
 @echo off
 REM ====================================================================
-REM Script para Compartir Impresora USB/Local con el Servidor Central
-REM Version 4.3 - Con mejor manejo de errores
+REM Script COMPLETO para Compartir Impresora USB/Local
+REM Version 5.0 - Todo en uno
+REM ====================================================================
+REM Funciones:
+REM   1. Compartir nueva impresora
+REM   2. Limpiar configuracion anterior
+REM   3. Verificar estado del cliente
+REM   4. Desinstalar completamente
 REM ====================================================================
 
 REM NO cerrar la ventana automaticamente en caso de error
 setlocal enabledelayedexpansion
 
-REM Capturar errores
-if "%1"=="" (
-    echo.
-    echo Iniciando script...
-    echo.
-)
+REM Si se pasa parametro, ejecutar funcion especifica
+if "%1"=="clean" goto :menu_clean
+if "%1"=="status" goto :show_status
+if "%1"=="restart" goto :restart_client
+if "%1"=="uninstall" goto :uninstall_all
 
 REM Configuracion del servidor
 set "SERVER_IP=10.1.16.31"
@@ -58,15 +63,70 @@ echo [%DATE% %TIME%] Servidor: %SERVER_IP%:%SERVER_PORT% >> "%LOG_FILE%" 2>&1
 cls
 echo.
 echo ====================================================================
-echo   COMPARTIR IMPRESORA USB/LOCAL CON EL SERVIDOR
+echo   GESTOR DE IMPRESORAS USB COMPARTIDAS
 echo ====================================================================
 echo.
 echo   Servidor: %SERVER_IP%:%SERVER_PORT%
 echo   Log: %LOG_FILE%
 echo.
-echo   IMPORTANTE: Si ves este mensaje y la ventana se cierra,
-echo               significa que hay un error mas adelante.
+echo ====================================================================
 echo.
+
+REM ====================================================================
+REM Menu principal si hay configuracion previa
+REM ====================================================================
+if exist "%CONFIG_FILE%" (
+    echo.
+    echo [!] CONFIGURACION EXISTENTE DETECTADA
+    echo.
+    
+    REM Leer impresora actual
+    set "CURRENT_PRINTER=Desconocida"
+    for /f "tokens=1,2 delims==" %%a in (%CONFIG_FILE%) do (
+        if "%%a"=="PRINTER_NAME" set "CURRENT_PRINTER=%%b"
+    )
+    
+    echo Impresora actual: !CURRENT_PRINTER!
+    echo.
+    echo Que deseas hacer?
+    echo.
+    echo   [1] Compartir NUEVA impresora (elimina la anterior)
+    echo   [2] Ver ESTADO del cliente actual
+    echo   [3] REINICIAR cliente actual
+    echo   [4] LIMPIAR configuracion y salir
+    echo   [5] DESINSTALAR completamente
+    echo   [6] SALIR sin cambios
+    echo.
+    set /p "MENU_OPTION=Selecciona una opcion (1-6): "
+    
+    if "!MENU_OPTION!"=="1" (
+        echo.
+        echo Preparando para compartir nueva impresora...
+        call :cleanup_old_config
+        echo.
+        goto :start_sharing
+    )
+    if "!MENU_OPTION!"=="2" goto :show_status
+    if "!MENU_OPTION!"=="3" goto :restart_client
+    if "!MENU_OPTION!"=="4" goto :menu_clean
+    if "!MENU_OPTION!"=="5" goto :uninstall_all
+    if "!MENU_OPTION!"=="6" (
+        echo.
+        echo Saliendo sin cambios...
+        pause
+        exit /b 0
+    )
+    
+    echo.
+    echo [ERROR] Opcion invalida
+    pause
+    exit /b 1
+)
+
+:start_sharing
+echo.
+echo ====================================================================
+echo   COMPARTIR NUEVA IMPRESORA USB
 echo ====================================================================
 echo.
 echo Presiona cualquier tecla para continuar...
@@ -670,6 +730,15 @@ if "!SERVER_ACCESSIBLE!"=="true" (
 )
 echo.
 echo ====================================================================
+echo   OPCIONES ADICIONALES
+echo ====================================================================
+echo.
+echo Para gestionar esta impresora en el futuro:
+echo.
+echo   Ver estado:     %~nx0 status
+echo   Reiniciar:      %~nx0 restart
+echo   Limpiar:        %~nx0 clean
+echo   Desinstalar:    %~nx0 uninstall
 echo.
 echo Log completo guardado en:
 echo    %LOG_FILE%
@@ -687,6 +756,269 @@ echo [%DATE% %TIME%] Script completado exitosamente >> "%LOG_FILE%"
 
 exit /b 0
 
+REM ====================================================================
+REM FUNCIONES AUXILIARES
+REM ====================================================================
+
+:cleanup_old_config
+REM Funcion para limpiar configuracion anterior
+echo.
+echo ====================================================================
+echo   LIMPIANDO CONFIGURACION ANTERIOR
+echo ====================================================================
+echo.
+echo   Deteniendo cliente USB anterior...
+
+REM 1. Detener tarea programada
+schtasks /end /tn "PrinterShareClient" >nul 2>&1
+schtasks /delete /tn "PrinterShareClient" /f >nul 2>&1
+if !errorlevel! equ 0 (
+    echo   [OK] Tarea programada eliminada
+) else (
+    echo   [INFO] No habia tarea programada
+)
+
+REM 2. Cerrar proceso Java del cliente USB si esta corriendo
+taskkill /FI "WINDOWTITLE eq Cliente USB*" /F >nul 2>&1
+if !errorlevel! equ 0 (
+    echo   [OK] Cliente USB detenido
+) else (
+    echo   [INFO] Cliente USB no estaba ejecutandose
+)
+
+REM 3. Esperar un momento para que se liberen los archivos
+timeout /t 2 /nobreak >nul
+
+REM 4. Leer configuracion anterior para descompartir impresora
+if exist "%CONFIG_FILE%" (
+    for /f "tokens=1,2 delims==" %%a in (%CONFIG_FILE%) do (
+        if "%%a"=="PRINTER_NAME" set "OLD_PRINTER=%%b"
+    )
+    
+    if not "!OLD_PRINTER!"=="" (
+        echo   [INFO] Descompartiendo impresora anterior: !OLD_PRINTER!
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "try { Set-Printer -Name '!OLD_PRINTER!' -Shared $false -ErrorAction SilentlyContinue } catch { }" >nul 2>&1
+        echo   [OK] Impresora descompartida
+    )
+)
+
+REM 5. Eliminar archivos de configuracion
+if exist "%CONFIG_DIR%" (
+    echo   [INFO] Eliminando directorio: %CONFIG_DIR%
+    rmdir /s /q "%CONFIG_DIR%" >nul 2>&1
+    if exist "%CONFIG_DIR%" (
+        echo   [AVISO] No se pudo eliminar completamente el directorio
+        echo            Algunos archivos pueden estar en uso
+        del /f /q "%CONFIG_DIR%\*.*" >nul 2>&1
+    ) else (
+        echo   [OK] Directorio eliminado
+    )
+)
+
+REM 6. Eliminar reglas de firewall antiguas
+for /l %%i in (631,1,640) do (
+    netsh advfirewall firewall delete rule name="PrinterShare_IPP_%%i" >nul 2>&1
+)
+echo   [OK] Reglas de firewall antiguas eliminadas
+
+echo.
+echo   [OK] Limpieza completada
+echo.
+
+REM Recrear directorio limpio
+if not exist "%CONFIG_DIR%" mkdir "%CONFIG_DIR%" >nul 2>&1
+goto :eof
+
+:show_status
+REM Mostrar estado del cliente actual
+cls
+echo.
+echo ====================================================================
+echo   ESTADO DEL CLIENTE USB
+echo ====================================================================
+echo.
+
+if not exist "%CONFIG_FILE%" (
+    echo [INFO] No hay configuracion instalada
+    echo.
+    echo Para instalar, ejecuta el script sin parametros
+    echo.
+    pause
+    exit /b 0
+)
+
+echo [OK] Configuracion encontrada
+echo.
+echo Detalles:
+echo ----------------------------------------
+type "%CONFIG_FILE%"
+echo ----------------------------------------
+echo.
+
+REM Verificar tarea programada
+echo Verificando tarea programada...
+schtasks /query /tn "PrinterShareClient" >nul 2>&1
+if !errorlevel! equ 0 (
+    echo [OK] Tarea programada: ACTIVA
+) else (
+    echo [X] Tarea programada: NO ENCONTRADA
+)
+
+REM Verificar proceso Java
+echo.
+echo Verificando proceso del cliente...
+tasklist /FI "WINDOWTITLE eq Cliente USB*" 2>nul | find "java" >nul
+if !errorlevel! equ 0 (
+    echo [OK] Cliente USB: EJECUTANDOSE
+) else (
+    echo [X] Cliente USB: NO ESTA CORRIENDO
+    echo.
+    echo Para iniciarlo manualmente:
+    echo    %CONFIG_DIR%\start-client.bat
+)
+
+REM Verificar firewall
+echo.
+echo Verificando firewall...
+netsh advfirewall firewall show rule name="PrinterShare_IPP_631" >nul 2>&1
+if !errorlevel! equ 0 (
+    echo [OK] Firewall: REGLA ACTIVA (puerto 631)
+) else (
+    echo [X] Firewall: REGLA NO ENCONTRADA
+)
+
+REM Verificar archivos
+echo.
+echo Verificando archivos...
+if exist "%CONFIG_DIR%\usb-client.jar" (
+    echo [OK] Cliente JAR: PRESENTE
+) else (
+    echo [X] Cliente JAR: NO ENCONTRADO
+)
+
+if exist "%CONFIG_DIR%\start-client.bat" (
+    echo [OK] Script de inicio: PRESENTE
+) else (
+    echo [X] Script de inicio: NO ENCONTRADO
+)
+
+echo.
+echo ====================================================================
+echo.
+pause
+exit /b 0
+
+:restart_client
+REM Reiniciar el cliente USB
+echo.
+echo ====================================================================
+echo   REINICIANDO CLIENTE USB
+echo ====================================================================
+echo.
+
+echo Deteniendo cliente...
+taskkill /FI "WINDOWTITLE eq Cliente USB*" /F >nul 2>&1
+timeout /t 2 /nobreak >nul
+
+if not exist "%CONFIG_DIR%\start-client.bat" (
+    echo [ERROR] No se encontro el script de inicio
+    echo.
+    pause
+    exit /b 1
+)
+
+echo Iniciando cliente...
+start "Cliente USB" /MIN cmd /c "%CONFIG_DIR%\start-client.bat"
+
+timeout /t 2 /nobreak >nul
+
+echo.
+echo [OK] Cliente reiniciado
+echo.
+echo Verifica que aparezca una ventana minimizada
+echo.
+pause
+exit /b 0
+
+:menu_clean
+REM Menu de limpieza
+cls
+echo.
+echo ====================================================================
+echo   LIMPIAR CONFIGURACION
+echo ====================================================================
+echo.
+echo Esta opcion eliminara:
+echo   - Cliente USB en ejecucion
+echo   - Tarea programada de inicio automatico
+echo   - Archivos de configuracion
+echo   - Reglas de firewall
+echo   - Comparticion de la impresora
+echo.
+echo La impresora NO sera desinstalada de Windows
+echo.
+set /p "CONFIRM_CLEAN=Estas seguro? (S/N): "
+
+if /i "!CONFIRM_CLEAN!"=="S" (
+    call :cleanup_old_config
+    echo.
+    echo [OK] Configuracion limpiada exitosamente
+    echo.
+    echo Para volver a compartir una impresora, ejecuta el script de nuevo
+    echo.
+) else (
+    echo.
+    echo Operacion cancelada
+    echo.
+)
+pause
+exit /b 0
+
+:uninstall_all
+REM Desinstalacion completa
+cls
+echo.
+echo ====================================================================
+echo   DESINSTALACION COMPLETA
+echo ====================================================================
+echo.
+echo [!] ADVERTENCIA: Esto eliminara TODA la configuracion
+echo.
+echo Se eliminara:
+echo   - Cliente USB
+echo   - Tarea programada
+echo   - Archivos de configuracion
+echo   - Reglas de firewall
+echo   - Comparticion de impresoras
+echo   - Logs y archivos temporales
+echo.
+set /p "CONFIRM_UNINSTALL=Estas COMPLETAMENTE seguro? (S/N): "
+
+if /i "!CONFIRM_UNINSTALL!"=="S" (
+    echo.
+    call :cleanup_old_config
+    
+    REM Eliminar logs
+    del "%LOG_FILE%" 2>nul
+    del "%TEMP%\compartir-impresora-debug.log" 2>nul
+    
+    echo.
+    echo ====================================================================
+    echo   DESINSTALACION COMPLETADA
+    echo ====================================================================
+    echo.
+    echo El sistema ha sido limpiado completamente
+    echo.
+    echo Para volver a usar el sistema, ejecuta el script de nuevo
+    echo.
+) else (
+    echo.
+    echo Operacion cancelada
+    echo.
+)
+pause
+exit /b 0
+
 :error_exit
 echo.
 echo ====================================================================
@@ -702,6 +1034,17 @@ echo   1. Verifica que tengas permisos de administrador
 echo   2. Asegurate de que haya una impresora USB conectada
 echo   3. Verifica que el servidor este accesible en %SERVER_IP%:%SERVER_PORT%
 echo   4. Revisa el firewall de Windows
+echo.
+echo SOLUCION: Intenta limpiar la configuracion antigua:
+echo   1. Ejecuta este script
+echo   2. Elige opcion "1" para eliminar configuracion anterior
+echo   3. Intenta de nuevo
+echo.
+echo O manualmente:
+echo   1. Presiona Win + R
+echo   2. Escribe: %%APPDATA%%\PrinterShare
+echo   3. Elimina toda la carpeta
+echo   4. Ejecuta el script de nuevo
 echo.
 echo ====================================================================
 echo.
