@@ -194,9 +194,14 @@ REM Crear JSON
 ) > "%TEMP_JSON%"
 
 REM Enviar POST al servidor
-powershell -Command "$json = Get-Content '%TEMP_JSON%' -Raw; try { $response = Invoke-RestMethod -Uri 'http://%SERVER_IP%:%SERVER_PORT%/api/register-shared-printer' -Method Post -Body $json -ContentType 'application/json' -TimeoutSec 15; Write-Host '[OK] Registrado exitosamente'; $response | ConvertTo-Json | Out-File '%TEMP_RESPONSE%'; exit 0 } catch { Write-Host '[ERROR]' $_.Exception.Message; exit 1 }"
+powershell -Command "$json = Get-Content '%TEMP_JSON%' -Raw; try { $response = Invoke-RestMethod -Uri 'http://%SERVER_IP%:%SERVER_PORT%/api/register-shared-printer' -Method Post -Body $json -ContentType 'application/json' -TimeoutSec 15; $response | ConvertTo-Json | Out-File '%TEMP_RESPONSE%'; if ($response.success -eq $true) { Write-Host '[OK] Impresora registrada exitosamente'; exit 0 } elseif ($response.error -like '*Ya existe*') { Write-Host '[INFO] Impresora ya estaba registrada'; exit 2 } else { Write-Host '[ERROR]' $response.error; exit 1 } } catch { Write-Host '[ERROR]' $_.Exception.Message; exit 1 }"
 
-if errorlevel 1 (
+if errorlevel 2 (
+    echo.
+    echo [INFO] La impresora ya estaba registrada en el servidor
+    echo        Se usara la configuracion existente
+    echo.
+) else if errorlevel 1 (
     echo.
     echo [AVISO] No se pudo registrar en el servidor
     echo          Verifica que el servidor este accesible en %SERVER_IP%:%SERVER_PORT%
@@ -262,10 +267,14 @@ java -version >nul 2>&1
 if errorlevel 1 (
     echo [X] Java NO esta instalado
     echo.
-    echo Java es necesario para que esta PC reciba trabajos de impresion
+    echo Java es OBLIGATORIO para que esta PC reciba trabajos de impresion
     echo del servidor y los envie a la impresora USB.
     echo.
-    echo Deseas instalar Java automaticamente?
+    echo El script continuara y descargara el cliente, pero NO funcionara
+    echo hasta que instales Java.
+    echo.
+    echo Deseas instalar Java automaticamente AHORA?
+    echo (Recomendado - tarda 5-10 minutos)
     echo.
     set /p "INSTALL_JAVA=Instalar Java? (S/N): "
     
@@ -386,43 +395,91 @@ echo [OK] Script creado: %START_SCRIPT%
 echo.
 
 REM ====================================================================
-REM DESCARGAR CLIENTE USB (JAR)
+REM DESCARGAR CLIENTE USB (JAR) - SIEMPRE
 REM ====================================================================
-if not "!SKIP_CLIENT!"=="true" (
-    echo Descargando cliente USB...
-    
-    set "CLIENT_JAR=%CONFIG_DIR%\usb-client.jar"
-    set "CLIENT_URL=http://%SERVER_IP%:%SERVER_PORT%/api/download/usb-client"
-    
-    powershell -Command "try { Invoke-WebRequest -Uri '%CLIENT_URL%' -OutFile '%CLIENT_JAR%' -TimeoutSec 60; exit 0 } catch { exit 1 }"
+echo ====================================================================
+echo   DESCARGANDO CLIENTE USB
+echo ====================================================================
+echo.
+
+set "CLIENT_JAR=%CONFIG_DIR%\usb-client.jar"
+set "CLIENT_URL=http://%SERVER_IP%:%SERVER_PORT%/api/download/usb-client"
+
+echo Descargando cliente USB desde el servidor...
+echo URL: %CLIENT_URL%
+echo Destino: %CLIENT_JAR%
+echo.
+
+powershell -Command "try { Write-Host 'Descargando...' -ForegroundColor Yellow; Invoke-WebRequest -Uri '%CLIENT_URL%' -OutFile '%CLIENT_JAR%' -TimeoutSec 60; Write-Host '[OK] Descarga completada' -ForegroundColor Green; exit 0 } catch { Write-Host '[ERROR]' $_.Exception.Message -ForegroundColor Red; exit 1 }"
+
+if errorlevel 1 (
+    echo.
+    echo [ERROR] No se pudo descargar el cliente JAR
+    echo.
+    echo POSIBLES CAUSAS:
+    echo   1. El servidor no esta ejecutandose
+    echo   2. No hay conexion de red
+    echo   3. El archivo no existe en el servidor
+    echo.
+    echo SOLUCION:
+    echo   Descarga manualmente desde: %CLIENT_URL%
+    echo   Y guardalo en: %CLIENT_JAR%
+    echo.
+    set "CLIENT_DOWNLOADED=false"
+) else (
+    echo [OK] Cliente JAR descargado exitosamente
+    echo.
+    set "CLIENT_DOWNLOADED=true"
+)
+
+REM ====================================================================
+REM CONFIGURAR INICIO AUTOMATICO
+REM ====================================================================
+if "!CLIENT_DOWNLOADED!"=="true" (
+    echo Configurando inicio automatico...
+    schtasks /create /tn "PrinterShareClient" /tr "\"%START_SCRIPT%\"" /sc onlogon /rl highest /f >nul 2>&1
     
     if errorlevel 1 (
-        echo [AVISO] No se pudo descargar el cliente JAR
-        echo          Descargalo desde: %CLIENT_URL%
+        echo [AVISO] No se pudo configurar inicio automatico
+        echo          Ejecuta manualmente: %START_SCRIPT%
+    ) else (
+        echo [OK] Inicio automatico configurado
+    )
+    echo.
+)
+
+REM ====================================================================
+REM INICIAR CLIENTE USB (si Java esta disponible y JAR descargado)
+REM ====================================================================
+if "!CLIENT_DOWNLOADED!"=="true" (
+    if "!SKIP_CLIENT!"=="true" (
+        echo [INFO] Cliente JAR descargado pero Java no esta instalado
+        echo        Instala Java y ejecuta: %START_SCRIPT%
         echo.
     ) else (
-        echo [OK] Cliente descargado
-        echo.
-        
-        REM Configurar inicio automatico
-        echo Configurando inicio automatico...
-        schtasks /create /tn "PrinterShareClient" /tr "\"%START_SCRIPT%\"" /sc onlogon /rl highest /f >nul 2>&1
-        
-        if errorlevel 1 (
-            echo [AVISO] No se pudo configurar inicio automatico
-        ) else (
-            echo [OK] Inicio automatico configurado
-        )
-        
-        REM Iniciar cliente
-        echo.
         echo Iniciando cliente USB...
+        echo.
+        
         start "Cliente USB - !SELECTED_PRINTER!" /MIN cmd /c "%START_SCRIPT%"
         
         timeout /t 3 /nobreak >nul
         
-        echo [OK] Cliente iniciado (ventana minimizada)
+        echo [OK] Cliente USB iniciado (ventana minimizada)
+        echo      Busca la ventana en la barra de tareas
         echo.
+        
+        REM Verificar que el proceso arranco
+        timeout /t 2 /nobreak >nul
+        tasklist /FI "IMAGENAME eq java.exe" 2>nul | find /I "java.exe" >nul
+        if errorlevel 1 (
+            echo [AVISO] No se detecto el proceso Java
+            echo          Verifica que Java este instalado correctamente
+            echo          Ejecuta manualmente: %START_SCRIPT%
+            echo.
+        ) else (
+            echo [OK] Proceso Java detectado - Cliente funcionando
+            echo.
+        )
     )
 )
 
