@@ -916,12 +916,34 @@ echo   REINICIANDO CLIENTE USB
 echo ====================================================================
 echo.
 
+REM Verificar si existe configuracion
+if not exist "%CONFIG_FILE%" (
+    echo [ERROR] No hay impresoras compartidas configuradas
+    echo.
+    echo Para compartir una impresora por primera vez:
+    echo   1. Ejecuta el script sin parametros
+    echo   2. Elige opcion "1" (Compartir NUEVA impresora)
+    echo.
+    echo O ejecuta directamente:
+    echo   %~nx0
+    echo.
+    pause
+    exit /b 1
+)
+
 echo Deteniendo cliente...
 taskkill /FI "WINDOWTITLE eq Cliente USB*" /F >nul 2>&1
 timeout /t 2 /nobreak >nul
 
 if not exist "%CONFIG_DIR%\start-client.bat" (
     echo [ERROR] No se encontro el script de inicio
+    echo.
+    echo La configuracion existe pero el script de inicio no esta disponible.
+    echo.
+    echo SOLUCION: Limpia la configuracion y vuelve a compartir la impresora:
+    echo   1. Ejecuta: %~nx0 clean
+    echo   2. Luego ejecuta: %~nx0
+    echo   3. Elige opcion "1" para compartir
     echo.
     pause
     exit /b 1
