@@ -1,33 +1,38 @@
 @echo off
 REM ====================================================================
-REM Script para Compartir Impresora USB/Local con el Servidor Central
-REM Version 4.1 - Funcionalidad completa en batch (CORREGIDO)
+REM COMPARTIR IMPRESORA USB CON SERVIDOR - VERSION COMPLETA
+REM Version 7.0 - Con instalacion automatica de Java
 REM ====================================================================
 
 setlocal enabledelayedexpansion
 
-REM Configuracion del servidor
+REM ====================================================================
+REM AUTO-ELEVACION A ADMINISTRADOR
+REM ====================================================================
+net session >nul 2>&1
+if %errorLevel% neq 0 (
+    powershell -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
+    exit /b
+)
+
+REM ====================================================================
+REM CONFIGURACION
+REM ====================================================================
 set "SERVER_IP=10.1.16.31"
 set "SERVER_PORT=8080"
 set "LOG_FILE=%TEMP%\compartir-impresora.log"
 set "CONFIG_DIR=%APPDATA%\PrinterShare"
 set "CONFIG_FILE=%CONFIG_DIR%\config.txt"
 
-REM Verificar permisos de administrador
-net session >nul 2>&1
-if %errorLevel% neq 0 (
-    echo.
-    echo Solicitando permisos de administrador...
-    powershell -Command "Start-Process '%~f0' -Verb RunAs"
-    exit /b
-)
+title Compartir Impresora USB - %SERVER_IP%
 
-title Compartir Impresora USB/Local - Servidor %SERVER_IP%
+REM Iniciar log
+echo [%DATE% %TIME%] Iniciando script > "%LOG_FILE%" 2>&1
 
 cls
 echo.
 echo ====================================================================
-echo   COMPARTIR IMPRESORA USB/LOCAL CON EL SERVIDOR
+echo   COMPARTIR IMPRESORA USB CON SERVIDOR
 echo ====================================================================
 echo.
 echo   Servidor: %SERVER_IP%:%SERVER_PORT%
@@ -35,7 +40,9 @@ echo.
 echo ====================================================================
 echo.
 
-REM Obtener informacion de la computadora
+REM ====================================================================
+REM OBTENER INFORMACION DEL SISTEMA
+REM ====================================================================
 set "HOSTNAME=%COMPUTERNAME%"
 set "USERNAME=%USERNAME%"
 
@@ -49,99 +56,105 @@ for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /i "IPv4" ^| findstr /v 
 
 if "!IP_ADDRESS!"=="" (
     echo ERROR: No se pudo obtener la direccion IP
-    goto :error_exit
+    pause
+    exit /b 1
 )
 
 echo Computadora: %HOSTNAME%
 echo Usuario: %USERNAME%
 echo IP: !IP_ADDRESS!
 echo.
-echo.
 
-REM Listar impresoras locales/USB
+REM ====================================================================
+REM DETECTAR IMPRESORAS USB/LOCALES
+REM ====================================================================
 echo Buscando impresoras USB/Locales...
 echo.
 
 set "PRINTER_COUNT=0"
-set "TEMP_PRINTERS=%TEMP%\printers_list.txt"
-set "TEMP_PS_SCRIPT=%TEMP%\get_printers.ps1"
+set "TEMP_PRINTERS=%TEMP%\printers_%RANDOM%.txt"
+set "TEMP_PS=%TEMP%\getprinters_%RANDOM%.ps1"
 
-REM Limpiar archivos temporales si existen
-if exist "%TEMP_PRINTERS%" del "%TEMP_PRINTERS%"
-if exist "%TEMP_PS_SCRIPT%" del "%TEMP_PS_SCRIPT%"
+REM Crear script PowerShell
+(
+    echo Get-Printer ^| Where-Object {$_.Type -eq 'Local' -or $_.PortName -like 'USB*'} ^| ForEach-Object {Write-Output "$($_.Name)^|$($_.DriverName)"}
+) > "%TEMP_PS%"
 
-REM Crear script PowerShell temporal
-echo Get-Printer ^| Where-Object {$_.Type -eq 'Local' -or $_.PortName -like 'USB*' -or $_.PortName -like 'LPT*' -or $_.PortName -like 'COM*'} ^| ForEach-Object {Write-Output "$($_.Name)^|$($_.PortName)^|$($_.DriverName)"} > "%TEMP_PS_SCRIPT%"
-
-REM Ejecutar PowerShell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%TEMP_PS_SCRIPT%" > "%TEMP_PRINTERS%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%TEMP_PS%" > "%TEMP_PRINTERS%" 2>&1
 
 if not exist "%TEMP_PRINTERS%" (
-    echo.
     echo ERROR: No se pudieron listar las impresoras
-    echo El comando PowerShell fallo
-    goto :error_exit
+    del "%TEMP_PS%" 2>nul
+    pause
+    exit /b 1
 )
 
-REM Verificar si el archivo tiene contenido
+REM Verificar contenido
 for %%A in ("%TEMP_PRINTERS%") do set "FILE_SIZE=%%~zA"
 if %FILE_SIZE% EQU 0 (
-    echo.
     echo ERROR: No se encontraron impresoras USB/Locales
-    echo Asegurate de que haya una impresora USB conectada
-    goto :error_exit
+    echo.
+    echo Verifica que:
+    echo   1. Hay una impresora USB conectada
+    echo   2. Los drivers estan instalados
+    echo   3. Aparece en: Panel de Control ^> Dispositivos e Impresoras
+    echo.
+    del "%TEMP_PS%" 2>nul
+    del "%TEMP_PRINTERS%" 2>nul
+    pause
+    exit /b 1
 )
 
-REM Contar y mostrar impresoras
+REM Mostrar impresoras
 echo ====================================================================
-echo   IMPRESORAS USB/LOCALES DISPONIBLES
+echo   IMPRESORAS DISPONIBLES
 echo ====================================================================
 echo.
 
-for /f "usebackq tokens=1,2,3 delims=|" %%a in ("%TEMP_PRINTERS%") do (
+for /f "usebackq tokens=1,2 delims=|" %%a in ("%TEMP_PRINTERS%") do (
     set /a PRINTER_COUNT+=1
     set "PRINTER_NAME[!PRINTER_COUNT!]=%%a"
-    set "PRINTER_PORT[!PRINTER_COUNT!]=%%b"
-    set "PRINTER_DRIVER[!PRINTER_COUNT!]=%%c"
+    set "PRINTER_DRIVER[!PRINTER_COUNT!]=%%b"
     echo [!PRINTER_COUNT!] %%a
-    echo     Puerto: %%b
-    echo     Driver: %%c
+    echo     Driver: %%b
     echo.
 )
 
 if %PRINTER_COUNT% EQU 0 (
-    echo.
     echo ERROR: No se pudieron procesar las impresoras
-    goto :error_exit
+    del "%TEMP_PS%" 2>nul
+    del "%TEMP_PRINTERS%" 2>nul
+    pause
+    exit /b 1
 )
 
 REM Seleccionar impresora
-echo.
-set /p "SELECTION=Selecciona el numero de la impresora (1-%PRINTER_COUNT%): "
+set /p "SELECTION=Selecciona el numero (1-%PRINTER_COUNT%): "
 
 if "!SELECTION!"=="" (
     echo ERROR: No se selecciono ninguna impresora
-    goto :error_exit
-)
-
-REM Validar que sea un numero
-echo !SELECTION!| findstr /r "^[0-9][0-9]*$" >nul
-if errorlevel 1 (
-    echo ERROR: Debes ingresar un numero valido
-    goto :error_exit
+    del "%TEMP_PS%" 2>nul
+    del "%TEMP_PRINTERS%" 2>nul
+    pause
+    exit /b 1
 )
 
 if !SELECTION! LSS 1 (
-    echo ERROR: El numero debe ser mayor o igual a 1
-    goto :error_exit
+    echo ERROR: Numero invalido
+    del "%TEMP_PS%" 2>nul
+    del "%TEMP_PRINTERS%" 2>nul
+    pause
+    exit /b 1
 )
 if !SELECTION! GTR %PRINTER_COUNT% (
-    echo ERROR: El numero debe ser menor o igual a %PRINTER_COUNT%
-    goto :error_exit
+    echo ERROR: Numero invalido
+    del "%TEMP_PS%" 2>nul
+    del "%TEMP_PRINTERS%" 2>nul
+    pause
+    exit /b 1
 )
 
 set "SELECTED_PRINTER=!PRINTER_NAME[%SELECTION%]!"
-set "SELECTED_PORT=!PRINTER_PORT[%SELECTION%]!"
 set "SELECTED_DRIVER=!PRINTER_DRIVER[%SELECTION%]!"
 
 echo.
@@ -150,181 +163,385 @@ echo   IMPRESORA SELECCIONADA
 echo ====================================================================
 echo.
 echo   Nombre: !SELECTED_PRINTER!
-echo   Puerto: !SELECTED_PORT!
 echo   Driver: !SELECTED_DRIVER!
 echo.
 
-REM Crear nombre de alias para la impresora
-set "PRINTER_ALIAS=!SELECTED_PRINTER!_%HOSTNAME%"
+REM Limpiar archivos temporales
+del "%TEMP_PS%" 2>nul
+del "%TEMP_PRINTERS%" 2>nul
 
-REM Crear JSON para registro
-set "TEMP_JSON=%TEMP%\printer_register.json"
+REM ====================================================================
+REM REGISTRAR EN EL SERVIDOR
+REM ====================================================================
+echo Registrando en el servidor...
+echo URL: http://%SERVER_IP%:%SERVER_PORT%/api/register-shared-printer
+echo.
+
+set "PRINTER_ALIAS=!SELECTED_PRINTER!_%HOSTNAME%"
+set "TEMP_JSON=%TEMP%\printer_%RANDOM%.json"
+set "TEMP_RESPONSE=%TEMP%\response_%RANDOM%.json"
+
+REM Crear JSON
 (
     echo {
     echo   "alias": "!PRINTER_ALIAS!",
     echo   "model": "!SELECTED_DRIVER!",
     echo   "ip": "!IP_ADDRESS!",
-    echo   "location": "Compartida-USB - %HOSTNAME% - Usuario: %USERNAME%",
+    echo   "location": "Compartida-USB - %HOSTNAME% - %USERNAME%",
     echo   "protocol": "IPP",
     echo   "port": 631
     echo }
 ) > "%TEMP_JSON%"
 
-REM Registrar en el servidor
-echo Registrando impresora en el servidor...
-echo URL: http://%SERVER_IP%:%SERVER_PORT%/api/register-shared-printer
-echo.
+REM Enviar POST al servidor
+powershell -Command "$json = Get-Content '%TEMP_JSON%' -Raw; try { $response = Invoke-RestMethod -Uri 'http://%SERVER_IP%:%SERVER_PORT%/api/register-shared-printer' -Method Post -Body $json -ContentType 'application/json' -TimeoutSec 15; $response | ConvertTo-Json | Out-File '%TEMP_RESPONSE%'; if ($response.success -eq $true) { Write-Host '[OK] Impresora registrada exitosamente'; exit 0 } elseif ($response.error -like '*Ya existe*') { Write-Host '[INFO] Impresora ya estaba registrada'; exit 2 } else { Write-Host '[ERROR]' $response.error; exit 1 } } catch { Write-Host '[ERROR]' $_.Exception.Message; exit 1 }"
 
-set "TEMP_RESPONSE=%TEMP%\printer_response.json"
-set "TEMP_CURL_SCRIPT=%TEMP%\curl_request.ps1"
-
-REM Crear script PowerShell para hacer la peticion HTTP
-(
-    echo $json = Get-Content '%TEMP_JSON%' -Raw
-    echo try {
-    echo     $response = Invoke-RestMethod -Uri 'http://%SERVER_IP%:%SERVER_PORT%/api/register-shared-printer' -Method Post -Body $json -ContentType 'application/json' -TimeoutSec 15
-    echo     $response ^| ConvertTo-Json ^| Out-File '%TEMP_RESPONSE%' -Encoding UTF8
-    echo     exit 0
-    echo } catch {
-    echo     Write-Host "Error:" $_.Exception.Message
-    echo     exit 1
-    echo }
-) > "%TEMP_CURL_SCRIPT%"
-
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%TEMP_CURL_SCRIPT%"
-
-if errorlevel 1 (
-    echo ERROR: No se pudo conectar al servidor
+if errorlevel 2 (
     echo.
-    echo POSIBLES CAUSAS:
-    echo   1. El servidor no esta accesible en %SERVER_IP%:%SERVER_PORT%
-    echo   2. Firewall bloqueando la conexion
-    echo   3. Servidor de impresoras no esta ejecutandose
+    echo [INFO] La impresora ya estaba registrada en el servidor
+    echo        Se usara la configuracion existente
     echo.
-    goto :error_exit
+) else if errorlevel 1 (
+    echo.
+    echo [AVISO] No se pudo registrar en el servidor
+    echo          Verifica que el servidor este accesible en %SERVER_IP%:%SERVER_PORT%
+    echo.
+) else (
+    echo [OK] Impresora registrada en el servidor
+    echo.
 )
 
-REM Leer la respuesta
-if not exist "%TEMP_RESPONSE%" (
-    echo ERROR: No se recibio respuesta del servidor
-    goto :error_exit
-)
+REM Limpiar archivos temporales
+del "%TEMP_JSON%" 2>nul
+del "%TEMP_RESPONSE%" 2>nul
 
-REM Extraer puerto IPP de la respuesta
-set "IPP_PORT=631"
-for /f "tokens=2 delims=:, " %%a in ('findstr /i "ippPort" "%TEMP_RESPONSE%"') do (
-    set "IPP_PORT=%%a"
-)
+REM ====================================================================
+REM COMPARTIR IMPRESORA VIA SMB (WINDOWS)
+REM ====================================================================
+echo Compartiendo impresora via SMB...
 
-echo Respuesta del servidor recibida
-echo Puerto IPP asignado: %IPP_PORT%
-echo.
-
-REM Compartir impresora via SMB
-echo Configurando comparticion de impresora...
-echo.
-
-REM Crear nombre compartido limpio (sin caracteres especiales)
+REM Crear nombre compartido limpio
 set "SHARE_NAME=!SELECTED_PRINTER!"
 set "SHARE_NAME=!SHARE_NAME: =_!"
 set "SHARE_NAME=!SHARE_NAME:-=_!"
 set "SHARE_NAME=!SHARE_NAME:(=!"
 set "SHARE_NAME=!SHARE_NAME:)=!"
 
-REM Compartir la impresora usando PowerShell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Set-Printer -Name '!SELECTED_PRINTER!' -Shared $true -ShareName '!SHARE_NAME!' -ErrorAction SilentlyContinue"
+REM Habilitar comparticion en firewall
+netsh advfirewall firewall set rule group="Compartir archivos e impresoras" new enable=Yes >nul 2>&1
 
-if %errorlevel% equ 0 (
-    echo [OK] Impresora compartida via SMB: \\%HOSTNAME%\!SHARE_NAME!
+REM Compartir impresora
+powershell.exe -Command "Set-Printer -Name '!SELECTED_PRINTER!' -Shared $true -ShareName '!SHARE_NAME!' -ErrorAction SilentlyContinue" >nul 2>&1
+
+if errorlevel 1 (
+    echo [AVISO] No se pudo compartir via SMB
 ) else (
-    echo [AVISO] No se pudo compartir la impresora via SMB
+    echo [OK] Compartida via SMB: \\%HOSTNAME%\!SHARE_NAME!
+)
+echo.
+
+REM ====================================================================
+REM CONFIGURAR FIREWALL PARA IPP
+REM ====================================================================
+echo Configurando firewall para puerto 631...
+
+netsh advfirewall firewall delete rule name="PrinterShare_IPP_631" >nul 2>&1
+netsh advfirewall firewall add rule name="PrinterShare_IPP_631" dir=in action=allow protocol=TCP localport=631 profile=any >nul 2>&1
+
+if errorlevel 1 (
+    echo [AVISO] No se pudo configurar firewall
+) else (
+    echo [OK] Firewall configurado para puerto 631
+)
+echo.
+
+REM ====================================================================
+REM VERIFICAR E INSTALAR JAVA
+REM ====================================================================
+echo ====================================================================
+echo   VERIFICANDO JAVA
+echo ====================================================================
+echo.
+
+java -version >nul 2>&1
+if errorlevel 1 (
+    echo [X] Java NO esta instalado
+    echo.
+    echo Java es OBLIGATORIO para que esta PC reciba trabajos de impresion
+    echo del servidor y los envie a la impresora USB.
+    echo.
+    echo El script continuara y descargara el cliente, pero NO funcionara
+    echo hasta que instales Java.
+    echo.
+    echo Deseas instalar Java automaticamente AHORA?
+    echo (Recomendado - tarda 5-10 minutos)
+    echo.
+    set /p "INSTALL_JAVA=Instalar Java? (S/N): "
+    
+    if /i "!INSTALL_JAVA!"=="S" (
+        echo.
+        echo Descargando Java... (esto puede tardar 5-10 minutos)
+        echo.
+        
+        set "JAVA_INSTALLER=%TEMP%\jre-installer.exe"
+        
+        powershell -Command "Write-Host 'Descargando Java...' -ForegroundColor Yellow; try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri 'https://javadl.oracle.com/webapps/download/AutoDL?BundleId=249837_d8aa705069af427f9b83e66b34f5e380' -OutFile '%JAVA_INSTALLER%' -TimeoutSec 600; Write-Host 'Descarga completada' -ForegroundColor Green; exit 0 } catch { Write-Host 'Error:' $_.Exception.Message -ForegroundColor Red; exit 1 }"
+        
+        if errorlevel 1 (
+            echo [ERROR] No se pudo descargar Java
+            echo.
+            echo Descargalo manualmente desde: https://www.java.com/es/download/
+            echo Luego ejecuta: %APPDATA%\PrinterShare\start-client.bat
+            echo.
+            set "SKIP_CLIENT=true"
+        ) else (
+            echo [OK] Java descargado
+            echo.
+            echo Instalando Java...
+            echo.
+            
+            start /wait "" "%JAVA_INSTALLER%" /s INSTALL_SILENT=1 STATIC=0 AUTO_UPDATE=0 WEB_JAVA=1 REBOOT=0 SPONSORS=0
+            
+            timeout /t 5 /nobreak >nul
+            
+            del "%JAVA_INSTALLER%" 2>nul
+            
+            echo [OK] Java instalado
+            echo.
+            
+            REM Buscar Java
+            set "JAVA_FOUND=false"
+            
+            for /d %%i in ("C:\Program Files\Java\jdk-*") do (
+                if exist "%%i\bin\java.exe" (
+                    set "PATH=%%i\bin;!PATH!"
+                    set "JAVA_FOUND=true"
+                    goto :java_check_done
+                )
+            )
+            
+            for /d %%i in ("C:\Program Files\Java\jre*") do (
+                if exist "%%i\bin\java.exe" (
+                    set "PATH=%%i\bin;!PATH!"
+                    set "JAVA_FOUND=true"
+                    goto :java_check_done
+                )
+            )
+            
+            :java_check_done
+            
+            if "!JAVA_FOUND!"=="false" (
+                echo [AVISO] Reinicia la PC para que Java funcione
+                set "SKIP_CLIENT=true"
+            )
+        )
+    ) else (
+        echo.
+        echo [INFO] Continuando sin Java
+        echo        Instala Java despues y ejecuta: %APPDATA%\PrinterShare\start-client.bat
+        echo.
+        set "SKIP_CLIENT=true"
+    )
+) else (
+    echo [OK] Java ya esta instalado
+    java -version 2>&1 | findstr /i "version"
+    echo.
 )
 
-echo.
-
-REM Configurar regla de firewall
-echo Configurando firewall para puerto %IPP_PORT%...
-echo.
-
-set "RULE_NAME=PrinterShare_IPP_%IPP_PORT%"
-
-REM Eliminar regla existente si existe
-netsh advfirewall firewall delete rule name="%RULE_NAME%" >nul 2>&1
-
-REM Crear nueva regla
-netsh advfirewall firewall add rule name="%RULE_NAME%" dir=in action=allow protocol=TCP localport=%IPP_PORT% profile=any description="Permite acceso IPP a impresora compartida" >nul 2>&1
-
-if %errorlevel% equ 0 (
-    echo [OK] Regla de firewall creada para puerto %IPP_PORT%
-) else (
-    echo [AVISO] No se pudo crear regla de firewall
-)
-
-echo.
-
-REM Guardar configuracion
+REM ====================================================================
+REM CREAR DIRECTORIO Y SCRIPT DE INICIO
+REM ====================================================================
 if not exist "%CONFIG_DIR%" mkdir "%CONFIG_DIR%"
 
+set "START_SCRIPT=%CONFIG_DIR%\start-client.bat"
+
+echo Creando script de inicio del cliente USB...
+
+(
+    echo @echo off
+    echo title Cliente USB - !SELECTED_PRINTER!
+    echo.
+    echo REM Verificar Java
+    echo java -version ^>nul 2^>^&1
+    echo if errorlevel 1 (
+    echo     echo [ERROR] Java no esta instalado
+    echo     echo Instala Java desde: https://www.java.com/es/download/
+    echo     pause
+    echo     exit /b 1
+    echo ^)
+    echo.
+    echo cd /d "%CONFIG_DIR%"
+    echo.
+    echo echo ====================================================================
+    echo echo   CLIENTE USB - COMPARTIR IMPRESORA
+    echo echo ====================================================================
+    echo echo.
+    echo echo Impresora: !SELECTED_PRINTER!
+    echo echo Servidor: %SERVER_IP%:%SERVER_PORT%
+    echo echo Puerto: 631
+    echo echo.
+    echo echo Escuchando trabajos de impresion...
+    echo echo [INFO] NO cierres esta ventana - minimizala
+    echo echo.
+    echo.
+    echo java -jar usb-client.jar --spring.profiles.active=usb-client --app.server.ip=%SERVER_IP% --app.server.port=%SERVER_PORT% --app.mode=usb-client --server.port=631
+    echo.
+    echo echo.
+    echo echo Cliente detenido.
+    echo pause
+) > "%START_SCRIPT%"
+
+echo [OK] Script creado: %START_SCRIPT%
+echo.
+
+REM ====================================================================
+REM DESCARGAR CLIENTE USB (JAR) - SIEMPRE
+REM ====================================================================
+echo ====================================================================
+echo   DESCARGANDO CLIENTE USB
+echo ====================================================================
+echo.
+
+set "CLIENT_JAR=%CONFIG_DIR%\usb-client.jar"
+set "CLIENT_URL=http://%SERVER_IP%:%SERVER_PORT%/api/download/usb-client"
+
+echo Descargando cliente USB desde el servidor...
+echo URL: %CLIENT_URL%
+echo Destino: %CLIENT_JAR%
+echo.
+
+powershell -Command "try { Write-Host 'Descargando...' -ForegroundColor Yellow; Invoke-WebRequest -Uri '%CLIENT_URL%' -OutFile '%CLIENT_JAR%' -TimeoutSec 60; Write-Host '[OK] Descarga completada' -ForegroundColor Green; exit 0 } catch { Write-Host '[ERROR]' $_.Exception.Message -ForegroundColor Red; exit 1 }"
+
+if errorlevel 1 (
+    echo.
+    echo [ERROR] No se pudo descargar el cliente JAR
+    echo.
+    echo POSIBLES CAUSAS:
+    echo   1. El servidor no esta ejecutandose
+    echo   2. No hay conexion de red
+    echo   3. El archivo no existe en el servidor
+    echo.
+    echo SOLUCION:
+    echo   Descarga manualmente desde: %CLIENT_URL%
+    echo   Y guardalo en: %CLIENT_JAR%
+    echo.
+    set "CLIENT_DOWNLOADED=false"
+) else (
+    echo [OK] Cliente JAR descargado exitosamente
+    echo.
+    set "CLIENT_DOWNLOADED=true"
+)
+
+REM ====================================================================
+REM CONFIGURAR INICIO AUTOMATICO
+REM ====================================================================
+if "!CLIENT_DOWNLOADED!"=="true" (
+    echo Configurando inicio automatico...
+    schtasks /create /tn "PrinterShareClient" /tr "\"%START_SCRIPT%\"" /sc onlogon /rl highest /f >nul 2>&1
+    
+    if errorlevel 1 (
+        echo [AVISO] No se pudo configurar inicio automatico
+        echo          Ejecuta manualmente: %START_SCRIPT%
+    ) else (
+        echo [OK] Inicio automatico configurado
+    )
+    echo.
+)
+
+REM ====================================================================
+REM INICIAR CLIENTE USB (si Java esta disponible y JAR descargado)
+REM ====================================================================
+if "!CLIENT_DOWNLOADED!"=="true" (
+    if "!SKIP_CLIENT!"=="true" (
+        echo [INFO] Cliente JAR descargado pero Java no esta instalado
+        echo        Instala Java y ejecuta: %START_SCRIPT%
+        echo.
+    ) else (
+        echo Iniciando cliente USB...
+        echo.
+        
+        start "Cliente USB - !SELECTED_PRINTER!" /MIN cmd /c "%START_SCRIPT%"
+        
+        timeout /t 3 /nobreak >nul
+        
+        echo [OK] Cliente USB iniciado (ventana minimizada)
+        echo      Busca la ventana en la barra de tareas
+        echo.
+        
+        REM Verificar que el proceso arranco
+        timeout /t 2 /nobreak >nul
+        tasklist /FI "IMAGENAME eq java.exe" 2>nul | find /I "java.exe" >nul
+        if errorlevel 1 (
+            echo [AVISO] No se detecto el proceso Java
+            echo          Verifica que Java este instalado correctamente
+            echo          Ejecuta manualmente: %START_SCRIPT%
+            echo.
+        ) else (
+            echo [OK] Proceso Java detectado - Cliente funcionando
+            echo.
+        )
+    )
+)
+
+REM ====================================================================
+REM GUARDAR CONFIGURACION
+REM ====================================================================
 (
     echo PRINTER_NAME=!SELECTED_PRINTER!
     echo SERVER_IP=%SERVER_IP%
     echo SERVER_PORT=%SERVER_PORT%
-    echo IPP_PORT=%IPP_PORT%
+    echo IPP_PORT=631
     echo REGISTERED_AT=%DATE% %TIME%
 ) > "%CONFIG_FILE%"
 
-REM Limpiar archivos temporales
-del "%TEMP_PRINTERS%" 2>nul
-del "%TEMP_JSON%" 2>nul
-del "%TEMP_RESPONSE%" 2>nul
-del "%TEMP_PS_SCRIPT%" 2>nul
-del "%TEMP_CURL_SCRIPT%" 2>nul
+REM ====================================================================
+REM RESUMEN FINAL
+REM ====================================================================
+cls
+echo.
+echo ====================================================================
+echo   CONFIGURACION COMPLETADA
+echo ====================================================================
+echo.
+echo Impresora: !SELECTED_PRINTER!
+echo Computadora: %HOSTNAME%
+echo IP: !IP_ADDRESS!
+echo.
+echo ====================================================================
+echo   IMPORTANTE
+echo ====================================================================
+echo.
+echo Para que otras computadoras puedan imprimir:
+echo.
+echo   [!] Esta PC debe estar ENCENDIDA
+echo   [!] La impresora debe estar CONECTADA
+echo   [!] El cliente USB debe estar ejecutandose
+echo.
+if "!SKIP_CLIENT!"=="true" (
+    echo   [PENDIENTE] Instala Java y ejecuta:
+    echo               %START_SCRIPT%
+) else (
+    echo   [OK] Cliente USB ejecutandose (ventana minimizada)
+    echo.
+    echo   Si se cierra, reinicialo con:
+    echo   %START_SCRIPT%
+)
+echo.
+echo ====================================================================
+echo   COMO INSTALAR EN OTRAS COMPUTADORAS
+echo ====================================================================
+echo.
+echo 1. Ve a: http://%SERVER_IP%:%SERVER_PORT%
+echo 2. Busca la impresora "!PRINTER_ALIAS!"
+echo 3. Descarga el instalador y ejecutalo
+echo.
+echo ====================================================================
+echo.
+echo Archivos: %CONFIG_DIR%
+echo Log: %LOG_FILE%
+echo.
+echo ====================================================================
+echo.
+pause
 
-REM Resumen final
-echo ====================================================================
-echo   INFORMACION DE CONEXION
-echo ====================================================================
-echo.
-echo   Otras computadoras pueden conectarse usando:
-echo.
-echo   Desde el Servidor de Impresoras:
-echo      - La impresora aparecera automaticamente en la tabla
-echo      - Puerto IPP asignado: %IPP_PORT%
-echo.
-echo   Conexion directa SMB (Windows):
-echo      \\%HOSTNAME%\!SHARE_NAME!
-echo.
-echo   IMPORTANTE:
-echo      - Esta computadora debe estar ENCENDIDA
-echo      - La impresora debe estar CONECTADA
-echo      - No suspender la computadora
-echo.
-echo ====================================================================
-echo.
-echo ====================================================================
-echo   CONFIGURACION COMPLETADA EXITOSAMENTE
-echo ====================================================================
-echo.
-echo La impresora USB ha sido compartida y registrada en el servidor.
-echo Otras computadoras pueden conectarse a traves del servidor.
-echo.
-echo Para ver el estado, accede al panel de administracion:
-echo    http://%SERVER_IP%:%SERVER_PORT%/admin/printers
-echo.
-echo ====================================================================
-echo.
-echo Presiona cualquier tecla para cerrar esta ventana...
-pause >nul
 exit /b 0
-
-:error_exit
-echo.
-echo ====================================================================
-echo   ERROR EN LA CONFIGURACION
-echo ====================================================================
-echo.
-echo Revisa los mensajes anteriores para mas detalles.
-echo.
-echo Presiona cualquier tecla para cerrar esta ventana...
-pause >nul
-exit /b 1
