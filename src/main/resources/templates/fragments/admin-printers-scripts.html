@@ -2,6 +2,143 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
     <script th:fragment="scripts">
+        // Función para testear impresora USB compartida
+        function testUsbPrinter(data) {
+            const printerId = data.id;
+            const printerAlias = data.alias;
+            const printerIp = data.ip;
+            
+            // Crear modal de progreso
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.id = 'testUsbModal';
+            modal.style.display = 'block';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2><i class="fas fa-vial"></i> Test de Conexión - ${printerAlias}</h2>
+                    </div>
+                    <div class="modal-body" style="text-align: center; padding: 2rem;">
+                        <div style="margin-bottom: 1rem;">
+                            <i class="fas fa-spinner fa-spin" style="font-size: 3rem; color: #667eea;"></i>
+                        </div>
+                        <p id="testMessage" style="font-size: 1.1rem; margin-bottom: 1rem;">
+                            🔍 Probando conexión al cliente USB...<br>
+                            <small style="color: #666;">IP: ${printerIp}:631</small>
+                        </p>
+                        <div id="testResults" style="text-align: left; background: #f5f5f5; padding: 1rem; border-radius: 8px; margin-top: 1rem; display: none;">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeTestModal()" id="closeTestBtn" disabled>
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // Ejecutar test
+            fetch(`/admin/test-usb-printer?id=${printerId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const messageEl = document.getElementById('testMessage');
+                    const resultsEl = document.getElementById('testResults');
+                    const closeBtn = document.getElementById('closeTestBtn');
+                    
+                    resultsEl.style.display = 'block';
+                    closeBtn.disabled = false;
+                    
+                    if (data.success) {
+                        messageEl.innerHTML = `
+                            <i class="fas fa-check-circle" style="color: #28a745; font-size: 3rem;"></i><br>
+                            <strong style="color: #28a745;">✅ Cliente USB Conectado</strong>
+                        `;
+                        
+                        resultsEl.innerHTML = `
+                            <h4 style="color: #28a745; margin-bottom: 1rem;">✅ Diagnóstico Exitoso</h4>
+                            <ul style="list-style: none; padding: 0;">
+                                <li style="padding: 0.5rem 0; border-bottom: 1px solid #ddd;">
+                                    <strong>Host:</strong> ${data.diagnostic.host || printerIp}
+                                </li>
+                                <li style="padding: 0.5rem 0; border-bottom: 1px solid #ddd;">
+                                    <strong>Puerto:</strong> ${data.diagnostic.port || 631}
+                                </li>
+                                <li style="padding: 0.5rem 0; border-bottom: 1px solid #ddd;">
+                                    <strong>Estado:</strong> <span style="color: #28a745;">✅ ${data.diagnostic.status || 'Conectado'}</span>
+                                </li>
+                                <li style="padding: 0.5rem 0; border-bottom: 1px solid #ddd;">
+                                    <strong>Latencia:</strong> ${data.diagnostic.latency || '--'} ms
+                                </li>
+                                <li style="padding: 0.5rem 0;">
+                                    <strong>Mensaje:</strong> ${data.message || 'Cliente USB está ejecutándose y listo para recibir trabajos'}
+                                </li>
+                            </ul>
+                            <div style="margin-top: 1rem; padding: 1rem; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px;">
+                                <i class="fas fa-info-circle"></i> <strong>Estado:</strong> El cliente USB está funcionando correctamente.
+                            </div>
+                        `;
+                    } else {
+                        messageEl.innerHTML = `
+                            <i class="fas fa-times-circle" style="color: #dc3545; font-size: 3rem;"></i><br>
+                            <strong style="color: #dc3545;">❌ Error de Conexión</strong>
+                        `;
+                        
+                        resultsEl.innerHTML = `
+                            <h4 style="color: #dc3545; margin-bottom: 1rem;">❌ Diagnóstico Fallido</h4>
+                            <div style="padding: 1rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; margin-bottom: 1rem;">
+                                <strong>Error:</strong> ${data.message || 'No se pudo conectar al cliente USB'}
+                            </div>
+                            <h5 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">🔧 Guía de Solución:</h5>
+                            <ol style="margin-left: 1.5rem;">
+                                <li style="margin-bottom: 0.5rem;">
+                                    <strong>Verifica que la PC esté encendida:</strong><br>
+                                    <code>ping ${printerIp}</code>
+                                </li>
+                                <li style="margin-bottom: 0.5rem;">
+                                    <strong>Verifica que el cliente USB esté ejecutándose:</strong><br>
+                                    En la PC ${printerIp}, busca el proceso <code>java.exe</code>
+                                </li>
+                                <li style="margin-bottom: 0.5rem;">
+                                    <strong>Verifica el firewall:</strong><br>
+                                    Puerto 631 debe estar abierto en la PC cliente
+                                </li>
+                                <li style="margin-bottom: 0.5rem;">
+                                    <strong>Reinicia el cliente USB:</strong><br>
+                                    Ejecuta: <code>%APPDATA%\\PrinterShare\\start-client.bat</code>
+                                </li>
+                            </ol>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    const messageEl = document.getElementById('testMessage');
+                    const resultsEl = document.getElementById('testResults');
+                    const closeBtn = document.getElementById('closeTestBtn');
+                    
+                    closeBtn.disabled = false;
+                    resultsEl.style.display = 'block';
+                    
+                    messageEl.innerHTML = `
+                        <i class="fas fa-exclamation-triangle" style="color: #ffc107; font-size: 3rem;"></i><br>
+                        <strong style="color: #ffc107;">⚠️ Error en la Solicitud</strong>
+                    `;
+                    
+                    resultsEl.innerHTML = `
+                        <div style="padding: 1rem; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
+                            <strong>Error:</strong> ${error.message || 'Error de red al realizar el test'}
+                        </div>
+                    `;
+                });
+        }
+        
+        function closeTestModal() {
+            const modal = document.getElementById('testUsbModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+        
         function openEditPrinterModal(data) {
             document.getElementById('editPrinterId').value = data.id;
             document.getElementById('editPrinterAlias').value = data.alias;

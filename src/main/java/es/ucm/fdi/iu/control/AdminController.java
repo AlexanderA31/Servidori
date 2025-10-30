@@ -16,6 +16,10 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import java.net.InetAddress;
+import java.net.Socket;
+import java.net.InetSocketAddress;
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -1794,6 +1798,102 @@ public class AdminController {
             log.error("Error deleting network range", e);
             ra.addFlashAttribute("error", "Error: " + e.getMessage());
         }
-        return determineRedirectUrl(returnTo, request);
+                return determineRedirectUrl(returnTo, request);
+    }
+    
+    /**
+     * Endpoint para testear conectividad con cliente USB de impresora compartida
+     */
+    @GetMapping("/test-usb-printer")
+    @ResponseBody
+    public Map<String, Object> testUsbPrinter(@RequestParam Long id) {
+        Map<String, Object> response = new HashMap<>();
+        Map<String, Object> diagnostic = new HashMap<>();
+        
+        try {
+            Printer printer = entityManager.find(Printer.class, id);
+            
+            if (printer == null) {
+                response.put("success", false);
+                response.put("message", "Impresora no encontrada");
+                return response;
+            }
+            
+            // Verificar que es una impresora USB compartida
+            boolean isSharedUSB = printer.getLocation() != null && 
+                                 printer.getLocation().contains("Compartida-USB");
+            
+            if (!isSharedUSB) {
+                response.put("success", false);
+                response.put("message", "Esta no es una impresora USB compartida");
+                return response;
+            }
+            
+            String clientIp = printer.getIp();
+            int clientPort = 631;
+            
+            diagnostic.put("host", clientIp);
+            diagnostic.put("port", clientPort);
+            
+            log.info("🧪 Testeando cliente USB: {}:{}", clientIp, clientPort);
+            
+            // Test 1: Verificar alcance (ping)
+            long startPing = System.currentTimeMillis();
+            boolean reachable = false;
+            try {
+                InetAddress address = InetAddress.getByName(clientIp);
+                reachable = address.isReachable(2000);
+                long pingTime = System.currentTimeMillis() - startPing;
+                diagnostic.put("latency", pingTime);
+                
+                if (reachable) {
+                    log.info("  ✅ Host {} alcanzable ({}ms)", clientIp, pingTime);
+                } else {
+                    log.warn("  ⚠️ Host {} no responde a ping", clientIp);
+                }
+            } catch (Exception e) {
+                log.warn("  ⚠️ Error en ping: {}", e.getMessage());
+            }
+            
+            // Test 2: Verificar puerto 631 abierto
+            long startConnect = System.currentTimeMillis();
+            try (Socket socket = new Socket()) {
+                socket.connect(new InetSocketAddress(clientIp, clientPort), 5000);
+                long connectTime = System.currentTimeMillis() - startConnect;
+                
+                log.info("  ✅ Puerto {} abierto (conexión en {}ms)", clientPort, connectTime);
+                diagnostic.put("status", "Conectado");
+                diagnostic.put("connectionTime", connectTime);
+                
+                response.put("success", true);
+                response.put("message", "Cliente USB conectado y funcionando correctamente");
+                response.put("diagnostic", diagnostic);
+                
+            } catch (ConnectException e) {
+                log.error("  ❌ Puerto {} cerrado o rechazado: {}", clientPort, e.getMessage());
+                diagnostic.put("status", "Desconectado");
+                diagnostic.put("error", e.getMessage());
+                
+                response.put("success", false);
+                response.put("message", "Cliente USB no está ejecutándose o puerto 631 cerrado");
+                response.put("diagnostic", diagnostic);
+                
+            } catch (SocketTimeoutException e) {
+                log.error("  ❌ Timeout conectando a puerto {}", clientPort);
+                diagnostic.put("status", "Timeout");
+                diagnostic.put("error", "Timeout después de 5 segundos");
+                
+                response.put("success", false);
+                response.put("message", "Timeout al conectar - Cliente USB puede estar sobrecargado o red lenta");
+                response.put("diagnostic", diagnostic);
+            }
+            
+        } catch (Exception e) {
+            log.error("❌ Error en test de cliente USB", e);
+            response.put("success", false);
+            response.put("message", "Error interno: " + e.getMessage());
+        }
+        
+        return response;
     }
 }

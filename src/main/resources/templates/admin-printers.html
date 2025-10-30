@@ -152,6 +152,15 @@
                                         </td>
                                         <td>
                                             <div class="action-buttons">
+                                                <!-- Botón Test para impresoras USB compartidas -->
+                                                <button th:if="${printer.location != null and #strings.contains(printer.location, 'Compartida-USB')}"
+                                                        class="btn btn-sm btn-success" 
+                                                        th:attr="data-id=${printer.id}, data-alias=${printer.alias}, data-ip=${printer.ip}"
+                                                        onclick="testUsbPrinter(this.dataset)"
+                                                        title="Test de Conexión (Cliente USB)">
+                                                    <i class="fas fa-vial"></i>
+                                                </button>
+                                                
                                                 <button class="btn btn-sm btn-primary" 
                                                         th:attr="data-id=${printer.id}, data-alias=${printer.alias}, data-model=${printer.model}, data-location=${printer.location}, data-ip=${printer.ip}, data-deviceuri=${printer.deviceUri}, data-protocol=${printer.protocol}, data-port=${printer.port}, data-ippport=${printer.ippPort}"
                                                         onclick="openEditPrinterModal(this.dataset)"
