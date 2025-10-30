@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpSession;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
@@ -25,8 +26,11 @@ import es.ucm.fdi.iu.model.User;
  * Important: the user is retrieved from the database, but is not refreshed at each request. 
  * You should refresh the user's information if anything important changes; for example, after
  * updating the user's profile.
+ * 
+ * Only loads in server mode (NOT in usb-client)
  */
 @Component
+@ConditionalOnProperty(name = "app.mode", havingValue = "server", matchIfMissing = true)
 public class LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     @Autowired 

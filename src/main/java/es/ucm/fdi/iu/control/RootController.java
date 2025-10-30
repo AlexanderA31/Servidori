@@ -8,6 +8,7 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,6 +26,7 @@ import java.util.List;
  *  Access to this end-point is authenticated.
  */
 @Controller
+@ConditionalOnProperty(name = "app.mode", havingValue = "server", matchIfMissing = true)
 public class RootController {
 
 	private static final Logger log = LogManager.getLogger(RootController.class);

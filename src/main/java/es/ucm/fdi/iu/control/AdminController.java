@@ -23,6 +23,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -39,6 +40,7 @@ import jakarta.transaction.Transactional;
  *  Access to this end-point is authenticated.
  */
 @Controller
+@ConditionalOnProperty(name = "app.mode", havingValue = "server", matchIfMissing = true)
 @RequestMapping("/admin")
 public class AdminController {
 
