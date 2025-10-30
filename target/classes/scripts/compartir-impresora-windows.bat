@@ -1,7 +1,7 @@
 @echo off
 REM ====================================================================
 REM COMPARTIR IMPRESORA USB CON SERVIDOR - VERSION COMPLETA
-REM Version 7.1 - Con instalacion automatica de Java mejorada
+REM Version 8.0 - SIN instalacion automatica de Java (solo instrucciones)
 REM ====================================================================
 
 REM Asegurar que la terminal NO se cierre en caso de error
@@ -266,7 +266,7 @@ if errorlevel 1 (
 echo.
 
 REM ====================================================================
-REM VERIFICAR E INSTALAR JAVA
+REM VERIFICAR JAVA
 REM ====================================================================
 echo ====================================================================
 echo   VERIFICANDO JAVA
@@ -280,188 +280,35 @@ if errorlevel 1 (
     echo Java es OBLIGATORIO para que esta PC reciba trabajos de impresion
     echo del servidor y los envie a la impresora USB.
     echo.
-    echo El script continuara y descargara el cliente, pero NO funcionara
-    echo hasta que instales Java.
+    echo ====================================================================
+    echo   COMO INSTALAR JAVA (MANUAL)
+    echo ====================================================================
     echo.
-    echo Deseas instalar Java automaticamente AHORA?
-    echo ^(Recomendado - tarda 5-10 minutos^)
+    echo OPCION 1: Instalacion Rapida con Winget ^(Recomendado^)
+    echo   1. Abre PowerShell como Administrador
+    echo   2. Ejecuta:
+    echo      winget install EclipseAdoptium.Temurin.17.JRE
     echo.
-    set /p "INSTALL_JAVA=Instalar Java? (S/N): "
-    
-    if /i "!INSTALL_JAVA!"=="S" (
-        echo.
-        echo ====================================================================
-        echo   INSTALACION DE JAVA
-        echo ====================================================================
-        echo.
-        
-        REM Metodo simple: Usar winget si esta disponible
-        echo Verificando winget.
-        where winget >nul 2>&1
-        
-        if not errorlevel 1 (
-            echo [OK] winget disponible
-            echo.
-            echo Instalando Java 17 JRE con winget.
-            echo Esto puede tardar 5-10 minutos, por favor espera.
-            echo.
-            
-            winget install EclipseAdoptium.Temurin.17.JRE -e --silent --accept-source-agreements --accept-package-agreements
-            
-            echo.
-            echo [OK] Instalacion completada
-            goto :java_install_done
-        )
-        
-        REM Si winget no funciona, descarga manual
-        echo winget no disponible, descargando manualmente.
-        echo.
-        
-        set "JAVA_INSTALLER=%TEMP%\adoptium-jre17.msi"
-        set "JAVA_URL=https://aka.ms/download-jdk/microsoft-jdk-17-windows-x64.msi"
-        
-        echo Descargando Java desde Microsoft.
-        echo.
-        
-        powershell -NoProfile -ExecutionPolicy Bypass -Command "& { try { $ProgressPreference='SilentlyContinue'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Write-Host 'Descargando.' -NoNewline; Invoke-WebRequest -Uri '%JAVA_URL%' -OutFile '%JAVA_INSTALLER%' -UseBasicParsing; Write-Host ' OK'; exit 0 } catch { Write-Host ' ERROR'; Write-Host $_.Exception.Message; exit 1 } }"
-        
-        if errorlevel 1 (
-            set "JAVA_DOWNLOADED=false"
-        ) else (
-            set "JAVA_DOWNLOADED=true"
-        )
-        
-        if "!JAVA_DOWNLOADED!"=="false" (
-            echo.
-            echo [ERROR] No se pudo descargar Java automaticamente
-            echo.
-            echo SOLUCION MANUAL:
-            echo   1. Descarga Java desde: https://www.java.com/es/download/
-            echo   2. Instalalo manualmente
-            echo   3. Ejecuta: %APPDATA%\PrinterShare\start-client.bat
-            echo.
-            echo El script continuara sin Java.
-            echo.
-            set "SKIP_CLIENT=true"
-            pause
-        ) else (
-            echo.
-            echo [OK] Java descargado exitosamente
-            echo.
-            echo Instalando Java ^(modo silencioso^).
-            echo Por favor espera, NO cierres esta ventana.
-            echo.
-            
-            REM Verificar que el archivo existe
-            if not exist "%JAVA_INSTALLER%" (
-                echo [ERROR] El archivo descargado no existe
-                set "SKIP_CLIENT=true"
-                pause
-                goto :skip_java_install
-            )
-            
-            REM Verificar tamano del archivo (debe ser mayor a 50MB)
-            for %%A in ("%JAVA_INSTALLER%") do set "FILE_SIZE=%%~zA"
-            if !FILE_SIZE! LSS 52428800 (
-                echo [ERROR] Archivo descargado incompleto ^(!FILE_SIZE! bytes^)
-                del "%JAVA_INSTALLER%" 2>nul
-                set "SKIP_CLIENT=true"
-                pause
-                goto :skip_java_install
-            )
-            
-            echo Archivo: %JAVA_INSTALLER% ^(!FILE_SIZE! bytes^)
-            echo Instalando.
-            echo.
-            
-            REM Instalar MSI (Adoptium usa MSI)
-            echo Instalando Java.
-            echo Esto puede tardar 2-3 minutos.
-            echo.
-            
-            msiexec /i "%JAVA_INSTALLER%" /quiet /norestart ADDLOCAL=FeatureJavaHome,FeatureJarFileRunWith,FeatureOracleJavaSoft
-            
-            if errorlevel 1 (
-                echo.
-                echo [INFO] Instalacion silenciosa fallo, abriendo instalador.
-                echo         Sigue las instrucciones en pantalla
-                echo.
-                msiexec /i "%JAVA_INSTALLER%"
-            )
-            
-            timeout /t 5 /nobreak >nul
-            
-            del "%JAVA_INSTALLER%" 2>nul
-            
-            echo.
-            echo Verificando instalacion.
-            echo.
-            
-            REM Buscar Java
-            set "JAVA_FOUND=false"
-            set "JAVA_PATH="
-            
-            for /d %%i in ("C:\Program Files\Java\jdk-*") do (
-                if exist "%%i\bin\java.exe" (
-                    set "JAVA_PATH=%%i\bin"
-                    set "PATH=%%i\bin;!PATH!"
-                    set "JAVA_FOUND=true"
-                    goto :java_check_done
-                )
-            )
-            
-            for /d %%i in ("C:\Program Files\Java\jre*") do (
-                if exist "%%i\bin\java.exe" (
-                    set "JAVA_PATH=%%i\bin"
-                    set "PATH=%%i\bin;!PATH!"
-                    set "JAVA_FOUND=true"
-                    goto :java_check_done
-                )
-            )
-            
-            for /d %%i in ("C:\Program Files (x86)\Java\jre*") do (
-                if exist "%%i\bin\java.exe" (
-                    set "JAVA_PATH=%%i\bin"
-                    set "PATH=%%i\bin;!PATH!"
-                    set "JAVA_FOUND=true"
-                    goto :java_check_done
-                )
-            )
-            
-            :java_check_done
-            
-            :java_install_done
-            
-            if "!JAVA_FOUND!"=="true" (
-                echo [OK] Java instalado correctamente
-                echo      Ubicacion: !JAVA_PATH!
-                echo.
-                "!JAVA_PATH!\java.exe" -version 2>&1
-                echo.
-            ) else (
-                echo [AVISO] Java se instalo pero no se encuentra
-                echo          Reinicia la PC y ejecuta: %APPDATA%\PrinterShare\start-client.bat
-                echo.
-                set "SKIP_CLIENT=true"
-            )
-        )
-        
-        :skip_java_install
-        endlocal
-    ) else (
-        echo.
-        echo [INFO] Continuando sin Java
-        echo.
-        echo IMPORTANTE: El cliente NO funcionara sin Java
-        echo.
-        echo Para instalar Java despues:
-        echo   1. Ve a: https://www.java.com/es/download/
-        echo   2. Descarga e instala Java
-        echo   3. Ejecuta: %APPDATA%\PrinterShare\start-client.bat
-        echo.
-        set "SKIP_CLIENT=true"
-        pause
-    )
+    echo OPCION 2: Descarga Manual
+    echo   1. Ve a: https://www.java.com/es/download/
+    echo   2. Descarga e instala Java
+    echo   3. Reinicia esta PC
+    echo.
+    echo OPCION 3: Descarga Directa Microsoft JDK
+    echo   1. Ve a: https://aka.ms/download-jdk/microsoft-jdk-17-windows-x64.msi
+    echo   2. Descarga e instala el archivo MSI
+    echo   3. Reinicia esta PC
+    echo.
+    echo ====================================================================
+    echo.
+    echo El script continuara y descargara el cliente USB.
+    echo Pero NO funcionara hasta que instales Java.
+    echo.
+    echo Despues de instalar Java, ejecuta:
+    echo   %APPDATA%\PrinterShare\start-client.bat
+    echo.
+    set "SKIP_CLIENT=true"
+    pause
 ) else (
     echo [OK] Java ya esta instalado
     java -version 2>&1 | findstr /i "version"
