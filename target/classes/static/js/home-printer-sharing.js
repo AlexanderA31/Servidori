@@ -118,13 +118,15 @@ function downloadWindowsClientScript() {
     let serverPort = urlParts ? parseInt(urlParts[2]) : 8631;
     
     // Para impresoras USB compartidas:
-    // - Los clientes se conectan AL SERVIDOR (10.1.16.31) en su puerto dedicado (863X)
-    // - El servidor reenvía automáticamente al cliente USB (10.1.1.85:631)
-    // - NO cambiar nada, usar el puerto del servidor tal como viene
+    // - serverIp = IP del CLIENTE USB (ej: 10.1.1.39)
+    // - serverPort = 631 (puerto del cliente USB)
+    // - Conexión DIRECTA al cliente USB (sin pasar por el servidor)
     if (isSharedUSB) {
-        console.log('Impresora USB compartida - usando servidor como intermediario');
-        console.log('Puerto del servidor: ' + serverPort + ' (reenvía a cliente USB)');
-        // Mantener serverIp y serverPort tal como vienen del URI
+        console.log('Impresora USB compartida - conexión DIRECTA al cliente USB');
+        console.log('Cliente USB: ' + serverIp + ':' + serverPort);
+    } else {
+        console.log('Impresora de red - conexión al servidor');
+        console.log('Servidor: ' + serverIp + ':' + serverPort);
     }
     
     const printerPath = urlParts ? urlParts[3] : printerName.replace(/\s/g, '_');
@@ -145,10 +147,15 @@ function downloadWindowsClientScript() {
                 '3. La impresora se instalará automáticamente<br><br>' +
                 (isSharedUSB ? 
                     '<strong>🖨️ Impresora USB Compartida</strong><br>' +
-                    'Servidor: ' + serverIp + ':' + serverPort + ' (reenvía a cliente USB)<br><br>' +
-                    '<strong>⚠️ Nota:</strong> La PC con la impresora USB debe estar encendida' :
-                    '<strong>Puerto asignado: ' + serverPort + '</strong> (FIJO)<br><br>' +
-                    '<strong>⚠️ Nota:</strong> Este puerto es exclusivo y nunca cambia'),
+                    'Conexión: <strong>DIRECTA</strong> al cliente USB<br>' +
+                    'Cliente USB: ' + serverIp + ':' + serverPort + '<br><br>' +
+                    '<strong>⚠️ IMPORTANTE:</strong><br>' +
+                    '- La PC <strong>' + serverIp + '</strong> debe estar <strong>ENCENDIDA</strong><br>' +
+                    '- El cliente USB debe estar <strong>EJECUTÁNDOSE</strong><br>' +
+                    '- No necesita pasar por el servidor central' :
+                    '<strong>🌐 Impresora de Red</strong><br>' +
+                    'Puerto asignado: <strong>' + serverPort + '</strong> (FIJO)<br><br>' +
+                    '<strong>ℹ️ Nota:</strong> Este puerto es exclusivo y nunca cambia'),
                 'Instrucciones Simples'
             );
         }, 800);
@@ -459,15 +466,24 @@ function generateBatWithEmbeddedPS(serverIp, serverPort, printerName, safeFileNa
     // Escapar el nombre de la impresora para PowerShell
     const printerNameEscaped = printerName.replace(/'/g, "''");
     
-    // Mensaje especial para impresoras USB compartidas
-    const usbNote = isSharedUSB ? ' (Cliente USB en ' + serverIp + ')' : ' (PUERTO UNICO FIJO)';
+    // Mensaje específico según tipo de impresora
+    let headerMessage;
+    if (isSharedUSB) {
+        headerMessage = `REM ====================================================================
+REM Instalador de Impresora USB Compartida: ${printerName}
+REM Cliente USB: ${serverIp}:${serverPort}
+REM CONEXION DIRECTA al cliente USB (sin servidor intermedio)
+REM ====================================================================`;
+    } else {
+        headerMessage = `REM ====================================================================
+REM Instalador de Impresora: ${printerName}
+REM Servidor: ${serverIp}:${serverPort}
+REM Puerto dedicado FIJO del servidor
+REM ====================================================================`;
+    }
     
     const bat = `@echo off
-REM ====================================================================
-REM Instalador de Impresora: ${printerName}
-REM Puerto dedicado: ${serverPort} (PUERTO UNICO Y FIJO)
-REM Servidor: ${serverIp}
-REM ====================================================================
+${headerMessage}
 
 REM Verificar permisos de administrador
 net session >nul 2>&1
@@ -486,8 +502,12 @@ echo   INSTALADOR DE IMPRESORA
 echo ====================================================================
 echo.
 echo   Impresora: ${printerName}
-echo   Servidor: ${serverIp}
-echo   Puerto: ${serverPort}${usbNote}
+` + (isSharedUSB ? 
+`echo   Cliente USB: ${serverIp}:${serverPort}
+echo   Tipo: USB Compartida (conexion directa)
+echo   IMPORTANTE: La PC ${serverIp} debe estar encendida` :
+`echo   Servidor: ${serverIp}:${serverPort}
+echo   Tipo: Red (puerto dedicado FIJO)`) + `
 echo.
 echo ====================================================================
 echo.
