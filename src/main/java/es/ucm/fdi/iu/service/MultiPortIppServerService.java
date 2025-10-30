@@ -325,15 +325,17 @@ public class MultiPortIppServerService {
                     log.info("  ℹ️  El procesador de cola lo enviará a la impresora");
                     success = true;
                     
-                } catch (IllegalArgumentException e) {
-                    log.error("  ❌ Error: Argumento inválido - {}", e.getMessage());
-                    log.error("  💡 Verifica los parámetros de la impresora");
-                } catch (IOException e) {
-                    log.error("  ❌ Error de I/O procesando documento: {}", e.getMessage());
-                    log.error("  💡 Puede haber un problema con el archivo temporal o espacio en disco");
                 } catch (Exception e) {
-                    log.error("  ❌ Error inesperado registrando trabajo en cola: {}", e.getMessage());
+                    log.error("  ❌ Error procesando o registrando trabajo: {}", e.getMessage());
                     log.error("  🐛 Tipo de error: {}", e.getClass().getSimpleName());
+                    
+                    // Proporcionar ayuda específica según el tipo de error
+                    if (e instanceof IllegalArgumentException) {
+                        log.error("  💡 Verifica los parámetros de la impresora");
+                    } else if (e instanceof IOException) {
+                        log.error("  💡 Puede haber un problema con el archivo temporal o espacio en disco");
+                    }
+                    
                     log.debug("  Stack trace:", e);
                 }
             }

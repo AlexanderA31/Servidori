@@ -35,6 +35,7 @@ es\ucm\fdi\iu\service\SmbShareService.class
 es\ucm\fdi\iu\service\SambaService$SambaShare.class
 es\ucm\fdi\iu\control\RootController.class
 es\ucm\fdi\iu\model\User$Role.class
+es\ucm\fdi\iu\service\IppPrintService$NetworkDiagnostics.class
 es\ucm\fdi\iu\model\Computer.class
 es\ucm\fdi\iu\service\PrinterDiscoveryService$DiscoveredPrinter.class
 es\ucm\fdi\iu\control\PrinterServerController$PrinterInfo.class
