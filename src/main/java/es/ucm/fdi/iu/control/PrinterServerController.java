@@ -50,22 +50,18 @@ public class PrinterServerController {
             model.addAttribute("totalPrinters", printers.size());
             
             // Generar URIs IPP para cada impresora con puerto dedicado
+            // TODAS las impresoras usan el puerto del servidor (el servidor reenvía si es USB)
             List<PrinterInfo> printerInfos = printers.stream()
                 .map(p -> {
-                    // Para impresoras USB compartidas, usar puerto 631 y la IP del cliente USB
-                    boolean isSharedUSB = p.getLocation() != null && p.getLocation().contains("Compartida-USB");
-                    
-                    String targetIp = isSharedUSB ? p.getIp() : serverIp;  // IP del cliente USB o servidor
-                    int targetPort = isSharedUSB ? 631 : multiPortIppService.getPortForPrinter(p);
-                    
+                    int port = multiPortIppService.getPortForPrinter(p);
                     return new PrinterInfo(
                         p.getAlias(),
                         p.getModel(),
                         p.getLocation(),
-                        buildIppUriWithPort(targetIp, p.getAlias(), targetPort),
-                        buildWindowsCommand(targetIp, p.getAlias()),
-                        buildLinuxCommand(targetIp, p.getAlias()),
-                        targetPort
+                        buildIppUriWithPort(serverIp, p.getAlias(), port),
+                        buildWindowsCommand(serverIp, p.getAlias()),
+                        buildLinuxCommand(serverIp, p.getAlias()),
+                        port
                     );
                 })
                 .collect(Collectors.toList());
@@ -96,20 +92,17 @@ public class PrinterServerController {
             
             List<Map<String, Object>> printerList = printers.stream()
                 .map(p -> {
-                    // Para impresoras USB compartidas, usar puerto 631 y la IP del cliente USB
+                    int port = multiPortIppService.getPortForPrinter(p);
                     boolean isSharedUSB = p.getLocation() != null && p.getLocation().contains("Compartida-USB");
-                    
-                    String targetIp = isSharedUSB ? p.getIp() : serverIp;
-                    int targetPort = isSharedUSB ? 631 : multiPortIppService.getPortForPrinter(p);
                     
                     Map<String, Object> info = new HashMap<>();
                     info.put("id", p.getId());
                     info.put("name", p.getAlias());
                     info.put("model", p.getModel());
                     info.put("location", p.getLocation());
-                    info.put("ip", targetIp);  // IP del destino real
-                    info.put("port", targetPort);  // Puerto correcto
-                    info.put("ippUri", buildIppUriWithPort(targetIp, p.getAlias(), targetPort));
+                    info.put("ip", serverIp);  // Siempre IP del servidor
+                    info.put("port", port);  // Puerto del servidor
+                    info.put("ippUri", buildIppUriWithPort(serverIp, p.getAlias(), port));
                     info.put("isSharedUSB", isSharedUSB);
                     return info;
                 })

@@ -117,14 +117,14 @@ function downloadWindowsClientScript() {
     let serverIp = urlParts ? urlParts[1] : '10.1.16.31';
     let serverPort = urlParts ? parseInt(urlParts[2]) : 8631;
     
-    // CORRECCION: Para impresoras USB compartidas, conectarse directo al cliente USB
-    // - La IP es la del cliente USB (la PC que tiene la impresora conectada)
-    // - El puerto es 631 (donde escucha el cliente USB Java)
-    // - NO usar el puerto 86xx del servidor
+    // Para impresoras USB compartidas:
+    // - Los clientes se conectan AL SERVIDOR (10.1.16.31) en su puerto dedicado (863X)
+    // - El servidor reenvía automáticamente al cliente USB (10.1.1.85:631)
+    // - NO cambiar nada, usar el puerto del servidor tal como viene
     if (isSharedUSB) {
-        console.log('Impresora USB compartida detectada - conectando a puerto 631 del cliente USB');
-        serverPort = 631;  // Puerto estándar IPP donde escucha el cliente USB
-        // La IP (serverIp) ya es correcta - es la IP del cliente USB
+        console.log('Impresora USB compartida - usando servidor como intermediario');
+        console.log('Puerto del servidor: ' + serverPort + ' (reenvía a cliente USB)');
+        // Mantener serverIp y serverPort tal como vienen del URI
     }
     
     const printerPath = urlParts ? urlParts[3] : printerName.replace(/\s/g, '_');
@@ -145,8 +145,8 @@ function downloadWindowsClientScript() {
                 '3. La impresora se instalará automáticamente<br><br>' +
                 (isSharedUSB ? 
                     '<strong>🖨️ Impresora USB Compartida</strong><br>' +
-                    'Conectando a: ' + serverIp + ':631 (Cliente USB)<br><br>' +
-                    '<strong>⚠️ Nota:</strong> La PC con la impresora debe estar encendida' :
+                    'Servidor: ' + serverIp + ':' + serverPort + ' (reenvía a cliente USB)<br><br>' +
+                    '<strong>⚠️ Nota:</strong> La PC con la impresora USB debe estar encendida' :
                     '<strong>Puerto asignado: ' + serverPort + '</strong> (FIJO)<br><br>' +
                     '<strong>⚠️ Nota:</strong> Este puerto es exclusivo y nunca cambia'),
                 'Instrucciones Simples'
