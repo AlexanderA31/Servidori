@@ -17,6 +17,7 @@ es\ucm\fdi\iu\service\SambaAutoConfigService.class
 es\ucm\fdi\iu\service\IppPrintService$IppJobInfo.class
 es\ucm\fdi\iu\model\Printer$Transfer.class
 es\ucm\fdi\iu\service\NetworkDiagnosticService$NetworkDiagnosticResult.class
+es\ucm\fdi\iu\UsbClientConfiguration.class
 es\ucm\fdi\iu\model\Transferable.class
 es\ucm\fdi\iu\model\User$AdminTransfer.class
 es\ucm\fdi\iu\control\PrinterServerController.class
