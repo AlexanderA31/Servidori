@@ -333,79 +333,333 @@ public class UsbClientService {
             boolean isPDF = header.length >= 4 && 
                           header[0] == 0x25 && header[1] == 0x50 && 
                           header[2] == 0x44 && header[3] == 0x46;
+            boolean isPCL = header.length >= 2 && 
+                          header[0] == 0x1B && (header[1] == 0x45 || header[1] == 0x26);
+            boolean isPostScript = header.length >= 4 && 
+                                 header[0] == 0x25 && header[1] == 0x21;
             
             if (isPDF) {
                 log.info("   📄 Tipo: PDF ({} bytes)", header.length);
+                return printPDF(file);
+            } else if (isPCL || isPostScript) {
+                log.info("   📄 Tipo: {} ({} bytes)", isPCL ? "PCL" : "PostScript", header.length);
+                return printRawData(file);
             } else {
-                log.info("   📄 Tipo: RAW/Binario ({} bytes)", header.length);
+                log.info("   📄 Tipo: RAW/Desconocido ({} bytes)", header.length);
+                // Intentar como RAW primero, si falla intentar como PDF
+                if (printRawData(file)) {
+                    return true;
+                }
+                log.warn("   ⚠️ Formato RAW falló, intentando como PDF...");
+                return printPDF(file);
             }
             
-            // MÉTODO 1: Enviar RAW directamente al puerto de la impresora (MEJOR para PDFs)
-            // NO intentamos abrir el PDF con aplicaciones, eso causa el diálogo "Abrir con..."
-            log.info("   🔄 Método 1: Envío RAW directo al puerto de impresora...");
+        } catch (Exception e) {
+            log.error("   ❌ Excepción al enviar a impresora local", e);
+            return false;
+        }
+    }
+    
+    /**
+     * Imprime un archivo PDF usando diferentes métodos
+     */
+    private boolean printPDF(Path file) {
+        // MÉTODO 1: Usar SumatraPDF (mejor opción si está instalado)
+        if (printWithSumatraPDF(file)) {
+            return true;
+        }
+        
+        // MÉTODO 2: Usar Adobe Reader (si está instalado)
+        if (printWithAdobeReader(file)) {
+            return true;
+        }
+        
+        // MÉTODO 3: Usar PowerShell con .NET (Windows 10+)
+        if (printWithPowerShell(file)) {
+            return true;
+        }
+        
+        // MÉTODO 4: Usar Ghostscript (si está instalado)
+        if (printWithGhostscript(file)) {
+            return true;
+        }
+        
+        log.error("   ❌ Todos los métodos de impresión PDF fallaron");
+        log.error("   💡 Instala SumatraPDF para impresión silenciosa: https://www.sumatrapdfreader.org/");
+        return false;
+    }
+    
+    /**
+     * Imprime datos RAW (PCL, PostScript, etc.) directamente al puerto
+     */
+    private boolean printRawData(Path file) {
+        try {
+            log.info("   🔄 Enviando datos RAW al puerto de impresora...");
             
             // Obtener el puerto de la impresora
             String printerPort = getPrinterPort(localPrinterName);
-            log.debug("   Puerto de impresora: {}", printerPort);
+            
+            if (printerPort == null || printerPort.startsWith("IP_")) {
+                log.error("   ❌ Puerto USB no disponible");
+                return false;
+            }
+            
+            log.debug("   Puerto: {}", printerPort);
             
             // Copiar archivo al puerto
             String copyCommand = String.format("cmd.exe /c copy /B \"%s\" \"%s\"", 
                 file.toAbsolutePath(), printerPort);
             
             Process process = Runtime.getRuntime().exec(copyCommand);
-            
-            // Capturar salida para diagnóstico
-            BufferedReader stdInput = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-            
-            String s;
-            StringBuilder output = new StringBuilder();
-            while ((s = stdInput.readLine()) != null) {
-                output.append(s).append("\n");
-            }
-            
-            StringBuilder error = new StringBuilder();
-            while ((s = stdError.readLine()) != null) {
-                error.append(s).append("\n");
-            }
-            
             int exitCode = process.waitFor();
             
             if (exitCode == 0) {
-                log.info("   ✅ Datos enviados exitosamente al puerto {}", printerPort);
-                if (output.length() > 0) {
-                    log.debug("   Salida: {}", output.toString().trim());
-                }
+                log.info("   ✅ Datos RAW enviados exitosamente");
                 return true;
             } else {
                 log.error("   ❌ Error al copiar al puerto (código: {})", exitCode);
-                if (error.length() > 0) {
-                    log.error("   Error: {}", error.toString().trim());
+                return false;
+            }
+            
+        } catch (Exception e) {
+            log.error("   ❌ Error enviando datos RAW", e);
+            return false;
+        }
+    }
+    
+    /**
+     * Imprime PDF usando SumatraPDF (impresión silenciosa)
+     */
+    private boolean printWithSumatraPDF(Path file) {
+        try {
+            // Buscar SumatraPDF en ubicaciones comunes
+            String[] possiblePaths = {
+                "C:\\Program Files\\SumatraPDF\\SumatraPDF.exe",
+                "C:\\Program Files (x86)\\SumatraPDF\\SumatraPDF.exe",
+                System.getenv("LOCALAPPDATA") + "\\SumatraPDF\\SumatraPDF.exe",
+                System.getenv("ProgramFiles") + "\\SumatraPDF\\SumatraPDF.exe"
+            };
+            
+            String sumatraPath = null;
+            for (String path : possiblePaths) {
+                if (path != null && Files.exists(Paths.get(path))) {
+                    sumatraPath = path;
+                    break;
                 }
             }
             
-            // MÉTODO 2: Usar PowerShell Out-Printer (último recurso)
-            log.info("   🔄 Método 2: PowerShell Out-Printer...");
-            String outPrinterCommand = String.format(
-                "powershell.exe -Command \"Get-Content -Path '%s' -Raw | Out-Printer -Name '%s'\"",
-                file.toAbsolutePath(), localPrinterName
-            );
-            
-            process = Runtime.getRuntime().exec(outPrinterCommand);
-            exitCode = process.waitFor();
-            
-            if (exitCode == 0) {
-                log.info("   ✅ Enviado con Out-Printer");
-                return true;
+            if (sumatraPath == null) {
+                log.debug("   ⏭️  SumatraPDF no encontrado, saltando...");
+                return false;
             }
             
-            log.error("   ❌ Todos los métodos fallaron");
-            return false;
+            log.info("   🔄 Método 1: SumatraPDF (impresión silenciosa)...");
+            
+            // Comando: SumatraPDF.exe -print-to "Nombre Impresora" -silent "archivo.pdf"
+            String command = String.format("\"%s\" -print-to \"%s\" -silent \"%s\"",
+                sumatraPath, localPrinterName, file.toAbsolutePath());
+            
+            Process process = Runtime.getRuntime().exec(command);
+            
+            // Esperar máximo 30 segundos
+            boolean finished = process.waitFor(30, TimeUnit.SECONDS);
+            
+            if (!finished) {
+                log.warn("   ⚠️ SumatraPDF timeout, abortando...");
+                process.destroyForcibly();
+                return false;
+            }
+            
+            int exitCode = process.exitValue();
+            if (exitCode == 0) {
+                log.info("   ✅ PDF enviado con SumatraPDF");
+                return true;
+            } else {
+                log.warn("   ⚠️ SumatraPDF falló (código: {})", exitCode);
+                return false;
+            }
             
         } catch (Exception e) {
-            log.error("   ❌ Excepción al enviar a impresora local", e);
+            log.debug("   ⚠️ Error con SumatraPDF: {}", e.getMessage());
             return false;
         }
+    }
+    
+    /**
+     * Imprime PDF usando Adobe Reader
+     */
+    private boolean printWithAdobeReader(Path file) {
+        try {
+            // Buscar Adobe Reader
+            String[] possiblePaths = {
+                "C:\\Program Files\\Adobe\\Acrobat DC\\Acrobat\\Acrobat.exe",
+                "C:\\Program Files (x86)\\Adobe\\Acrobat Reader DC\\Reader\\AcroRd32.exe",
+                "C:\\Program Files\\Adobe\\Acrobat Reader DC\\Reader\\AcroRd32.exe"
+            };
+            
+            String adobePath = null;
+            for (String path : possiblePaths) {
+                if (Files.exists(Paths.get(path))) {
+                    adobePath = path;
+                    break;
+                }
+            }
+            
+            if (adobePath == null) {
+                log.debug("   ⏭️  Adobe Reader no encontrado, saltando...");
+                return false;
+            }
+            
+            log.info("   🔄 Método 2: Adobe Reader...");
+            
+            // Comando: AcroRd32.exe /t "archivo.pdf" "Impresora"
+            String command = String.format("\"%s\" /t \"%s\" \"%s\"",
+                adobePath, file.toAbsolutePath(), localPrinterName);
+            
+            Process process = Runtime.getRuntime().exec(command);
+            
+            // Adobe Reader se cierra solo, esperar máximo 30 segundos
+            boolean finished = process.waitFor(30, TimeUnit.SECONDS);
+            
+            if (!finished) {
+                log.warn("   ⚠️ Adobe Reader timeout");
+                process.destroyForcibly();
+                return false;
+            }
+            
+            // Adobe Reader siempre retorna 0, esperar un poco y asumir éxito
+            Thread.sleep(2000);
+            log.info("   ✅ PDF enviado con Adobe Reader");
+            return true;
+            
+        } catch (Exception e) {
+            log.debug("   ⚠️ Error con Adobe Reader: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Imprime PDF usando PowerShell y .NET Framework
+     */
+    private boolean printWithPowerShell(Path file) {
+        try {
+            log.info("   🔄 Método 3: PowerShell con .NET...");
+            
+            // Script PowerShell que usa .NET para imprimir PDF
+            String script = String.format(
+                "$printer = Get-Printer -Name '%s' -ErrorAction Stop; " +
+                "$shell = New-Object -ComObject Shell.Application; " +
+                "$file = Get-Item '%s'; " +
+                "$verb = $file | Select-Object -ExpandProperty Verbs | Where-Object {$_.Name -eq 'Imprimir'}; " +
+                "if ($verb) { $verb.DoIt(); Start-Sleep -Seconds 3; exit 0 } else { exit 1 }",
+                localPrinterName, file.toAbsolutePath()
+            );
+            
+            String command = "powershell.exe -ExecutionPolicy Bypass -Command \"" + script + "\"";
+            
+            Process process = Runtime.getRuntime().exec(command);
+            boolean finished = process.waitFor(15, TimeUnit.SECONDS);
+            
+            if (!finished) {
+                log.warn("   ⚠️ PowerShell timeout");
+                process.destroyForcibly();
+                return false;
+            }
+            
+            int exitCode = process.exitValue();
+            if (exitCode == 0) {
+                log.info("   ✅ PDF enviado con PowerShell");
+                return true;
+            } else {
+                log.warn("   ⚠️ PowerShell falló (código: {})", exitCode);
+                return false;
+            }
+            
+        } catch (Exception e) {
+            log.debug("   ⚠️ Error con PowerShell: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Imprime PDF usando Ghostscript
+     */
+    private boolean printWithGhostscript(Path file) {
+        try {
+            // Buscar Ghostscript
+            String gsPath = findGhostscript();
+            if (gsPath == null) {
+                log.debug("   ⏭️  Ghostscript no encontrado, saltando...");
+                return false;
+            }
+            
+            log.info("   🔄 Método 4: Ghostscript...");
+            
+            // Comando Ghostscript para imprimir
+            String command = String.format(
+                "\"%s\" -dPrinted -dBATCH -dNOPAUSE -dNOSAFER -q -dNumCopies=1 " +
+                "-sDEVICE=mswinpr2 -sOutputFile=\"%%printer%%%s\" \"%s\"",
+                gsPath, localPrinterName, file.toAbsolutePath()
+            );
+            
+            Process process = Runtime.getRuntime().exec(command);
+            boolean finished = process.waitFor(30, TimeUnit.SECONDS);
+            
+            if (!finished) {
+                log.warn("   ⚠️ Ghostscript timeout");
+                process.destroyForcibly();
+                return false;
+            }
+            
+            int exitCode = process.exitValue();
+            if (exitCode == 0) {
+                log.info("   ✅ PDF enviado con Ghostscript");
+                return true;
+            } else {
+                log.warn("   ⚠️ Ghostscript falló (código: {})", exitCode);
+                return false;
+            }
+            
+        } catch (Exception e) {
+            log.debug("   ⚠️ Error con Ghostscript: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Busca la instalación de Ghostscript
+     */
+    private String findGhostscript() {
+        try {
+            // Buscar en ubicaciones comunes
+            String[] possibleDirs = {
+                "C:\\Program Files\\gs",
+                "C:\\Program Files (x86)\\gs"
+            };
+            
+            for (String dir : possibleDirs) {
+                File gsDir = new File(dir);
+                if (gsDir.exists() && gsDir.isDirectory()) {
+                    // Buscar subdirectorios (ej: gs9.56.1)
+                    File[] versions = gsDir.listFiles();
+                    if (versions != null) {
+                        for (File version : versions) {
+                            File gsExe = new File(version, "bin\\gswin64c.exe");
+                            if (gsExe.exists()) {
+                                return gsExe.getAbsolutePath();
+                            }
+                            gsExe = new File(version, "bin\\gswin32c.exe");
+                            if (gsExe.exists()) {
+                                return gsExe.getAbsolutePath();
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // Ignorar
+        }
+        return null;
     }
     
     /**
