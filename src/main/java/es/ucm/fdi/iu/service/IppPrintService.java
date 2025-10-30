@@ -23,9 +23,18 @@ import java.util.*;
 @Slf4j
 public class IppPrintService {
 
-    // Timeout configurable para conexiones IPP (ms)
+    // Timeouts configurables para conexiones IPP (ms)
     @Value("${printer.discovery.port.timeout:1000}")
+    private int discoveryTimeout;
+    
+    @Value("${printer.connection.timeout:5000}")
     private int connectionTimeout;
+    
+    @Value("${printer.data.transfer.timeout:10000}")
+    private int dataTransferTimeout;
+    
+    @Value("${printer.connection.retries:3}")
+    private int maxRetries;
 
     /**
      * Información de una impresora IPP
@@ -368,34 +377,193 @@ public class IppPrintService {
     /**
      * Envía datos directamente a un puerto de impresora (RAW o LPD)
      * Método público para ser usado por IppServerService
+     * Incluye diagnósticos mejorados y reintentos automáticos
      */
     public boolean sendToRawPort(String ip, Path file, int port) {
-        try {
-            log.debug("Intentando enviar a {}:{}", ip, port);
-            
-            try (Socket socket = new Socket()) {
-                // Usar timeout configurable (mínimo 3 segundos para estabilidad)
-                int timeout = Math.max(connectionTimeout, 3000);
-                socket.connect(new InetSocketAddress(ip, port), timeout);
-                
-                try (OutputStream out = socket.getOutputStream();
-                     FileInputStream fis = new FileInputStream(file.toFile())) {
-                    
-                    byte[] buffer = new byte[8192];
-                    int bytesRead;
-                    while ((bytesRead = fis.read(buffer)) != -1) {
-                        out.write(buffer, 0, bytesRead);
-                    }
-                    out.flush();
-                    
-                    log.debug("✅ Datos enviados a {}:{}", ip, port);
-                    return true;
-                }
-            }
-        } catch (IOException e) {
-            log.debug("❌ Puerto {}:{} no disponible: {}", ip, port, e.getMessage());
+        log.info("📡 Iniciando envío a {}:{}", ip, port);
+        
+        // Paso 1: Diagnóstico previo de conectividad
+        NetworkDiagnostics diagnostics = performNetworkDiagnostics(ip, port);
+        
+        if (!diagnostics.isReachable) {
+            log.error("❌ Host {} no alcanzable", ip);
+            log.error("   💡 Verifica:");
+            log.error("      - El dispositivo está encendido");
+            log.error("      - La dirección IP es correcta");
+            log.error("      - No hay problemas de red entre servidor y dispositivo");
             return false;
         }
+        
+        if (!diagnostics.isPortOpen) {
+            log.error("❌ Puerto {}:{} cerrado o filtrado", ip, port);
+            log.error("   💡 Verifica:");
+            log.error("      - El servicio está ejecutándose en el puerto {}", port);
+            log.error("      - El firewall permite tráfico al puerto {}", port);
+            log.error("      - La aplicación cliente USB está activa (si aplica)");
+            return false;
+        }
+        
+        log.info("✅ Diagnóstico previo exitoso (RTT: {} ms)", diagnostics.latencyMs);
+        
+        // Paso 2: Intentar envío con reintentos
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                log.info("   📤 Intento {}/{}: Enviando archivo ({} bytes)", 
+                    attempt, maxRetries, Files.size(file));
+                
+                if (sendToRawPortInternal(ip, file, port)) {
+                    log.info("✅ Envío exitoso a {}:{} (intento {})", ip, port, attempt);
+                    return true;
+                }
+                
+            } catch (IOException e) {
+                log.warn("⚠️ Intento {}/{} falló: {}", attempt, maxRetries, e.getMessage());
+                
+                if (attempt < maxRetries) {
+                    // Backoff exponencial: 1s, 2s, 4s...
+                    long waitMs = (long) Math.pow(2, attempt - 1) * 1000;
+                    log.info("   ⏳ Esperando {} ms antes del siguiente intento...", waitMs);
+                    
+                    try {
+                        Thread.sleep(waitMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return false;
+                    }
+                } else {
+                    log.error("❌ Todos los intentos fallaron para {}:{}", ip, port);
+                    log.error("   📊 Estadísticas finales:");
+                    log.error("      - Intentos realizados: {}", maxRetries);
+                    log.error("      - Último error: {}", e.getMessage());
+                    log.error("      - Tipo de error: {}", e.getClass().getSimpleName());
+                }
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Realiza el envío real de datos al puerto
+     */
+    private boolean sendToRawPortInternal(String ip, Path file, int port) throws IOException {
+        Socket socket = null;
+        try {
+            socket = new Socket();
+            
+            // Configurar timeouts
+            socket.connect(new InetSocketAddress(ip, port), connectionTimeout);
+            socket.setSoTimeout(dataTransferTimeout);
+            
+            long startTime = System.currentTimeMillis();
+            long totalBytes = 0;
+            
+            try (OutputStream out = socket.getOutputStream();
+                 FileInputStream fis = new FileInputStream(file.toFile())) {
+                
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                
+                while ((bytesRead = fis.read(buffer)) != -1) {
+                    out.write(buffer, 0, bytesRead);
+                    totalBytes += bytesRead;
+                }
+                out.flush();
+                
+                long duration = System.currentTimeMillis() - startTime;
+                double speedKBps = (totalBytes / 1024.0) / (duration / 1000.0);
+                
+                log.info("   📊 Transferencia completa:");
+                log.info("      - Bytes enviados: {} ({} KB)", totalBytes, totalBytes / 1024);
+                log.info("      - Duración: {} ms", duration);
+                log.info("      - Velocidad: {:.2f} KB/s", speedKBps);
+                
+                return true;
+            }
+            
+        } finally {
+            if (socket != null && !socket.isClosed()) {
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                    log.trace("Error cerrando socket: {}", e.getMessage());
+                }
+            }
+        }
+    }
+    
+    /**
+     * Realiza diagnósticos de red previos al envío
+     */
+    private NetworkDiagnostics performNetworkDiagnostics(String ip, int port) {
+        NetworkDiagnostics diag = new NetworkDiagnostics();
+        
+        log.info("🔍 Realizando diagnóstico de red para {}:{}", ip, port);
+        
+        // Test 1: ¿El host es alcanzable?
+        try {
+            InetAddress address = InetAddress.getByName(ip);
+            long startPing = System.currentTimeMillis();
+            diag.isReachable = address.isReachable(Math.max(discoveryTimeout, 2000));
+            diag.latencyMs = System.currentTimeMillis() - startPing;
+            
+            if (diag.isReachable) {
+                log.info("   ✅ Host alcanzable (RTT: {} ms)", diag.latencyMs);
+            } else {
+                log.warn("   ⚠️ Host no responde a ping (puede estar bloqueado por firewall)");
+                // Algunos hosts bloquean ICMP, así que no es fatal
+                diag.isReachable = true; // Asumir alcanzable
+            }
+        } catch (UnknownHostException e) {
+            log.error("   ❌ No se puede resolver el host: {}", ip);
+            log.error("   💡 Verifica que la dirección IP sea correcta");
+            diag.isReachable = false;
+            return diag;
+        } catch (IOException e) {
+            log.warn("   ⚠️ Error verificando alcance: {}", e.getMessage());
+            diag.isReachable = true; // Continuar de todas formas
+        }
+        
+        // Test 2: ¿El puerto está abierto?
+        try (Socket testSocket = new Socket()) {
+            long startConnect = System.currentTimeMillis();
+            testSocket.connect(new InetSocketAddress(ip, port), connectionTimeout);
+            long connectTime = System.currentTimeMillis() - startConnect;
+            
+            diag.isPortOpen = true;
+            log.info("   ✅ Puerto {} abierto (conexión en {} ms)", port, connectTime);
+            
+        } catch (IOException e) {
+            diag.isPortOpen = false;
+            diag.errorMessage = e.getMessage();
+            
+            // Diagnosticar tipo específico de error
+            if (e instanceof ConnectException) {
+                if (e.getMessage().contains("Connection refused")) {
+                    log.warn("   ⚠️ Conexión rechazada - Puerto {} cerrado o servicio no escuchando", port);
+                } else if (e.getMessage().contains("Connection timed out")) {
+                    log.warn("   ⚠️ Timeout de conexión - Puerto {} filtrado o host lento", port);
+                } else {
+                    log.warn("   ⚠️ Error de conexión: {}", e.getMessage());
+                }
+            } else if (e instanceof SocketTimeoutException) {
+                log.warn("   ⚠️ Timeout - Puerto {} no responde en {} ms", port, connectionTimeout);
+            } else {
+                log.warn("   ⚠️ Error verificando puerto: {}", e.getMessage());
+            }
+        }
+        
+        return diag;
+    }
+    
+    /**
+     * Clase interna para almacenar resultados de diagnóstico
+     */
+    private static class NetworkDiagnostics {
+        boolean isReachable = false;
+        boolean isPortOpen = false;
+        long latencyMs = 0;
+        String errorMessage = null;
     }
     
     /**

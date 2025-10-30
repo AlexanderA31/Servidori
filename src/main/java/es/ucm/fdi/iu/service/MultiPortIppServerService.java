@@ -213,6 +213,7 @@ public class MultiPortIppServerService {
                 log.error("  ❌ Impresora ID {} ya no existe en la base de datos", printer.getId());
                 log.error("  ℹ️  Esta impresora fue eliminada pero su puerto {} sigue escuchando", port);
                 log.error("  ℹ️  Se requiere reiniciar el servicio para liberar el puerto");
+                log.error("  💡 Recomendación: Ejecuta 'systemctl restart nombre-servicio'");
                 out.write(new byte[]{0x01, 0x01, 0x05, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03});
                 out.flush();
                 return;
@@ -229,13 +230,20 @@ public class MultiPortIppServerService {
                 // REENVIAR DIRECTAMENTE AL CLIENTE USB (sin cola)
                 log.info("  🖨️  Impresora USB compartida detectada");
                 log.info("  📤 Reenviando directo a cliente USB: {}:631", currentPrinter.get().getIp());
+                log.info("  ℹ️  Modo: Reenvío directo (sin cola de impresión)");
                 
                 // Guardar datos en archivo temporal
+                File tempFile = null;
                 try {
-                    File tempFile = File.createTempFile("ipp-usb-", ".dat");
+                    tempFile = File.createTempFile("ipp-usb-", ".dat");
+                    log.debug("  📝 Archivo temporal creado: {}", tempFile.getAbsolutePath());
+                    
                     try (FileOutputStream fos = new FileOutputStream(tempFile)) {
                         fos.write(data);
                     }
+                    
+                    log.info("  🔄 Iniciando transferencia a cliente USB...");
+                    long startTime = System.currentTimeMillis();
                     
                     // Enviar directamente al cliente USB en puerto 631 (IPP estándar)
                     success = ippPrintService.sendToRawPort(
@@ -244,21 +252,53 @@ public class MultiPortIppServerService {
                         631
                     );
                     
-                    // Limpiar archivo temporal
-                    tempFile.delete();
+                    long duration = System.currentTimeMillis() - startTime;
                     
                     if (success) {
                         log.info("  ✅ Trabajo reenviado exitosamente a cliente USB");
+                        log.info("  ⏱️  Tiempo de transferencia: {} ms", duration);
                         log.info("  ℹ️  El cliente USB procesará e imprimirá el documento");
                     } else {
-                        log.error("  ❌ No se pudo conectar al cliente USB");
-                        log.error("  ℹ️  Verifica que:");
-                        log.error("      - La PC con la impresora esté encendida ({})", currentPrinter.get().getIp());
-                        log.error("      - El cliente USB esté ejecutándose");
-                        log.error("      - El puerto 631 no esté bloqueado por firewall");
+                        log.error("  ❌ No se pudo conectar al cliente USB después de {} ms", duration);
+                        log.error("");
+                        log.error("  🔧 GUÍA DE SOLUCIÓN DE PROBLEMAS:");
+                        log.error("  ══════════════════════════════════════════════════════════");
+                        log.error("  1️⃣ Verifica que la PC cliente esté encendida");
+                        log.error("     - IP del cliente: {}", currentPrinter.get().getIp());
+                        log.error("     - Comando de prueba: ping {}", currentPrinter.get().getIp());
+                        log.error("");
+                        log.error("  2️⃣ Verifica que el cliente USB esté ejecutándose");
+                        log.error("     - El software debe estar activo en segundo plano");
+                        log.error("     - Debe estar escuchando en el puerto 631");
+                        log.error("");
+                        log.error("  3️⃣ Verifica el firewall");
+                        log.error("     - Puerto 631 debe estar abierto para conexiones entrantes");
+                        log.error("     - Windows: 'netsh advfirewall firewall add rule ...'");
+                        log.error("     - Linux: 'sudo ufw allow 631/tcp'");
+                        log.error("");
+                        log.error("  4️⃣ Verifica la conectividad de red");
+                        log.error("     - Comando: telnet {} 631", currentPrinter.get().getIp());
+                        log.error("     - Si falla, hay un problema de red/firewall");
+                        log.error("  ══════════════════════════════════════════════════════════");
                     }
+                    
+                } catch (IOException e) {
+                    log.error("  ❌ Error de I/O al crear archivo temporal: {}", e.getMessage());
+                    log.debug("  Stack trace:", e);
                 } catch (Exception e) {
-                    log.error("  ❌ Error reenviando a cliente USB: {}", e.getMessage());
+                    log.error("  ❌ Error inesperado reenviando a cliente USB: {}", e.getMessage());
+                    log.error("  🐛 Tipo de error: {}", e.getClass().getSimpleName());
+                    log.debug("  Stack trace completo:", e);
+                } finally {
+                    // Limpiar archivo temporal
+                    if (tempFile != null && tempFile.exists()) {
+                        try {
+                            tempFile.delete();
+                            log.debug("  🗑️  Archivo temporal eliminado");
+                        } catch (Exception e) {
+                            log.warn("  ⚠️ No se pudo eliminar archivo temporal: {}", e.getMessage());
+                        }
+                    }
                 }
             } else {
                 // IMPRESORA DE RED NORMAL - usar cola de impresión
@@ -266,36 +306,65 @@ public class MultiPortIppServerService {
                 
                 // IMPORTANTE: Procesar documento antes de guardar en cola
                 log.info("  🔄 Procesando documento para impresión...");
-                byte[] processedData = documentConverter.processForPrinting(data, currentPrinter.get().getModel());
-                
-                if (processedData.length != data.length) {
-                    log.info("  ✅ Documento convertido: {} bytes → {} bytes", data.length, processedData.length);
-                }
                 
                 try {
+                    byte[] processedData = documentConverter.processForPrinting(data, currentPrinter.get().getModel());
+                    
+                    if (processedData.length != data.length) {
+                        log.info("  ✅ Documento convertido: {} bytes → {} bytes", data.length, processedData.length);
+                        log.info("  📊 Factor de compresión/expansión: {:.2f}x", 
+                            (double)processedData.length / data.length);
+                    } else {
+                        log.info("  ℹ️  Documento sin cambios (formato compatible)");
+                    }
+                    
+                    // Registrar en cola de impresión
                     printQueueService.addJob(currentPrinter.get(), fileName, ownerName, 
                                             currentPrinter.get().getInstance(), processedData);
                     log.info("  ✅ Trabajo registrado en cola de impresión");
+                    log.info("  ℹ️  El procesador de cola lo enviará a la impresora");
                     success = true;
+                    
+                } catch (IllegalArgumentException e) {
+                    log.error("  ❌ Error: Argumento inválido - {}", e.getMessage());
+                    log.error("  💡 Verifica los parámetros de la impresora");
+                } catch (IOException e) {
+                    log.error("  ❌ Error de I/O procesando documento: {}", e.getMessage());
+                    log.error("  💡 Puede haber un problema con el archivo temporal o espacio en disco");
                 } catch (Exception e) {
-                    log.error("  ❌ Error registrando trabajo en cola: {}", e.getMessage());
+                    log.error("  ❌ Error inesperado registrando trabajo en cola: {}", e.getMessage());
+                    log.error("  🐛 Tipo de error: {}", e.getClass().getSimpleName());
+                    log.debug("  Stack trace:", e);
                 }
             }
             
             // Responder al cliente
             if (success) {
-                log.info("  ✅ Trabajo aceptado en cola");
-                // Respuesta IPP: success
+                log.info("  ✅ Trabajo aceptado exitosamente");
+                // Respuesta IPP: success (0x0000 = successful-ok)
                 out.write(new byte[]{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03});
+                log.debug("  📤 Respuesta IPP enviada: successful-ok (0x0000)");
             } else {
                 log.error("  ❌ Error aceptando trabajo");
-                // Respuesta IPP: server-error
+                log.error("  📊 Resumen del error:");
+                log.error("     - Impresora: {}", printer.getAlias());
+                log.error("     - Archivo: {}", fileName);
+                log.error("     - Tamaño: {} bytes", data.length);
+                log.error("     - Usuario: {}", ownerName);
+                // Respuesta IPP: server-error-internal-error (0x0500)
                 out.write(new byte[]{0x01, 0x01, 0x05, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03});
+                log.debug("  📤 Respuesta IPP enviada: server-error-internal-error (0x0500)");
             }
             out.flush();
             
+        } catch (IOException e) {
+            log.error("❌ Error de I/O procesando cliente: {}", e.getMessage());
+            log.debug("Stack trace:", e);
         } catch (Exception e) {
-            log.error("❌ Error procesando cliente: {}", e.getMessage(), e);
+            log.error("❌ Error inesperado procesando cliente: {}", e.getMessage());
+            log.error("🐛 Tipo de error: {}", e.getClass().getSimpleName());
+            log.error("📍 Impresora: {} (Puerto {})", printer.getAlias(), port);
+            log.debug("Stack trace completo:", e);
         } finally {
             try {
                 clientSocket.close();
