@@ -289,55 +289,45 @@ if errorlevel 1 (
     set /p "INSTALL_JAVA=Instalar Java? (S/N): "
     
     if /i "!INSTALL_JAVA!"=="S" (
-        REM Asegurar que no se cierre en caso de error
-        setlocal
         echo.
         echo ====================================================================
         echo   INSTALACION DE JAVA
         echo ====================================================================
         echo.
-        echo Por favor espera, esto puede tardar varios minutos.
-        echo.
         
-        REM Metodo 1: Intentar con winget (Windows 10/11)
-        echo Metodo 1: Instalando con winget ^(Administrador de Paquetes de Windows^).
-        echo.
+        REM Metodo simple: Usar winget si esta disponible
+        echo Verificando winget.
+        where winget >nul 2>&1
         
-        winget --version >nul 2>&1
         if not errorlevel 1 (
-            echo [OK] winget detectado
+            echo [OK] winget disponible
             echo.
-            echo Instalando Java 17 JRE.
+            echo Instalando Java 17 JRE con winget.
+            echo Esto puede tardar 5-10 minutos, por favor espera.
             echo.
             
-            winget install --id EclipseAdoptium.Temurin.17.JRE --silent --accept-source-agreements --accept-package-agreements
+            winget install EclipseAdoptium.Temurin.17.JRE -e --silent --accept-source-agreements --accept-package-agreements
             
-            if not errorlevel 1 (
-                echo.
-                echo [OK] Java instalado exitosamente
-                goto :java_install_done
-            ) else (
-                echo.
-                echo [INFO] winget fallo, intentando descarga manual.
-                echo.
-            )
-        ) else (
-            echo [INFO] winget no disponible, usando descarga manual.
             echo.
+            echo [OK] Instalacion completada
+            goto :java_install_done
         )
         
-        REM Metodo 2: Descarga manual
-        set "JAVA_INSTALLER=%TEMP%\jre-installer.msi"
-        set "JAVA_DOWNLOADED=false"
-        
-        echo Metodo 2: Descargando Java manualmente.
-        echo Por favor espera.
+        REM Si winget no funciona, descarga manual
+        echo winget no disponible, descargando manualmente.
         echo.
         
-        echo Intentando descarga desde Java.com.
-        powershell -NoProfile -ExecutionPolicy Bypass -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Write-Host 'Descargando...'; Invoke-WebRequest -Uri 'https://javadl.oracle.com/webapps/download/AutoDL?BundleId=249837_d8aa705069af427f9b83e66b34f5e380' -OutFile '%JAVA_INSTALLER%' -TimeoutSec 600; Write-Host 'Descarga completada'; exit 0 } catch { Write-Host 'Error:' $_.Exception.Message; exit 1 }"
+        set "JAVA_INSTALLER=%TEMP%\adoptium-jre17.msi"
+        set "JAVA_URL=https://aka.ms/download-jdk/microsoft-jdk-17-windows-x64.msi"
         
-        if not errorlevel 1 (
+        echo Descargando Java desde Microsoft.
+        echo.
+        
+        powershell -NoProfile -ExecutionPolicy Bypass -Command "& { try { $ProgressPreference='SilentlyContinue'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Write-Host 'Descargando.' -NoNewline; Invoke-WebRequest -Uri '%JAVA_URL%' -OutFile '%JAVA_INSTALLER%' -UseBasicParsing; Write-Host ' OK'; exit 0 } catch { Write-Host ' ERROR'; Write-Host $_.Exception.Message; exit 1 } }"
+        
+        if errorlevel 1 (
+            set "JAVA_DOWNLOADED=false"
+        ) else (
             set "JAVA_DOWNLOADED=true"
         )
         
