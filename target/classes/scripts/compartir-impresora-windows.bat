@@ -46,11 +46,26 @@ REM ====================================================================
 set "HOSTNAME=%COMPUTERNAME%"
 set "USERNAME=%USERNAME%"
 
-REM Obtener IP local
+REM Obtener IP local (priorizar red 10.x.x.x sobre 192.168.56.x)
+set "IP_ADDRESS="
 for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /i "IPv4" ^| findstr /v "169.254"') do (
-    set "IP_ADDRESS=%%a"
-    set "IP_ADDRESS=!IP_ADDRESS:~1!"
-    goto :ip_found
+    set "TEMP_IP=%%a"
+    set "TEMP_IP=!TEMP_IP:~1!"
+    
+    REM Si es 10.x.x.x, usar inmediatamente
+    echo !TEMP_IP! | findstr /B "10\." >nul
+    if !errorlevel! EQU 0 (
+        set "IP_ADDRESS=!TEMP_IP!"
+        goto :ip_found
+    )
+    
+    REM Si es otra IP y no tenemos ninguna, guardarla como fallback
+    if "!IP_ADDRESS!"=="" (
+        echo !TEMP_IP! | findstr /B "192\.168\.56\." >nul
+        if !errorlevel! NEQ 0 (
+            set "IP_ADDRESS=!TEMP_IP!"
+        )
+    )
 )
 :ip_found
 

@@ -53,7 +53,7 @@ public class UsbClientService {
         try {
             // Obtener información del sistema
             computerName = InetAddress.getLocalHost().getHostName();
-            localIp = InetAddress.getLocalHost().getHostAddress();
+            localIp = detectBestLocalIp();
             
             log.info("📍 Computadora: {}", computerName);
             log.info("📍 IP Local: {}", localIp);
@@ -352,5 +352,109 @@ public class UsbClientService {
             log.error("Error al enviar a impresora local", e);
             return false;
         }
+    }
+    
+    /**
+     * Detecta la mejor IP local para comunicación con el servidor
+     * Prioriza redes corporativas (10.x.x.x) sobre redes privadas locales
+     */
+    private String detectBestLocalIp() {
+        try {
+            String fallbackIp = InetAddress.getLocalHost().getHostAddress();
+            
+            log.debug("🔍 Detectando mejor IP local...");
+            
+            // Obtener todas las interfaces de red
+            var interfaces = NetworkInterface.getNetworkInterfaces();
+            
+            String bestIp = null;
+            int bestPriority = 0;
+            
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface ni = interfaces.nextElement();
+                
+                // Ignorar interfaces inactivas, loopback y virtuales
+                if (!ni.isUp() || ni.isLoopback() || ni.isVirtual()) {
+                    continue;
+                }
+                
+                var addresses = ni.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    InetAddress addr = addresses.nextElement();
+                    
+                    // Solo IPv4
+                    if (addr instanceof java.net.Inet6Address) {
+                        continue;
+                    }
+                    
+                    String ip = addr.getHostAddress();
+                    
+                    // Ignorar loopback y link-local
+                    if (ip.startsWith("127.") || ip.startsWith("169.254.")) {
+                        continue;
+                    }
+                    
+                    int priority = calculateIpPriority(ip);
+                    
+                    log.debug("   Interface: {} - IP: {} (prioridad: {})", 
+                        ni.getDisplayName(), ip, priority);
+                    
+                    if (priority > bestPriority) {
+                        bestPriority = priority;
+                        bestIp = ip;
+                    }
+                }
+            }
+            
+            if (bestIp != null) {
+                log.info("   ✅ IP seleccionada: {} (prioridad: {})", bestIp, bestPriority);
+                return bestIp;
+            }
+            
+            log.warn("   ⚠️  No se encontró IP óptima, usando: {}", fallbackIp);
+            return fallbackIp;
+            
+        } catch (Exception e) {
+            log.error("Error detectando IP local", e);
+            try {
+                return InetAddress.getLocalHost().getHostAddress();
+            } catch (UnknownHostException ex) {
+                return "127.0.0.1";
+            }
+        }
+    }
+    
+    /**
+     * Calcula prioridad de una IP para selección
+     * Mayor prioridad = mejor IP para comunicación con servidor
+     */
+    private int calculateIpPriority(String ip) {
+        // Prioridad 1000: Red corporativa 10.x.x.x
+        if (ip.startsWith("10.")) {
+            return 1000;
+        }
+        
+        // Prioridad 900: Otras redes privadas clase A (172.16-31.x.x)
+        if (ip.startsWith("172.")) {
+            String[] parts = ip.split("\\.");
+            if (parts.length >= 2) {
+                int second = Integer.parseInt(parts[1]);
+                if (second >= 16 && second <= 31) {
+                    return 900;
+                }
+            }
+        }
+        
+        // Prioridad 800: Red privada 192.168.x.x (excepto 192.168.56.x)
+        if (ip.startsWith("192.168.")) {
+            // Penalizar VirtualBox Host-Only (192.168.56.x)
+            if (ip.startsWith("192.168.56.")) {
+                return 100; // Baja prioridad
+            }
+            return 800;
+        }
+        
+        // Prioridad 500: IP pública (fallback)
+        return 500;
     }
 }
