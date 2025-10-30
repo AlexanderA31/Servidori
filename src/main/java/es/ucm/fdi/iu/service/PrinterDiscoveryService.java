@@ -6,6 +6,7 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import javax.print.PrintService;
@@ -28,9 +29,12 @@ import org.snmp4j.transport.DefaultUdpTransportMapping;
  * - Impresoras de red (diferentes VLANs)
  * - Impresoras USB conectadas a computadoras
  * - Impresoras compartidas por otras computadoras
+ * 
+ * Solo se carga en modo servidor (NO en usb-client)
  */
 @Service
 @Slf4j
+@ConditionalOnProperty(name = "app.mode", havingValue = "server", matchIfMissing = true)
 public class PrinterDiscoveryService {
 
     @PersistenceContext

@@ -4,6 +4,7 @@ import es.ucm.fdi.iu.model.Printer;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import org.apache.logging.log4j.LogManager;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ import java.util.List;
  * 3. Genera URIs de conexión para clientes
  */
 @Service
+@ConditionalOnProperty(name = "app.mode", havingValue = "server", matchIfMissing = true)
 public class PrinterAutoConfigService {
 
     private static final Logger log = LogManager.getLogger(PrinterAutoConfigService.class);

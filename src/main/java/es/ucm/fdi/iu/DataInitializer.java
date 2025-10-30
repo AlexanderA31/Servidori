@@ -7,6 +7,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -14,9 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Initializes database with default data if needed
+ * Only runs when NOT in usb-client mode (server mode)
  */
 @Component
 @Order(1)
+@ConditionalOnProperty(name = "app.mode", havingValue = "server", matchIfMissing = true)
 public class DataInitializer implements CommandLineRunner {
 
     private static final Logger log = LogManager.getLogger(DataInitializer.class);

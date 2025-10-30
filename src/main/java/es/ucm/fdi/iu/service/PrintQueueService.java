@@ -8,6 +8,7 @@ import jakarta.annotation.PreDestroy;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -35,6 +36,7 @@ import java.util.concurrent.*;
  */
 @Service
 @Slf4j
+@ConditionalOnProperty(name = "app.mode", havingValue = "server", matchIfMissing = true)
 public class PrintQueueService {
 
     @Autowired
