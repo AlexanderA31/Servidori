@@ -204,7 +204,7 @@ REM Crear JSON
 ) > "%TEMP_JSON%"
 
 REM Enviar POST al servidor
-powershell -Command "$json = Get-Content '%TEMP_JSON%' -Raw; try { $response = Invoke-RestMethod -Uri 'http://%SERVER_IP%:%SERVER_PORT%/api/register-shared-printer' -Method Post -Body $json -ContentType 'application/json' -TimeoutSec 15; $response | ConvertTo-Json | Out-File '%TEMP_RESPONSE%'; if ($response.success -eq $true) { Write-Host '[OK] Impresora registrada exitosamente'; exit 0 } elseif ($response.error -like '*Ya existe*') { Write-Host '[INFO] Impresora ya estaba registrada'; exit 2 } else { Write-Host '[ERROR]' $response.error; exit 1 } } catch { Write-Host '[ERROR]' $_.Exception.Message; exit 1 }"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$json = Get-Content '%TEMP_JSON%' -Raw; try { $response = Invoke-RestMethod -Uri 'http://%SERVER_IP%:%SERVER_PORT%/api/register-shared-printer' -Method Post -Body $json -ContentType 'application/json' -TimeoutSec 15; $response | ConvertTo-Json | Out-File '%TEMP_RESPONSE%'; if ($response.success -eq $true) { Write-Host '[OK] Impresora registrada exitosamente'; exit 0 } elseif ($response.error -like '*Ya existe*') { Write-Host '[INFO] Impresora ya estaba registrada'; exit 2 } else { Write-Host '[ERROR]' $response.error; exit 1 } } catch { Write-Host '[ERROR]' $_.Exception.Message; exit 1 }"
 
 if errorlevel 2 (
     echo.
@@ -284,7 +284,7 @@ if errorlevel 1 (
     echo hasta que instales Java.
     echo.
     echo Deseas instalar Java automaticamente AHORA?
-    echo (Recomendado - tarda 5-10 minutos)
+    echo ^(Recomendado - tarda 5-10 minutos^)
     echo.
     set /p "INSTALL_JAVA=Instalar Java? (S/N): "
     
@@ -540,7 +540,7 @@ echo URL: %CLIENT_URL%
 echo Destino: %CLIENT_JAR%
 echo.
 
-powershell -Command "try { Write-Host 'Descargando...' -ForegroundColor Yellow; Invoke-WebRequest -Uri '%CLIENT_URL%' -OutFile '%CLIENT_JAR%' -TimeoutSec 60; Write-Host '[OK] Descarga completada' -ForegroundColor Green; exit 0 } catch { Write-Host '[ERROR]' $_.Exception.Message -ForegroundColor Red; exit 1 }"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Write-Host 'Descargando...' -ForegroundColor Yellow; Invoke-WebRequest -Uri '%CLIENT_URL%' -OutFile '%CLIENT_JAR%' -TimeoutSec 60; Write-Host '[OK] Descarga completada' -ForegroundColor Green; exit 0 } catch { Write-Host '[ERROR]' $_.Exception.Message -ForegroundColor Red; exit 1 }"
 
 if errorlevel 1 (
     echo.
