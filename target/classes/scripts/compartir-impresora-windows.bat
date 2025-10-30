@@ -280,40 +280,110 @@ if errorlevel 1 (
     
     if /i "!INSTALL_JAVA!"=="S" (
         echo.
-        echo Descargando Java... (esto puede tardar 5-10 minutos)
+        echo ====================================================================
+        echo   INSTALACION DE JAVA
+        echo ====================================================================
+        echo.
+        echo Por favor espera, esto puede tardar varios minutos...
         echo.
         
         set "JAVA_INSTALLER=%TEMP%\jre-installer.exe"
         
-        powershell -Command "Write-Host 'Descargando Java...' -ForegroundColor Yellow; try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri 'https://javadl.oracle.com/webapps/download/AutoDL?BundleId=249837_d8aa705069af427f9b83e66b34f5e380' -OutFile '%JAVA_INSTALLER%' -TimeoutSec 600; Write-Host 'Descarga completada' -ForegroundColor Green; exit 0 } catch { Write-Host 'Error:' $_.Exception.Message -ForegroundColor Red; exit 1 }"
+        REM Intentar multiples URLs de descarga
+        set "JAVA_DOWNLOADED=false"
         
-        if errorlevel 1 (
-            echo [ERROR] No se pudo descargar Java
+        echo [1/3] Intentando descarga desde Java.com...
+        powershell -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Write-Host '      Descargando...' -NoNewline; Invoke-WebRequest -Uri 'https://javadl.oracle.com/webapps/download/AutoDL?BundleId=249837_d8aa705069af427f9b83e66b34f5e380' -OutFile '%JAVA_INSTALLER%' -TimeoutSec 300; Write-Host ' OK' -ForegroundColor Green; exit 0 } catch { Write-Host ' FALLO' -ForegroundColor Red; Write-Host '      Error:' $_.Exception.Message; exit 1 }" 2>nul
+        
+        if not errorlevel 1 (
+            set "JAVA_DOWNLOADED=true"
+            goto :java_download_ok
+        )
+        
+        echo [2/3] Intentando descarga alternativa...
+        powershell -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Write-Host '      Descargando...' -NoNewline; Invoke-WebRequest -Uri 'https://download.oracle.com/java/17/latest/jdk-17_windows-x64_bin.exe' -OutFile '%JAVA_INSTALLER%' -TimeoutSec 300; Write-Host ' OK' -ForegroundColor Green; exit 0 } catch { Write-Host ' FALLO' -ForegroundColor Red; exit 1 }" 2>nul
+        
+        if not errorlevel 1 (
+            set "JAVA_DOWNLOADED=true"
+            goto :java_download_ok
+        )
+        
+        echo [3/3] Intentando desde Adoptium...
+        powershell -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Write-Host '      Descargando...' -NoNewline; Invoke-WebRequest -Uri 'https://api.adoptium.net/v3/binary/latest/17/ga/windows/x64/jre/hotspot/normal/eclipse?project=jdk' -OutFile '%JAVA_INSTALLER%' -TimeoutSec 300; Write-Host ' OK' -ForegroundColor Green; exit 0 } catch { Write-Host ' FALLO' -ForegroundColor Red; exit 1 }" 2>nul
+        
+        if not errorlevel 1 (
+            set "JAVA_DOWNLOADED=true"
+        )
+        
+        :java_download_ok
+        
+        if "!JAVA_DOWNLOADED!"=="false" (
             echo.
-            echo Descargalo manualmente desde: https://www.java.com/es/download/
-            echo Luego ejecuta: %APPDATA%\PrinterShare\start-client.bat
+            echo [ERROR] No se pudo descargar Java automaticamente
+            echo.
+            echo SOLUCION MANUAL:
+            echo   1. Descarga Java desde: https://www.java.com/es/download/
+            echo   2. Instalalo manualmente
+            echo   3. Ejecuta: %APPDATA%\PrinterShare\start-client.bat
+            echo.
+            echo El script continuara sin Java...
             echo.
             set "SKIP_CLIENT=true"
+            pause
         ) else (
-            echo [OK] Java descargado
             echo.
-            echo Instalando Java...
+            echo [OK] Java descargado exitosamente
+            echo.
+            echo Instalando Java (modo silencioso)...
+            echo Por favor espera, NO cierres esta ventana...
             echo.
             
-            start /wait "" "%JAVA_INSTALLER%" /s INSTALL_SILENT=1 STATIC=0 AUTO_UPDATE=0 WEB_JAVA=1 REBOOT=0 SPONSORS=0
+            REM Verificar que el archivo existe
+            if not exist "%JAVA_INSTALLER%" (
+                echo [ERROR] El archivo descargado no existe
+                set "SKIP_CLIENT=true"
+                pause
+                goto :skip_java_install
+            )
+            
+            REM Verificar tamano del archivo (debe ser mayor a 50MB)
+            for %%A in ("%JAVA_INSTALLER%") do set "FILE_SIZE=%%~zA"
+            if !FILE_SIZE! LSS 52428800 (
+                echo [ERROR] Archivo descargado incompleto ^(!FILE_SIZE! bytes^)
+                del "%JAVA_INSTALLER%" 2>nul
+                set "SKIP_CLIENT=true"
+                pause
+                goto :skip_java_install
+            )
+            
+            echo Archivo: %JAVA_INSTALLER% ^(!FILE_SIZE! bytes^)
+            echo Instalando...
+            echo.
+            
+            REM Intentar instalacion silenciosa
+            start /wait "" "%JAVA_INSTALLER%" /s INSTALL_SILENT=1 STATIC=0 AUTO_UPDATE=0 WEB_JAVA=1 REBOOT=0 SPONSORS=0 2>nul
+            
+            REM Si falla, intentar instalacion normal
+            if errorlevel 1 (
+                echo [INFO] Instalacion silenciosa fallo, intentando modo normal...
+                start /wait "" "%JAVA_INSTALLER%"
+            )
             
             timeout /t 5 /nobreak >nul
             
             del "%JAVA_INSTALLER%" 2>nul
             
-            echo [OK] Java instalado
+            echo.
+            echo Verificando instalacion...
             echo.
             
             REM Buscar Java
             set "JAVA_FOUND=false"
+            set "JAVA_PATH="
             
             for /d %%i in ("C:\Program Files\Java\jdk-*") do (
                 if exist "%%i\bin\java.exe" (
+                    set "JAVA_PATH=%%i\bin"
                     set "PATH=%%i\bin;!PATH!"
                     set "JAVA_FOUND=true"
                     goto :java_check_done
@@ -322,6 +392,16 @@ if errorlevel 1 (
             
             for /d %%i in ("C:\Program Files\Java\jre*") do (
                 if exist "%%i\bin\java.exe" (
+                    set "JAVA_PATH=%%i\bin"
+                    set "PATH=%%i\bin;!PATH!"
+                    set "JAVA_FOUND=true"
+                    goto :java_check_done
+                )
+            )
+            
+            for /d %%i in ("C:\Program Files ^(x86^)\Java\jre*") do (
+                if exist "%%i\bin\java.exe" (
+                    set "JAVA_PATH=%%i\bin"
                     set "PATH=%%i\bin;!PATH!"
                     set "JAVA_FOUND=true"
                     goto :java_check_done
@@ -330,17 +410,34 @@ if errorlevel 1 (
             
             :java_check_done
             
-            if "!JAVA_FOUND!"=="false" (
-                echo [AVISO] Reinicia la PC para que Java funcione
+            if "!JAVA_FOUND!"=="true" (
+                echo [OK] Java instalado correctamente
+                echo      Ubicacion: !JAVA_PATH!
+                echo.
+                "!JAVA_PATH!\java.exe" -version 2>&1
+                echo.
+            ) else (
+                echo [AVISO] Java se instalo pero no se encuentra
+                echo          Reinicia la PC y ejecuta: %APPDATA%\PrinterShare\start-client.bat
+                echo.
                 set "SKIP_CLIENT=true"
             )
         )
+        
+        :skip_java_install
     ) else (
         echo.
         echo [INFO] Continuando sin Java
-        echo        Instala Java despues y ejecuta: %APPDATA%\PrinterShare\start-client.bat
+        echo.
+        echo IMPORTANTE: El cliente NO funcionara sin Java
+        echo.
+        echo Para instalar Java despues:
+        echo   1. Ve a: https://www.java.com/es/download/
+        echo   2. Descarga e instala Java
+        echo   3. Ejecuta: %APPDATA%\PrinterShare\start-client.bat
         echo.
         set "SKIP_CLIENT=true"
+        pause
     )
 ) else (
     echo [OK] Java ya esta instalado
