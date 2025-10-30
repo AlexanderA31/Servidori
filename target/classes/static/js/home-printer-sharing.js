@@ -74,7 +74,7 @@ function updateIPPInstructions(ippUri, printerName) {
 }
 
 // Copiar al portapapeles
-function copyToClipboard(elementId) {
+function copyToClipboard(elementId, event) {
     const element = document.getElementById(elementId);
     const text = element.textContent;
     

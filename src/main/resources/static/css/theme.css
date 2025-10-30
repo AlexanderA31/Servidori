@@ -136,7 +136,7 @@ input[type="button"].btn {
 }
 
 .btn:hover {
-    background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+    background: linear-gradient(135deg, #0f3050 0%);
     border-color: transparent;
     transform: translateY(-1px);
     box-shadow: var(--shadow-md);
