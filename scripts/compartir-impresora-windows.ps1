@@ -3,8 +3,8 @@
 
 param(
     [string]$PrinterName = "",
-    [string]$ServerHost = "ueb-impresoras.ueb.edu.ec",
-    [int]$ServerPort = 80,
+    [string]$ServerIP = "10.1.16.31",
+    [int]$ServerPort = 8080,
     [switch]$Install,
     [switch]$Uninstall,
     [switch]$Reset,

@@ -18,13 +18,13 @@ if %errorLevel% neq 0 (
 REM ====================================================================
 REM CONFIGURACION
 REM ====================================================================
-set "SERVER_HOST=ueb-impresoras.ueb.edu.ec"
-set "SERVER_PORT=80"
+set "SERVER_IP=10.1.16.31"
+set "SERVER_PORT=8080"
 set "LOG_FILE=%TEMP%\compartir-impresora.log"
 set "CONFIG_DIR=%APPDATA%\PrinterShare"
 set "CONFIG_FILE=%CONFIG_DIR%\config.txt"
 
-title Compartir Impresora USB - %SERVER_HOST%
+title Compartir Impresora USB - %SERVER_IP%
 
 REM Iniciar log
 echo [%DATE% %TIME%] Iniciando script > "%LOG_FILE%" 2>&1
@@ -35,7 +35,7 @@ echo ====================================================================
 echo   COMPARTIR IMPRESORA USB CON SERVIDOR
 echo ====================================================================
 echo.
-echo   Servidor: %SERVER_HOST%:%SERVER_PORT%
+echo   Servidor: %SERVER_IP%:%SERVER_PORT%
 echo.
 echo ====================================================================
 echo.
@@ -189,7 +189,7 @@ REM ====================================================================
 REM REGISTRAR EN EL SERVIDOR
 REM ====================================================================
 echo Registrando en el servidor.
-echo URL: http://%SERVER_HOST%:%SERVER_PORT%/api/register-shared-printer
+echo URL: http://%SERVER_IP%:%SERVER_PORT%/api/register-shared-printer
 echo.
 
 set "PRINTER_ALIAS=!SELECTED_PRINTER!_%HOSTNAME%"
@@ -209,7 +209,7 @@ REM Crear JSON
 ) > "%TEMP_JSON%"
 
 REM Enviar POST al servidor
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$json = Get-Content '%TEMP_JSON%' -Raw; try { $response = Invoke-RestMethod -Uri 'http://%SERVER_HOST%:%SERVER_PORT%/api/register-shared-printer' -Method Post -Body $json -ContentType 'application/json' -TimeoutSec 15; $response | ConvertTo-Json | Out-File '%TEMP_RESPONSE%'; if ($response.success -eq $true) { Write-Host '[OK] Impresora registrada exitosamente'; exit 0 } elseif ($response.error -like '*Ya existe*') { Write-Host '[INFO] Impresora ya estaba registrada'; exit 2 } else { Write-Host '[ERROR]' $response.error; exit 1 } } catch { Write-Host '[ERROR]' $_.Exception.Message; exit 1 }"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$json = Get-Content '%TEMP_JSON%' -Raw; try { $response = Invoke-RestMethod -Uri 'http://%SERVER_IP%:%SERVER_PORT%/api/register-shared-printer' -Method Post -Body $json -ContentType 'application/json' -TimeoutSec 15; $response | ConvertTo-Json | Out-File '%TEMP_RESPONSE%'; if ($response.success -eq $true) { Write-Host '[OK] Impresora registrada exitosamente'; exit 0 } elseif ($response.error -like '*Ya existe*') { Write-Host '[INFO] Impresora ya estaba registrada'; exit 2 } else { Write-Host '[ERROR]' $response.error; exit 1 } } catch { Write-Host '[ERROR]' $_.Exception.Message; exit 1 }"
 
 if errorlevel 2 (
     echo.
@@ -219,7 +219,7 @@ if errorlevel 2 (
 ) else if errorlevel 1 (
     echo.
     echo [AVISO] No se pudo registrar en el servidor
-    echo          Verifica que el servidor este accesible en %SERVER_HOST%:%SERVER_PORT%
+    echo          Verifica que el servidor este accesible en %SERVER_IP%:%SERVER_PORT%
     echo.
 ) else (
     echo [OK] Impresora registrada en el servidor
@@ -355,14 +355,14 @@ REM Script para iniciar con ventana (modo manual/debug)
     echo echo ====================================================================
     echo echo.
     echo echo Impresora: !SELECTED_PRINTER!
-    echo echo Servidor: %SERVER_HOST%:%SERVER_PORT%
+    echo echo Servidor: %SERVER_IP%:%SERVER_PORT%
     echo echo Puerto: 631
     echo echo.
     echo echo Escuchando trabajos de impresion.
     echo echo [INFO] NO cierres esta ventana - minimizala
     echo echo.
     echo.
-    echo java -jar usb-client.jar --spring.profiles.active=usb-client --app.server.ip=%SERVER_HOST% --app.server.port=%SERVER_PORT% --app.mode=usb-client --server.port=631
+    echo java -jar usb-client.jar --spring.profiles.active=usb-client --app.server.ip=%SERVER_IP% --app.server.port=%SERVER_PORT% --app.mode=usb-client --server.port=631
     echo.
     echo echo.
     echo echo Cliente detenido.
@@ -372,7 +372,7 @@ REM Script para iniciar con ventana (modo manual/debug)
 REM Script VBS para iniciar sin ventana (segundo plano)
 (
     echo Set WshShell = CreateObject^("WScript.Shell"^)
-    echo WshShell.Run "javaw.exe -jar ""%%APPDATA%%\PrinterShare\usb-client.jar"" --spring.profiles.active=usb-client --app.server.ip=%SERVER_HOST% --app.server.port=%SERVER_PORT% --app.mode=usb-client --server.port=631", 0, False
+    echo WshShell.Run "javaw.exe -jar ""%%APPDATA%%\PrinterShare\usb-client.jar"" --spring.profiles.active=usb-client --app.server.ip=%SERVER_IP% --app.server.port=%SERVER_PORT% --app.mode=usb-client --server.port=631", 0, False
     echo Set WshShell = Nothing
 ) > "%START_HIDDEN%"
 
@@ -429,7 +429,7 @@ echo ====================================================================
 echo.
 
 set "CLIENT_JAR=%CONFIG_DIR%\usb-client.jar"
-set "CLIENT_URL=http://%SERVER_HOST%:%SERVER_PORT%/api/download/usb-client"
+set "CLIENT_URL=http://%SERVER_IP%:%SERVER_PORT%/api/download/usb-client"
 
 echo Descargando cliente USB desde el servidor.
 echo URL: %CLIENT_URL%
@@ -527,7 +527,7 @@ REM GUARDAR CONFIGURACION
 REM ====================================================================
 (
     echo PRINTER_NAME=!SELECTED_PRINTER!
-    echo SERVER_IP=%SERVER_HOST%
+    echo SERVER_IP=%SERVER_IP%
     echo SERVER_PORT=%SERVER_PORT%
     echo IPP_PORT=631
     echo REGISTERED_AT=%DATE% %TIME%
@@ -575,7 +575,7 @@ echo ====================================================================
 echo   COMO INSTALAR EN OTRAS COMPUTADORAS
 echo ====================================================================
 echo.
-echo 1. Ve a: http://%SERVER_HOST%:%SERVER_PORT%
+echo 1. Ve a: http://%SERVER_IP%:%SERVER_PORT%
 echo 2. Busca la impresora "!PRINTER_ALIAS!"
 echo 3. Descarga el instalador y ejecutalo
 echo.

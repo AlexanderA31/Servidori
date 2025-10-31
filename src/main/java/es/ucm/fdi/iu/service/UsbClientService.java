@@ -31,10 +31,10 @@ public class UsbClientService {
     @Value("${server.port:631}")
     private int serverPort;
     
-    @Value("${app.server.ip:ueb-impresoras.ueb.edu.ec}")
+    @Value("${app.server.ip:10.1.16.31}")
     private String centralServerIp;
     
-    @Value("${app.server.port:80}")
+    @Value("${app.server.port:8080}")
     private int centralServerPort;
     
     private ServerSocket serverSocket;
