@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 # Configuración del servidor
 # Puedes usar dominio o IP
 SERVER_HOST="ueb-impresoras.ueb.edu.ec"
-SERVER_PORT="80"
+SERVER_PORT="8080"
 
 # Verificar si se ejecuta como root
 if [ "$EUID" -eq 0 ]; then 
