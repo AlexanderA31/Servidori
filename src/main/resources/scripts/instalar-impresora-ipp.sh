@@ -12,8 +12,8 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Configuración del servidor
-# Puedes usar dominio o IP
-SERVER_HOST="ueb-impresoras.ueb.edu.ec"
+# IMPORTANTE: Usar IP para conexión directa
+SERVER_HOST="10.1.16.31"
 SERVER_PORT="8080"
 
 # Verificar si se ejecuta como root
@@ -314,5 +314,8 @@ echo ""
 
 # Limpiar archivos temporales
 rm -f "$TEMP_JSON" /tmp/lpadmin_error.log
+
+exit 0
+
 
 exit 0

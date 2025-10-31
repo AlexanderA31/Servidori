@@ -18,6 +18,7 @@ import java.util.Enumeration;
 public class NetworkUtils {
     
     private static String configuredServerDomain;
+    private static String configuredServerIp;
     
     @Value("${app.server.domain:}")
     public void setServerDomain(String domain) {
@@ -27,9 +28,18 @@ public class NetworkUtils {
         }
     }
     
+    @Value("${app.server.ip:}")
+    public void setServerIp(String ip) {
+        configuredServerIp = ip;
+        if (ip != null && !ip.isEmpty()) {
+            log.info("⚙️ IP del servidor configurada: {}", ip);
+        }
+    }
+    
     /**
      * Obtiene el host del servidor (dominio o IP)
      * Prioriza el dominio configurado sobre la detección automática de IP
+     * USAR PARA NAVEGADORES WEB
      */
     public static String getServerHost() {
         // Si hay un dominio configurado, usarlo
@@ -44,6 +54,20 @@ public class NetworkUtils {
         
         // Fallback: detectar IP automáticamente
         log.warn("⚠️ No hay dominio configurado (app.server.domain), usando IP detectada");
+        return getServerIpAddress();
+    }
+    
+    /**
+     * Obtiene la IP del servidor para conexiones directas
+     * USAR PARA SCRIPTS .BAT Y CONEXIONES DIRECTAS
+     */
+    public static String getServerIp() {
+        // Si hay una IP configurada, usarla
+        if (configuredServerIp != null && !configuredServerIp.isEmpty()) {
+            return configuredServerIp;
+        }
+        
+        // Fallback: detectar IP automáticamente
         return getServerIpAddress();
     }
 
