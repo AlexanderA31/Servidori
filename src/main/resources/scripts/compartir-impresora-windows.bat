@@ -18,8 +18,7 @@ if %errorLevel% neq 0 (
 REM ====================================================================
 REM CONFIGURACION
 REM ====================================================================
-REM IMPORTANTE: Usar IP para conexión directa (scripts .bat)
-set "SERVER_HOST=10.1.16.31"
+set "SERVER_HOST=ueb-impresoras.ueb.edu.ec"
 set "SERVER_PORT=8080"
 set "LOG_FILE=%TEMP%\compartir-impresora.log"
 set "CONFIG_DIR=%APPDATA%\PrinterShare"
