@@ -22,7 +22,7 @@ param(
     [string]$ServerHost = "ueb-impresoras.ueb.edu.ec",
     
     [Parameter(Mandatory=$false)]
-    [int]$ServerPort = 80,
+    [int]$ServerPort = 8080,
     
     [Parameter(Mandatory=$false)]
     [switch]$Install,
