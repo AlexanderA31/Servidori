@@ -114,7 +114,7 @@ function downloadWindowsClientScript() {
     
     // Extraer información del URI IPP
     const urlParts = ippUrl.match(/ipp:\/\/([^:]+):(\d+)\/printers\/(.+)/);
-    let serverIp = urlParts ? urlParts[1] : '10.1.16.31';
+    let serverHost = urlParts ? urlParts[1] : 'ueb-impresoras.ueb.edu.ec';
     let serverPort = urlParts ? parseInt(urlParts[2]) : 8631;
     
     // TODAS las impresoras usan el servidor como intermediario:
@@ -129,9 +129,9 @@ function downloadWindowsClientScript() {
     
     const printerPath = urlParts ? urlParts[3] : printerName.replace(/\s/g, '_');
     const safeFileName = printerName.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const smbPath = '\\\\\\\\' + serverIp + '\\\\' + printerName.replace(/\s/g, '_');
+    const smbPath = '\\\\\\\\' + serverHost + '\\\\' + printerName.replace(/\s/g, '_');
     
-    const batContent = generateBatWithEmbeddedPS(serverIp, serverPort, printerName, safeFileName, isSharedUSB);
+    const batContent = generateBatWithEmbeddedPS(serverHost, serverPort, printerName, safeFileName, isSharedUSB);
     downloadFile(batContent, 'instalar-' + safeFileName + '.bat', 'text/plain');
     
     // Mostrar instrucciones
@@ -145,7 +145,7 @@ function downloadWindowsClientScript() {
                 '3. La impresora se instalará automáticamente<br><br>' +
                 (isSharedUSB ? 
                     '<strong>🖨️ Impresora USB Compartida</strong><br>' +
-                    'Servidor: ' + serverIp + ':' + serverPort + ' (reenvía a cliente USB)<br><br>' +
+                    'Servidor: ' + serverHost + ':' + serverPort + ' (reenvía a cliente USB)<br><br>' +
                     '<strong>⚠️ Nota:</strong> La PC con la impresora USB debe estar encendida' :
                     '<strong>Puerto asignado: ' + serverPort + '</strong> (FIJO)<br><br>' +
                     '<strong>⚠️ Nota:</strong> Este puerto es exclusivo y nunca cambia'),
@@ -156,18 +156,18 @@ function downloadWindowsClientScript() {
 }
 
 // Generar el script PowerShell completo
-function generatePowerShellScript(serverIp, serverPort, printerName, printerPath, ippUrl, smbPath, safeFileName) {
+function generatePowerShellScript(serverHost, serverPort, printerName, printerPath, ippUrl, smbPath, safeFileName) {
     // Nota: Cada impresora tiene su puerto dedicado (8631, 8632, 8633, etc.)
     // El puerto es fijo y está almacenado en la base de datos
     const script = `# Script de instalacion de impresora via TCP/IP
 # NOTA: Cada impresora tiene su PUERTO DEDICADO FIJO
 # Este puerto nunca cambia y está almacenado en la base de datos
 # Impresora: ${printerName}
-# Servidor: ${serverIp}
+# Servidor: ${serverHost}
 
 param([string]$DisplayName = "${printerName}")
 
-$ServerIP = "${serverIp}"
+$serverHost = "${serverHost}"
 $ServerPort = ${serverPort}  # Puerto FIJO de esta impresora
 $PrinterName = "${printerName}"
 
@@ -176,7 +176,7 @@ Write-Host "  Instalador de Impresora" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Impresora: $DisplayName" -ForegroundColor Green
-Write-Host "Servidor: $ServerIP Puerto: $ServerPort (PUERTO FIJO)" -ForegroundColor Green
+Write-Host "Servidor: $serverHost Puerto: $ServerPort (PUERTO FIJO)" -ForegroundColor Green
 Write-Host "Nota: Este puerto es exclusivo para esta impresora" -ForegroundColor Yellow
 Write-Host ""
 
@@ -202,7 +202,7 @@ Write-Host ""
 Write-Host "Verificando servidor IPP..." -ForegroundColor Yellow
 try {
     $tcpClient = New-Object System.Net.Sockets.TcpClient
-    $tcpClient.Connect($ServerIP, $ServerPort)
+    $tcpClient.Connect($serverHost, $ServerPort)
     $tcpClient.Close()
     Write-Host "  Servidor IPP accesible en puerto $ServerPort" -ForegroundColor Green
 } catch {
@@ -227,7 +227,7 @@ foreach ($printer in $existingPrinters) {
 Start-Sleep -Seconds 3
 
 # Ahora eliminar puertos huerfanos
-$portName = "IP_$($ServerIP)_$($PrinterName)"
+$portName = "IP_$($serverHost)_$($PrinterName)"
 $existingPort = Get-PrinterPort -Name $portName -ErrorAction SilentlyContinue
 if ($existingPort) {
     Write-Host "  Eliminando puerto existente: $portName" -ForegroundColor Yellow
@@ -243,7 +243,7 @@ Write-Host "Metodo 1: Instalando via IPP..." -ForegroundColor Cyan
 
 # Normalizar nombre para URL
 $PrinterNameUrl = $PrinterName -replace ' ', '_'
-$ippUrl = "http://" + $ServerIP + ":" + $ServerPort + "/printers/" + $PrinterNameUrl
+$ippUrl = "http://" + $serverHost + ":" + $ServerPort + "/printers/" + $PrinterNameUrl
 Write-Host "  URL IPP: $ippUrl" -ForegroundColor White
 
 try {
@@ -290,7 +290,7 @@ if (-not $success) {
     Write-Host "  Creando puerto TCP/IP: $portName" -ForegroundColor Yellow
     
     try {
-        Add-PrinterPort -Name $portName -PrinterHostAddress $ServerIP -PortNumber $ServerPort -ErrorAction Stop
+        Add-PrinterPort -Name $portName -PrinterHostAddress $serverHost -PortNumber $ServerPort -ErrorAction Stop
         Write-Host "  [OK] Puerto creado" -ForegroundColor Green
     } catch {
         if ($_.Exception.Message -like "*already exists*") {
@@ -328,7 +328,7 @@ if ($success) {
     Write-Host "========================================" -ForegroundColor Green
     Write-Host "  INSTALACION EXITOSA" -ForegroundColor Green
     Write-Host "========================================" -ForegroundColor Green
-    $printers = Get-Printer | Where-Object { $_.Name -like "*$DisplayName*" -or $_.Name -like "*$ServerIP*" }
+    $printers = Get-Printer | Where-Object { $_.Name -like "*$DisplayName*" -or $_.Name -like "*$serverHost*" }
     foreach ($p in $printers) {
         Write-Host ""
         Write-Host "  Nombre: $($p.Name)" -ForegroundColor White
@@ -350,7 +350,7 @@ if ($success) {
     Write-Host "2. Agregar impresora" -ForegroundColor White
     Write-Host "3. La impresora no esta en la lista" -ForegroundColor White
     Write-Host "4. Agregar mediante direccion TCP/IP" -ForegroundColor White
-    Write-Host "5. Direccion: $ServerIP" -ForegroundColor Cyan
+    Write-Host "5. Direccion: $serverHost" -ForegroundColor Cyan
     Write-Host "6. Puerto: $ServerPort" -ForegroundColor Cyan
     Write-Host "7. Personalizado -> LPR -> Cola: printers/${printerName}" -ForegroundColor White
 }
@@ -455,7 +455,7 @@ function downloadLinuxScript() {
 }
 
 // Generar BAT con PowerShell embebido (para doble clic)
-function generateBatWithEmbeddedPS(serverIp, serverPort, printerName, safeFileName, isSharedUSB) {
+function generateBatWithEmbeddedPS(serverHost, serverPort, printerName, safeFileName, isSharedUSB) {
     // Escapar el nombre de la impresora para PowerShell
     const printerNameEscaped = printerName.replace(/'/g, "''");
     
@@ -465,7 +465,7 @@ function generateBatWithEmbeddedPS(serverIp, serverPort, printerName, safeFileNa
     const bat = `@echo off
 REM ====================================================================
 REM Instalador de Impresora: ${printerName}
-REM Servidor: ${serverIp}:${serverPort}
+REM Servidor: ${serverHost}:${serverPort}
 REM Puerto dedicado del servidor${usbNote}
 REM ====================================================================
 
@@ -486,7 +486,7 @@ echo   INSTALADOR DE IMPRESORA
 echo ====================================================================
 echo.
 echo   Impresora: ${printerName}
-echo   Servidor: ${serverIp}:${serverPort}
+echo   Servidor: ${serverHost}:${serverPort}
 ` + (isSharedUSB ? 
 `echo   Tipo: USB Compartida (servidor como intermediario)
 echo   NOTA: El servidor reenviara a la PC con la impresora USB` :
@@ -498,7 +498,7 @@ echo Instalando impresora, por favor espera...
 echo.
 
 REM Ejecutar PowerShell inline directamente CON IPP EVERYWHERE (PDF DIRECTO)
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ServerIP='${serverIp}'; $ServerPort=${serverPort}; $PrinterName='${printerNameEscaped}'; $DisplayName='${printerNameEscaped}'; Write-Host 'Verificando servicio Spooler...' -ForegroundColor Yellow; $spooler=Get-Service -Name 'Spooler'; if($spooler.Status -ne 'Running'){Start-Service -Name 'Spooler'; Start-Sleep -Seconds 2}; Write-Host 'Verificando conexion al servidor...' -ForegroundColor Yellow; try{$tcp=New-Object System.Net.Sockets.TcpClient; $tcp.Connect($ServerIP,$ServerPort); $tcp.Close(); Write-Host 'Servidor accesible' -ForegroundColor Green}catch{Write-Host 'ERROR: No se puede conectar al servidor' -ForegroundColor Red; exit 1}; Write-Host 'Limpiando instalaciones previas...' -ForegroundColor Yellow; $existing=Get-Printer | Where-Object {$_.Name -like ('*'+$PrinterName+'*')}; foreach($p in $existing){Remove-Printer -Name $p.Name -Confirm:$false -ErrorAction SilentlyContinue}; Start-Sleep -Seconds 2; $portName=[string]::Format('IP_{0}_{1}',$ServerIP,$PrinterName); $existPort=Get-PrinterPort -Name $portName -ErrorAction SilentlyContinue; if($existPort){Remove-PrinterPort -Name $portName -Confirm:$false -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1}; Write-Host 'Creando puerto de impresora...' -ForegroundColor Yellow; try{Add-PrinterPort -Name $portName -PrinterHostAddress $ServerIP -PortNumber $ServerPort -ErrorAction Stop; Write-Host 'Puerto creado correctamente' -ForegroundColor Green}catch{if($_.Exception.Message -notlike '*already exists*'){Write-Host 'ERROR al crear puerto' -ForegroundColor Red; exit 1}}; Write-Host 'Buscando driver IPP Everywhere (PDF directo)...' -ForegroundColor Yellow; $success=$false; $ippDriver=Get-PrinterDriver | Where-Object {$_.Name -like '*IPP*' -or $_.Name -like '*Internet*'} | Select-Object -First 1; if($ippDriver){Write-Host 'Usando driver IPP Everywhere:' $ippDriver.Name -ForegroundColor Cyan; try{Add-Printer -Name $DisplayName -PortName $portName -DriverName $ippDriver.Name -ErrorAction Stop; $success=$true; Write-Host 'Impresora instalada con IPP Everywhere (PDF DIRECTO)' -ForegroundColor Green}catch{Write-Host 'Fallo IPP, intentando alternativa...' -ForegroundColor Yellow}}; if(-not $success){Write-Host 'Usando Microsoft Print to PDF (PDF directo)...' -ForegroundColor Yellow; try{Add-Printer -Name $DisplayName -PortName $portName -DriverName 'Microsoft Print To PDF' -ErrorAction Stop; $success=$true; Write-Host 'Impresora instalada con driver PDF (mantiene formato)' -ForegroundColor Green}catch{Write-Host 'Intentando driver generico...' -ForegroundColor Yellow; try{Add-Printer -Name $DisplayName -PortName $portName -DriverName 'Generic / Text Only' -ErrorAction Stop; $success=$true; Write-Host 'Impresora instalada con driver generico (texto simple)' -ForegroundColor Yellow}catch{Write-Host 'ERROR: No se pudo instalar la impresora' -ForegroundColor Red; exit 1}}}; if($success){Write-Host ''; Write-Host 'INSTALACION EXITOSA' -ForegroundColor Green; Write-Host 'Puerto asignado:' $ServerPort '(FIJO)' -ForegroundColor Cyan; Write-Host ''; Write-Host 'IMPORTANTE - Tipo de driver instalado:' -ForegroundColor Yellow; if($ippDriver -and $success){Write-Host '- IPP Everywhere: Envia documentos en PDF con formato completo' -ForegroundColor Green}else{Write-Host '- PDF Printer: Mantiene formato, colores y fuentes' -ForegroundColor Green}; Write-Host '- Los documentos se enviaran con TODO su formato original' -ForegroundColor Cyan; Write-Host ''; Write-Host 'La impresora esta lista para usar' -ForegroundColor White; exit 0}else{exit 1}"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$serverHost='${serverHost}'; $ServerPort=${serverPort}; $PrinterName='${printerNameEscaped}'; $DisplayName='${printerNameEscaped}'; Write-Host 'Verificando servicio Spooler...' -ForegroundColor Yellow; $spooler=Get-Service -Name 'Spooler'; if($spooler.Status -ne 'Running'){Start-Service -Name 'Spooler'; Start-Sleep -Seconds 2}; Write-Host 'Verificando conexion al servidor...' -ForegroundColor Yellow; try{$tcp=New-Object System.Net.Sockets.TcpClient; $tcp.Connect($serverHost,$ServerPort); $tcp.Close(); Write-Host 'Servidor accesible' -ForegroundColor Green}catch{Write-Host 'ERROR: No se puede conectar al servidor' -ForegroundColor Red; exit 1}; Write-Host 'Limpiando instalaciones previas...' -ForegroundColor Yellow; $existing=Get-Printer | Where-Object {$_.Name -like ('*'+$PrinterName+'*')}; foreach($p in $existing){Remove-Printer -Name $p.Name -Confirm:$false -ErrorAction SilentlyContinue}; Start-Sleep -Seconds 2; $portName=[string]::Format('IP_{0}_{1}',$serverHost,$PrinterName); $existPort=Get-PrinterPort -Name $portName -ErrorAction SilentlyContinue; if($existPort){Remove-PrinterPort -Name $portName -Confirm:$false -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1}; Write-Host 'Creando puerto de impresora...' -ForegroundColor Yellow; try{Add-PrinterPort -Name $portName -PrinterHostAddress $serverHost -PortNumber $ServerPort -ErrorAction Stop; Write-Host 'Puerto creado correctamente' -ForegroundColor Green}catch{if($_.Exception.Message -notlike '*already exists*'){Write-Host 'ERROR al crear puerto' -ForegroundColor Red; exit 1}}; Write-Host 'Buscando driver IPP Everywhere (PDF directo)...' -ForegroundColor Yellow; $success=$false; $ippDriver=Get-PrinterDriver | Where-Object {$_.Name -like '*IPP*' -or $_.Name -like '*Internet*'} | Select-Object -First 1; if($ippDriver){Write-Host 'Usando driver IPP Everywhere:' $ippDriver.Name -ForegroundColor Cyan; try{Add-Printer -Name $DisplayName -PortName $portName -DriverName $ippDriver.Name -ErrorAction Stop; $success=$true; Write-Host 'Impresora instalada con IPP Everywhere (PDF DIRECTO)' -ForegroundColor Green}catch{Write-Host 'Fallo IPP, intentando alternativa...' -ForegroundColor Yellow}}; if(-not $success){Write-Host 'Usando Microsoft Print to PDF (PDF directo)...' -ForegroundColor Yellow; try{Add-Printer -Name $DisplayName -PortName $portName -DriverName 'Microsoft Print To PDF' -ErrorAction Stop; $success=$true; Write-Host 'Impresora instalada con driver PDF (mantiene formato)' -ForegroundColor Green}catch{Write-Host 'Intentando driver generico...' -ForegroundColor Yellow; try{Add-Printer -Name $DisplayName -PortName $portName -DriverName 'Generic / Text Only' -ErrorAction Stop; $success=$true; Write-Host 'Impresora instalada con driver generico (texto simple)' -ForegroundColor Yellow}catch{Write-Host 'ERROR: No se pudo instalar la impresora' -ForegroundColor Red; exit 1}}}; if($success){Write-Host ''; Write-Host 'INSTALACION EXITOSA' -ForegroundColor Green; Write-Host 'Puerto asignado:' $ServerPort '(FIJO)' -ForegroundColor Cyan; Write-Host ''; Write-Host 'IMPORTANTE - Tipo de driver instalado:' -ForegroundColor Yellow; if($ippDriver -and $success){Write-Host '- IPP Everywhere: Envia documentos en PDF con formato completo' -ForegroundColor Green}else{Write-Host '- PDF Printer: Mantiene formato, colores y fuentes' -ForegroundColor Green}; Write-Host '- Los documentos se enviaran con TODO su formato original' -ForegroundColor Cyan; Write-Host ''; Write-Host 'La impresora esta lista para usar' -ForegroundColor White; exit 0}else{exit 1}"
 
 set ERROR_CODE=%ERRORLEVEL%
 
