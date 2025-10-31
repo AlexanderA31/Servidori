@@ -18,8 +18,8 @@ param(
     [Parameter(Mandatory=$false)]
     [string]$PrinterName = "",
     
-    [Parameter(Mandatory=$false)]
-    [string]$ServerHost = "10.1.16.31",
+        [Parameter(Mandatory=$false)]
+    [string]$ServerHost = "ueb-impresoras.ueb.edu.ec",
     
     [Parameter(Mandatory=$false)]
     [int]$ServerPort = 8080,
