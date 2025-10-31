@@ -1,6 +1,8 @@
 package es.ucm.fdi.iu.util;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -12,7 +14,38 @@ import java.util.Enumeration;
  * Utilidades para obtener información de red de la computadora local
  */
 @Slf4j
+@Component
 public class NetworkUtils {
+    
+    private static String configuredServerDomain;
+    
+    @Value("${app.server.domain:}")
+    public void setServerDomain(String domain) {
+        configuredServerDomain = domain;
+        if (domain != null && !domain.isEmpty()) {
+            log.info("⚙️ Dominio del servidor configurado: {}", domain);
+        }
+    }
+    
+    /**
+     * Obtiene el host del servidor (dominio o IP)
+     * Prioriza el dominio configurado sobre la detección automática de IP
+     */
+    public static String getServerHost() {
+        // Si hay un dominio configurado, usarlo
+        if (configuredServerDomain != null && !configuredServerDomain.isEmpty()) {
+            // Extraer solo el host sin http:// o https://
+            String host = configuredServerDomain
+                .replace("http://", "")
+                .replace("https://", "")
+                .split("/")[0]; // Quitar cualquier path
+            return host;
+        }
+        
+        // Fallback: detectar IP automáticamente
+        log.warn("⚠️ No hay dominio configurado (app.server.domain), usando IP detectada");
+        return getServerIpAddress();
+    }
 
     /**
      * Obtiene la dirección MAC de la computadora local

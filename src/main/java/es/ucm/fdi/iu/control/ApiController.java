@@ -1016,8 +1016,8 @@ public class ApiController {
     public Map<String, Object> getAllPrinters() {
         log.info("Public API: /api/printers");
         
-                // Obtener IP del servidor (FIJA para todas las impresoras)
-        String serverIp = es.ucm.fdi.iu.util.NetworkUtils.getServerIpAddress();
+                        // Obtener host del servidor (dominio o IP)
+        String serverHost = es.ucm.fdi.iu.util.NetworkUtils.getServerHost();
         
         List<Map<String, String>> printersList = new ArrayList<>();
         List<Printer> printers = entityManager.createQuery(
@@ -1047,27 +1047,28 @@ public class ApiController {
             // El servidor se encarga de reenviar a donde corresponda:
             // - USB compartida: servidor reenvía a cliente USB en puerto 631
             // - Red normal: servidor reenvía a impresora directamente
-            String safeName = p.getAlias().replace(" ", "_");
-            String ippUri = String.format("ipp://%s:%d/printers/%s", serverIp, ippPort, safeName);
+                        String safeName = p.getAlias().replace(" ", "_");
+            String ippUri = String.format("ipp://%s:%d/printers/%s", serverHost, ippPort, safeName);
             printerData.put("ippUri", ippUri);
             printerData.put("connectionType", "server");
             
-            if (isSharedUSB) {
+                        if (isSharedUSB) {
                 log.debug("Impresora USB: {} - Clientes se conectan a servidor {}:{} (servidor reenvía a {}:631)", 
-                    p.getAlias(), serverIp, ippPort, p.getIp());
+                    p.getAlias(), serverHost, ippPort, p.getIp());
             }
             
             printersList.add(printerData);
         }
         
-                // Construir respuesta completa
+                        // Construir respuesta completa
         Map<String, Object> response = new HashMap<>();
-        response.put("serverIp", serverIp);
+        response.put("serverIp", serverHost);  // Mantener el nombre serverIp para compatibilidad
+        response.put("serverHost", serverHost);  // Nombre más apropiado
         response.put("port", 8631);
         response.put("printers", printersList);
         response.put("total", printersList.size());
         
-        log.info("Returning {} printers (server IP: {})", printersList.size(), serverIp);
+        log.info("Returning {} printers (server host: {})", printersList.size(), serverHost);
         return response;
     }
 }

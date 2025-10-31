@@ -85,9 +85,9 @@ public class AdminController {
         try {
             User currentUser = (User) session.getAttribute("u");
             
-                                    // Obtener IP del servidor
-            String serverIp = es.ucm.fdi.iu.util.NetworkUtils.getServerIpAddress();
-            model.addAttribute("serverIp", serverIp);
+                                                // Obtener host del servidor (dominio o IP)
+            String serverHost = es.ucm.fdi.iu.util.NetworkUtils.getServerHost();
+            model.addAttribute("serverIp", serverHost);
             
             // Puerto IPP (8631 para evitar conflicto con CUPS nativo)
             model.addAttribute("ippPort", 8631);
