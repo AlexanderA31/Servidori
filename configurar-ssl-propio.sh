@@ -34,9 +34,9 @@ echo ""
 # PASO 1: Verificar que los archivos de certificado existen
 echo -e "${BLUE}[1/6] Verificando archivos de certificado...${NC}"
 
-CURRENT_DIR=$(pwd)
-CERT_FILE="$CURRENT_DIR/ssl/STAR_ueb_edu_ec.crt"
-KEY_FILE="$CURRENT_DIR/ssl/private.key"
+# Los certificados están en /opt/ssl/ueb-impresoras/
+CERT_FILE="/opt/ssl/ueb-impresoras/STAR_ueb_edu_ec.crt"
+KEY_FILE="/opt/ssl/ueb-impresoras/private.key"
 
 if [ ! -f "$CERT_FILE" ]; then
     echo -e "${RED}✗ No se encontró el certificado: $CERT_FILE${NC}"
@@ -82,19 +82,27 @@ mkdir -p "$KEY_DIR"
 
 echo -e "${GREEN}✓ Directorios creados${NC}"
 
-# PASO 3: Copiar certificados
+# PASO 3: Crear enlaces simbólicos o copiar certificados
 echo ""
-echo -e "${BLUE}[3/6] Copiando certificados al sistema...${NC}"
+echo -e "${BLUE}[3/6] Configurando certificados en el sistema...${NC}"
 
-# Copiar certificado
-cp "$CERT_FILE" "$CERT_DIR/ueb-wildcard.crt"
-chmod 644 "$CERT_DIR/ueb-wildcard.crt"
-echo -e "${GREEN}✓ Certificado copiado a: $CERT_DIR/ueb-wildcard.crt${NC}"
+# Opción 1: Crear enlaces simbólicos (más eficiente, los archivos quedan en /opt)
+ln -sf "$CERT_FILE" "$CERT_DIR/ueb-wildcard.crt"
+echo -e "${GREEN}✓ Enlace simbólico creado: $CERT_DIR/ueb-wildcard.crt -> $CERT_FILE${NC}"
 
-# Copiar llave privada
-cp "$KEY_FILE" "$KEY_DIR/ueb-wildcard.key"
-chmod 600 "$KEY_DIR/ueb-wildcard.key"
-echo -e "${GREEN}✓ Llave privada copiada a: $KEY_DIR/ueb-wildcard.key${NC}"
+ln -sf "$KEY_FILE" "$KEY_DIR/ueb-wildcard.key"
+echo -e "${GREEN}✓ Enlace simbólico creado: $KEY_DIR/ueb-wildcard.key -> $KEY_FILE${NC}"
+
+# Verificar que los enlaces funcionan
+if [ ! -r "$CERT_DIR/ueb-wildcard.crt" ]; then
+    echo -e "${RED}✗ Error: No se puede leer el certificado${NC}"
+    exit 1
+fi
+
+if [ ! -r "$KEY_DIR/ueb-wildcard.key" ]; then
+    echo -e "${RED}✗ Error: No se puede leer la llave privada${NC}"
+    exit 1
+fi
 
 # PASO 4: Backup de configuración anterior
 echo ""
@@ -245,6 +253,11 @@ echo -e "   ${GREEN}http://10.1.16.31:8080${NC}"
 echo ""
 echo -e "${BLUE}🔒 ARCHIVOS DEL CERTIFICADO:${NC}"
 echo ""
+echo -e "   Ubicación original:"
+echo -e "   Certificado:    ${GREEN}/opt/ssl/ueb-impresoras/STAR_ueb_edu_ec.crt${NC}"
+echo -e "   Llave privada:  ${GREEN}/opt/ssl/ueb-impresoras/private.key${NC}"
+echo ""
+echo -e "   Enlaces simbólicos para NGINX:"
 echo -e "   Certificado:    ${GREEN}$CERT_DIR/ueb-wildcard.crt${NC}"
 echo -e "   Llave privada:  ${GREEN}$KEY_DIR/ueb-wildcard.key${NC}"
 echo ""
@@ -275,8 +288,12 @@ echo ""
 echo -e "   Este es un certificado wildcard (*.ueb.edu.ec)"
 echo -e "   Cuando venza, deberás:"
 echo -e "   1. Obtener el nuevo certificado de tu proveedor"
-echo -e "   2. Reemplazar los archivos en $CERT_DIR y $KEY_DIR"
+echo -e "   2. Reemplazar los archivos en: ${BLUE}/opt/ssl/ueb-impresoras/${NC}"
+echo -e "      ${BLUE}sudo cp nuevo-cert.crt /opt/ssl/ueb-impresoras/STAR_ueb_edu_ec.crt${NC}"
+echo -e "      ${BLUE}sudo cp nueva-key.key /opt/ssl/ueb-impresoras/private.key${NC}"
 echo -e "   3. Reiniciar NGINX: ${BLUE}sudo systemctl restart nginx${NC}"
+echo -e ""
+echo -e "   Los enlaces simbólicos seguirán funcionando automáticamente."
 echo ""
 echo -e "${GREEN}✓ ¡Todo listo! Ahora puedes acceder de forma segura con HTTPS.${NC}"
 echo ""
