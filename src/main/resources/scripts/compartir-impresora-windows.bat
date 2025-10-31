@@ -19,7 +19,7 @@ REM ====================================================================
 REM CONFIGURACION
 REM ====================================================================
 set "SERVER_HOST=ueb-impresoras.ueb.edu.ec"
-set "SERVER_PORT=8080"
+set "SERVER_PORT=80"
 set "LOG_FILE=%TEMP%\compartir-impresora.log"
 set "CONFIG_DIR=%APPDATA%\PrinterShare"
 set "CONFIG_FILE=%CONFIG_DIR%\config.txt"
