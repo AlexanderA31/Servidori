@@ -18,11 +18,11 @@ param(
     [Parameter(Mandatory=$false)]
     [string]$PrinterName = "",
     
-        [Parameter(Mandatory=$false)]
-    [string]$ServerHost = "ueb-impresoras.ueb.edu.ec",
+    [Parameter(Mandatory=$false)]
+    [string]$ServerIP = "10.1.16.31",
     
     [Parameter(Mandatory=$false)]
-    [int]$ServerPort = 80,
+    [int]$ServerPort = 8080,
     
     [Parameter(Mandatory=$false)]
     [switch]$Install,
@@ -142,7 +142,7 @@ function Register-PrinterWithServer {
         timestamp = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
     } | ConvertTo-Json
     
-    $url = "http://${ServerHost}:${ServerPort}/api/register-shared-printer"
+    $url = "http://${ServerIP}:${ServerPort}/api/register-shared-printer"
     
     try {
         $response = Invoke-RestMethod -Uri $url -Method Post -Body $data -ContentType "application/json" -TimeoutSec 10
@@ -197,7 +197,7 @@ function Install-ScheduledTask {
     Write-Log "Configurando inicio automático"
     
     $scriptPath = $PSCommandPath
-    $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -PrinterName `"$PrinterName`" -ServerHost `"$ServerHost`" -ServerPort $ServerPort -Silent"
+    $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -PrinterName `"$PrinterName`" -ServerIP `"$ServerIP`" -ServerPort $ServerPort -Silent"
     
     # Crear acción
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $arguments
@@ -373,9 +373,9 @@ function Main {
         }
         
         # Guardar configuración
-                $config = @{
+        $config = @{
             printerName = $PrinterName
-            serverHost = $ServerHost
+            serverIP = $ServerIP
             serverPort = $ServerPort
             ippPort = $response.ippPort
             registeredAt = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
@@ -414,7 +414,7 @@ function Main {
     Write-Host ""
     Write-Host "La impresora '$PrinterName' ahora está compartida con el servidor" -ForegroundColor White
     Write-Host "Otras computadoras pueden usarla conectándose a:" -ForegroundColor White
-    $ippUri = "ipp://${ServerHost}:$($config.ippPort)/printers/$($PrinterName -replace ' ', '_')"
+    $ippUri = "ipp://${ServerIP}:$($config.ippPort)/printers/$($PrinterName -replace ' ', '_')"
     Write-Host "  $ippUri" -ForegroundColor Cyan
     Write-Host ""
     
