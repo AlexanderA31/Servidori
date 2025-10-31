@@ -322,14 +322,19 @@ if errorlevel 1 (
 )
 
 REM ====================================================================
-REM CREAR DIRECTORIO Y SCRIPT DE INICIO
+REM CREAR DIRECTORIO Y SCRIPTS
 REM ====================================================================
 if not exist "%CONFIG_DIR%" mkdir "%CONFIG_DIR%"
+if not exist "%CONFIG_DIR%\logs" mkdir "%CONFIG_DIR%\logs"
 
 set "START_SCRIPT=%CONFIG_DIR%\start-client.bat"
+set "START_HIDDEN=%CONFIG_DIR%\start-client-hidden.vbs"
+set "STOP_SCRIPT=%CONFIG_DIR%\stop-client.bat"
+set "VIEW_LOGS=%CONFIG_DIR%\ver-logs.bat"
 
-echo Creando script de inicio del cliente USB.
+echo Creando scripts del cliente USB.
 
+REM Script para iniciar con ventana (modo manual/debug)
 (
     echo @echo off
     echo title Cliente USB - !SELECTED_PRINTER!
@@ -364,7 +369,55 @@ echo Creando script de inicio del cliente USB.
     echo pause
 ) > "%START_SCRIPT%"
 
-echo [OK] Script creado: %START_SCRIPT%
+REM Script VBS para iniciar sin ventana (segundo plano)
+(
+    echo Set WshShell = CreateObject^("WScript.Shell"^)
+    echo WshShell.Run "javaw.exe -jar ""%%APPDATA%%\PrinterShare\usb-client.jar"" --spring.profiles.active=usb-client --app.server.ip=%SERVER_IP% --app.server.port=%SERVER_PORT% --app.mode=usb-client --server.port=631", 0, False
+    echo Set WshShell = Nothing
+) > "%START_HIDDEN%"
+
+REM Script para detener el cliente
+(
+    echo @echo off
+    echo echo Deteniendo cliente USB...
+    echo.
+    echo taskkill /F /FI "WINDOWTITLE eq Cliente USB*" ^>nul 2^>^&1
+    echo taskkill /F /FI "COMMANDLINE eq *usb-client.jar*" ^>nul 2^>^&1
+    echo.
+    echo timeout /t 2 /nobreak ^>nul
+    echo.
+    echo echo [OK] Cliente detenido
+    echo echo.
+    echo pause
+) > "%STOP_SCRIPT%"
+
+REM Script para ver logs
+(
+    echo @echo off
+    echo title Logs del Cliente USB
+    echo echo ====================================================================
+    echo echo   LOGS DEL CLIENTE USB
+    echo echo ====================================================================
+    echo echo.
+    echo echo Ubicacion: %%APPDATA%%\PrinterShare\logs\
+    echo echo.
+    echo echo Presiona Ctrl+C para detener el monitoreo
+    echo echo.
+    echo echo ====================================================================
+    echo echo.
+    echo.
+    echo if exist "%%APPDATA%%\PrinterShare\logs\spring.log" (
+    echo     powershell -Command "Get-Content '%%APPDATA%%\PrinterShare\logs\spring.log' -Wait -Tail 50"
+    echo ^) else (
+    echo     echo [ERROR] No se encontraron archivos de log
+    echo     echo.
+    echo     echo El cliente aun no se ha ejecutado o los logs estan en otra ubicacion
+    echo     echo.
+    echo     pause
+    echo ^)
+) > "%VIEW_LOGS%"
+
+echo [OK] Scripts creados
 echo.
 
 REM ====================================================================
@@ -406,23 +459,29 @@ if errorlevel 1 (
 )
 
 REM ====================================================================
-REM CONFIGURAR INICIO AUTOMATICO
+REM CONFIGURAR INICIO AUTOMATICO (SEGUNDO PLANO)
 REM ====================================================================
 if "!CLIENT_DOWNLOADED!"=="true" (
-    echo Configurando inicio automatico.
-    schtasks /create /tn "PrinterShareClient" /tr "\"%START_SCRIPT%\"" /sc onlogon /rl highest /f >nul 2>&1
+    echo Configurando inicio automatico en segundo plano.
+    
+    REM Eliminar tarea anterior si existe
+    schtasks /delete /tn "PrinterShareClient" /f >nul 2>&1
+    
+    REM Crear tarea programada que ejecuta el VBS (sin ventana)
+    schtasks /create /tn "PrinterShareClient" /tr "wscript.exe \"%START_HIDDEN%\"" /sc onlogon /rl highest /f >nul 2>&1
     
     if errorlevel 1 (
         echo [AVISO] No se pudo configurar inicio automatico
         echo          Ejecuta manualmente: %START_SCRIPT%
     ) else (
-        echo [OK] Inicio automatico configurado
+        echo [OK] Inicio automatico configurado (modo segundo plano)
+        echo      El cliente se iniciara sin ventana al encender la PC
     )
     echo.
 )
 
 REM ====================================================================
-REM INICIAR CLIENTE USB (si Java esta disponible y JAR descargado)
+REM INICIAR CLIENTE USB EN SEGUNDO PLANO
 REM ====================================================================
 if "!CLIENT_DOWNLOADED!"=="true" (
     if "!SKIP_CLIENT!"=="true" (
@@ -430,27 +489,34 @@ if "!CLIENT_DOWNLOADED!"=="true" (
         echo        Instala Java y ejecuta: %START_SCRIPT%
         echo.
     ) else (
-        echo Iniciando cliente USB.
+        echo Iniciando cliente USB en segundo plano.
         echo.
         
-        start "Cliente USB - !SELECTED_PRINTER!" /MIN cmd /c "%START_SCRIPT%"
+        REM Iniciar sin ventana usando el script VBS
+        wscript.exe "%START_HIDDEN%"
         
         timeout /t 3 /nobreak >nul
         
-        echo [OK] Cliente USB iniciado (ventana minimizada)
-        echo      Busca la ventana en la barra de tareas
+        echo [OK] Cliente USB iniciado en segundo plano
+        echo      No veras ninguna ventana - el cliente se ejecuta oculto
         echo.
         
         REM Verificar que el proceso arranco
         timeout /t 2 /nobreak >nul
-        tasklist /FI "IMAGENAME eq java.exe" 2>nul | find /I "java.exe" >nul
+        tasklist /FI "IMAGENAME eq javaw.exe" 2>nul | find /I "javaw.exe" >nul
         if errorlevel 1 (
             echo [AVISO] No se detecto el proceso Java
             echo          Verifica que Java este instalado correctamente
-            echo          Ejecuta manualmente: %START_SCRIPT%
+            echo.
+            echo          Para ver logs: %VIEW_LOGS%
+            echo          Para detener: %STOP_SCRIPT%
             echo.
         ) else (
-            echo [OK] Proceso Java detectado - Cliente funcionando
+            echo [OK] Proceso Java detectado - Cliente ejecutandose en segundo plano
+            echo.
+            echo      Para ver logs:   %VIEW_LOGS%
+            echo      Para detener:    %STOP_SCRIPT%
+            echo      Para reiniciar:  %START_SCRIPT% (con ventana)
             echo.
         )
     )
@@ -494,10 +560,15 @@ if "!SKIP_CLIENT!"=="true" (
     echo   [PENDIENTE] Instala Java y ejecuta:
     echo               %START_SCRIPT%
 ) else (
-    echo   [OK] Cliente USB ejecutandose (ventana minimizada)
+    echo   [OK] Cliente USB ejecutandose en SEGUNDO PLANO
+    echo        (sin ventana visible)
     echo.
-    echo   Si se cierra, reinicialo con:
-    echo   %START_SCRIPT%
+    echo   Comandos utiles:
+    echo     - Ver logs:   %VIEW_LOGS%
+    echo     - Detener:    %STOP_SCRIPT%
+    echo     - Reiniciar:  %START_SCRIPT%
+    echo.
+    echo   El cliente se iniciara automaticamente al encender la PC
 )
 echo.
 echo ====================================================================
