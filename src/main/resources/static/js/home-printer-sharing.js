@@ -112,9 +112,11 @@ function downloadWindowsClientScript() {
     // DETECTAR SI ES IMPRESORA USB COMPARTIDA
     const isSharedUSB = printerLocation.includes('Compartida-USB');
     
-    // Extraer información del URI IPP
+        // Extraer información del URI IPP
     const urlParts = ippUrl.match(/ipp:\/\/([^:]+):(\d+)\/printers\/(.+)/);
-    let serverHost = urlParts ? urlParts[1] : 'ueb-impresoras.ueb.edu.ec';
+    // IMPORTANTE: Usar IP para scripts .bat (conexión directa)
+    // El dominio solo se usa para navegadores
+    let serverHost = urlParts ? urlParts[1] : '10.1.16.31';
     let serverPort = urlParts ? parseInt(urlParts[2]) : 8631;
     
     // TODAS las impresoras usan el servidor como intermediario:

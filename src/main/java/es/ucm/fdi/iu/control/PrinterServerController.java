@@ -42,19 +42,24 @@ public class PrinterServerController {
     /**
      * Pagina principal del servidor de impresion
      */
-    @GetMapping
+        @GetMapping
     public String printServerIndex(Model model) {
                 try {
+            // Usar dominio para la interfaz web
             String serverHost = NetworkUtils.getServerHost();
+            // Usar IP para IPP URIs (scripts .bat)
+            String serverIp = NetworkUtils.getServerIp();
             model.addAttribute("serverIp", serverHost);
+            model.addAttribute("serverIpForScripts", serverIp);
             
             List<Printer> printers = entityManager.createQuery(
                 "SELECT p FROM Printer p ORDER BY p.id", Printer.class).getResultList();
             model.addAttribute("printers", printers);
             model.addAttribute("totalPrinters", printers.size());
             
-            // Generar URIs IPP para cada impresora con puerto dedicado
+                        // Generar URIs IPP para cada impresora con puerto dedicado
             // TODAS las impresoras usan el puerto del servidor (el servidor reenvía si es USB)
+            // IMPORTANTE: IPP URIs usan IP (no dominio) para scripts .bat
             List<PrinterInfo> printerInfos = printers.stream()
                 .map(p -> {
                     int port = multiPortIppService.getPortForPrinter(p);
@@ -62,9 +67,9 @@ public class PrinterServerController {
                         p.getAlias(),
                         p.getModel(),
                         p.getLocation(),
-                                                buildIppUriWithPort(serverHost, p.getAlias(), port),
-                        buildWindowsCommand(serverHost, p.getAlias()),
-                        buildLinuxCommand(serverHost, p.getAlias()),
+                        buildIppUriWithPort(serverIp, p.getAlias(), port),  // Usar IP para scripts
+                        buildWindowsCommand(serverIp, p.getAlias()),
+                        buildLinuxCommand(serverIp, p.getAlias()),
                         port
                     );
                 })
@@ -87,10 +92,13 @@ public class PrinterServerController {
      * API REST: Lista todas las impresoras disponibles en formato JSON
      */
     @GetMapping("/api/printers")
-    @ResponseBody
+        @ResponseBody
     public ResponseEntity<Map<String, Object>> listPrinters() {
                 try {
+            // Usar dominio para interfaz web
             String serverHost = NetworkUtils.getServerHost();
+            // Usar IP para IPP URIs (scripts)
+            String serverIp = NetworkUtils.getServerIp();
             List<Printer> printers = entityManager.createQuery(
                 "SELECT p FROM Printer p ORDER BY p.id", Printer.class).getResultList();
             
@@ -99,21 +107,22 @@ public class PrinterServerController {
                     int port = multiPortIppService.getPortForPrinter(p);
                     boolean isSharedUSB = p.getLocation() != null && p.getLocation().contains("Compartida-USB");
                     
-                    Map<String, Object> info = new HashMap<>();
+                                        Map<String, Object> info = new HashMap<>();
                     info.put("id", p.getId());
                     info.put("name", p.getAlias());
                     info.put("model", p.getModel());
                     info.put("location", p.getLocation());
-                                        info.put("ip", serverHost);  // Siempre host del servidor
+                    info.put("ip", serverIp);  // IP del servidor para scripts
                     info.put("port", port);  // Puerto del servidor
-                    info.put("ippUri", buildIppUriWithPort(serverHost, p.getAlias(), port));
+                    info.put("ippUri", buildIppUriWithPort(serverIp, p.getAlias(), port));  // Usar IP
                     info.put("isSharedUSB", isSharedUSB);
                     return info;
                 })
                 .collect(Collectors.toList());
             
-                        Map<String, Object> response = new HashMap<>();
-            response.put("serverIp", serverHost);
+                                    Map<String, Object> response = new HashMap<>();
+            response.put("serverHost", serverHost);  // Dominio para web
+            response.put("serverIp", serverIp);  // IP para scripts
             response.put("basePort", 8631);  // Puerto base (primera impresora)
             response.put("printers", printerList);
             response.put("total", printerList.size());
@@ -130,9 +139,10 @@ public class PrinterServerController {
      * Descarga el script de PowerShell personalizado para una impresora especifica
      */
     @GetMapping("/download/windows-script/{printerName}")
-    public ResponseEntity<String> downloadWindowsScriptForPrinter(@PathVariable String printerName) {
+        public ResponseEntity<String> downloadWindowsScriptForPrinter(@PathVariable String printerName) {
                 try {
-            String serverHost = NetworkUtils.getServerHost();
+            // Usar IP para scripts .bat
+            String serverHost = NetworkUtils.getServerIp();
             
             // Obtener el puerto especifico de esta impresora
             List<Printer> printers = entityManager.createQuery(
@@ -163,9 +173,10 @@ public class PrinterServerController {
      * Descarga el script de Bash personalizado para una impresora especifica
      */
     @GetMapping("/download/linux-script/{printerName}")
-    public ResponseEntity<String> downloadLinuxScriptForPrinter(@PathVariable String printerName) {
+        public ResponseEntity<String> downloadLinuxScriptForPrinter(@PathVariable String printerName) {
                 try {
-            String serverHost = NetworkUtils.getServerHost();
+            // Usar IP para scripts Linux
+            String serverHost = NetworkUtils.getServerIp();
             String script = generateLinuxScriptForPrinter(serverHost, printerName);
             
             log.info("Generando script Linux personalizado para impresora: {}", printerName);
@@ -283,9 +294,10 @@ public class PrinterServerController {
      */
     @GetMapping("/api/install-command/{printerName}")
     @ResponseBody
-    public ResponseEntity<Map<String, String>> getInstallCommand(@PathVariable String printerName) {
+        public ResponseEntity<Map<String, String>> getInstallCommand(@PathVariable String printerName) {
                 try {
-            String serverHost = NetworkUtils.getServerHost();
+            // Usar IP para comandos de instalación
+            String serverHost = NetworkUtils.getServerIp();
             
             // Buscar la impresora para obtener su puerto
             List<Printer> printers = entityManager.createQuery(

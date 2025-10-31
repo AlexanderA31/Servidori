@@ -16,9 +16,9 @@ BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 # Configuración del servidor
-# Puedes usar dominio o IP
-SERVER_HOST="ueb-impresoras.ueb.edu.ec"
-SERVER_PORT="80"
+# IMPORTANTE: Usar IP para conexión directa
+SERVER_HOST="10.1.16.31"
+SERVER_PORT="8080"
 LOG_FILE="/tmp/compartir-impresora.log"
 CONFIG_DIR="$HOME/.config/PrinterShare"
 CONFIG_FILE="$CONFIG_DIR/config.txt"
@@ -330,6 +330,10 @@ echo ""
 print_line
 echo ""
 echo -e "${GREEN}Presiona Enter para continuar...${NC}"
+read -r
+
+exit 0
+
 read -r
 
 exit 0
