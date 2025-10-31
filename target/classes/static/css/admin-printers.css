@@ -55,13 +55,12 @@
     font-weight: 700;
     font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
     letter-spacing: 0.5px;
-    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+    
     transition: all 0.2s ease;
 }
 
 .port-badge:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
 }
 
 .scan-message-wrapper {

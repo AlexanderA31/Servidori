@@ -48,21 +48,107 @@
                                 
                                 <div class="os-content active" id="windows-share">
                                     <div class="instructions">
-                                        <h4>Instrucciones Simples para Windows:</h4>
-                                        <ol>
-                                            <li>Descarga el script haciendo clic en el botón de abajo</li>
-                                            <li>Haz <strong>DOBLE CLIC</strong> en el archivo descargado (<code>compartir-impresora-windows.bat</code>)</li>
-                                            <li>Se solicitarán permisos de administrador automáticamente - acepta</li>
-                                            <li>Selecciona la impresora USB/Local que deseas compartir del menú</li>
-                                            <li>El script la compartirá automáticamente y la registrará en el servidor</li>
-                                            <li>¡Listo! Ya puedes ver la impresora en la red</li>
+                                        <h4> Configuración Completa - Cliente USB en Segundo Plano:</h4>
+                                        
+                            
+                                       <h4>Paso 1: Instalación de Requerimientos</h4>
+                                        <p ><strong>Requerimientos:</strong></p>
+                                        <ol start="1" style="margin-bottom: 1.5rem;">
+                                            <li>Java (si no está instalado) - Requerido para el cliente</li>
+                                            <li>SumatraPDF - Para impresión silenciosa</li>
+                                            <li>Cliente USB - Se descarga desde el servidor</li>
+                                            <li>Configuración de inicio automático - Se ejecutará al encender la PC</li>
                                         </ol>
-                                  
-                                        <p style="margin-top: 1rem; padding: 0.75rem; background: #fff3cd; border-left: 3px solid #ffc107; border-radius: 4px; font-size: 0.875rem;">
+                                        <h4>Paso 2: Descargar el Script</h4>
+                                        <ol style="margin-bottom: 1.5rem;">
+                                            <li>Descarga el script haciendo clic en el botón de abajo</li>
+                                        </ol>
+                                        
+                                        <a href="/api/download/share-windows-script" class="btn btn-download" onclick="return downloadShareScript();" style="margin-bottom: 2rem;"><i class="fas fa-download"></i> Descargar Script de Compartir (.BAT)</a>
+                                        
+                                        <h4>Paso 3: Ejecutar el Script</h4>
+                                        <ol start="2" style="margin-bottom: 1.5rem;">
+                                            <li>Haz <strong>DOBLE CLIC</strong> en el archivo descargado (<code>compartir-impresora-windows.bat</code>)</li>
+                                            <li>Se solicitarán permisos de administrador automáticamente - <strong>acepta</strong></li>
+                                            <li>El script buscará automáticamente tus impresoras USB</li>
+                                            <li><strong>Selecciona la impresora USB</strong> que deseas compartir del menú</li>
+                                        </ol>
+
+                                        
+
+                                        <details style="margin-top: 1rem; border: 1px solid #e2e8f0; border-radius: 6px; padding: 1rem;">
+                                            <summary style="cursor: pointer; font-weight: 600; "><i class="fas fa-cog"></i> Instalación Manual de Requisitos (Opcional)</summary>
+                                            <div >
+                                                <p>Si prefieres instalar los requisitos manualmente antes de ejecutar el script:</p>
+                                                
+                                                <h5 >🔹 1. Instalar Java (Obligatorio)</h5>
+                                                <p><strong>Opción A:</strong> Con Winget (recomendado - rápido)</p>
+                                                <code class="command-block" style="display: block; background: #1e293b; color: #e2e8f0; padding: 0.75rem; border-radius: 4px; font-family: monospace; margin: 0.5rem 0;">winget install EclipseAdoptium.Temurin.17.JRE</code>
+                                                
+                                                <p ><strong>Opción B:</strong> Descarga manual</p>
+                                                <ul>
+                                                    <li><a href="https://www.java.com/es/download/" target="_blank" style="color: #3b82f6;">Java oficial</a></li>
+                                                    <li><a href="https://aka.ms/download-jdk/microsoft-jdk-17-windows-x64.msi" target="_blank" style="color: #3b82f6;">Microsoft JDK 17</a></li>
+                                                </ul>
+
+                                                <h5 >🔹 2. Instalar SumatraPDF (Recomendado)</h5>
+                                                <p>Para impresión completamente silenciosa sin diálogos:</p>
+                                                
+                                                <p><strong>Opción A:</strong> Con Winget</p>
+                                                <code class="command-block" style="display: block; background: #1e293b; color: #e2e8f0; padding: 0.75rem; border-radius: 4px; font-family: monospace; margin: 0.5rem 0;">winget install SumatraPDF.SumatraPDF</code>
+                                                
+                                                <p ><strong>Opción B:</strong> Descarga manual</p>
+                                                <ul>
+                                                    <li><a href="https://www.sumatrapdfreader.org/download-free-pdf-viewer" target="_blank" style="color: #3b82f6;">SumatraPDF oficial</a></li>
+                                                </ul>
+                                                
+                                                <div style="background: #fef3c7; border-left: 3px solid #f59e0b; padding: 0.75rem; border-radius: 4px; margin-top: 1rem;">
+                                                    <strong>💡 Nota:</strong> Sin SumatraPDF, el sistema usará Adobe Reader o PowerShell, que pueden ser más lentos.
+                                                </div>
+                                            </div>
+                                        </details>
+
+                                        <details style="margin-top: 1rem; border: 1px solid #e2e8f0; border-radius: 6px; padding: 1rem;">
+                                            <summary style="cursor: pointer; font-weight: 600; "><i class="fas fa-tools"></i> Control Manual del Cliente</summary>
+                                            <div style="margin-top: 1rem; padding-left: 1rem;">
+                                                <p>Después de la instalación, el cliente se guarda en:</p>
+                                                <code style="background: #f1f5f9; padding: 0.25rem 0.5rem; border-radius: 3px;">%APPDATA%\PrinterShare\</code>
+                                                <p style="margin-top: 1rem;">Ruta completa típica:</p>
+                                                <code style="background: #f1f5f9; padding: 0.25rem 0.5rem; border-radius: 3px;">C:\Users\TuUsuario\AppData\Roaming\PrinterShare\</code>
+                                                
+                                                <h4 >Iniciar en Segundo Plano</h4>
+                                                <ol>
+                                                    <li>Abre la carpeta <code>%APPDATA%\PrinterShare</code></li>
+                                                    <li>Haz doble clic en: <code>start-client-hidden.vbs</code></li>
+                                                    <li>El cliente se iniciará sin mostrar ventanas</li>
+                                                </ol>
+
+                                                <h4 > Ver Logs en Tiempo Real</h4>
+                                                <ol>
+                                                    <li>Abre la carpeta <code>%APPDATA%\PrinterShare</code></li>
+                                                    <li>Haz doble clic en: <code>ver-logs.bat</code></li>
+                                                    <li>Verás los logs en vivo en una ventana</li>
+                                                </ol>
+
+                                                <h4 > Detener el Cliente</h4>
+                                                <ol>
+                                                    <li>Abre la carpeta <code>%APPDATA%\PrinterShare</code></li>
+                                                    <li>Haz doble clic en: <code>stop-client.bat</code></li>
+                                                </ol>
+
+                                                <h4 >Iniciar con Ventana (Debug)</h4>
+                                                <ol>
+                                                    <li>Abre la carpeta <code>%APPDATA%\PrinterShare</code></li>
+                                                    <li>Haz doble clic en: <code>start-client.bat</code></li>
+                                                    <li>Verás una ventana con logs en tiempo real</li>
+                                                </ol>
+                                            </div>
+                                        </details>
+
+                                        <div style="margin-top: 1.5rem; padding: 0.75rem; background: #fff3cd; border-left: 3px solid #ffc107; border-radius: 4px; font-size: 0.875rem;">
                                             <strong>⚠️ Importante:</strong> La computadora con la impresora USB debe estar <strong>encendida</strong> para que otros puedan imprimir.
-                                        </p>
+                                        </div>
                                     </div>
-                                    <a href="/api/download/share-windows-script" class="btn btn-download"  onclick="return downloadShareScript();"><i class="fas fa-download"></i> Descargar Script de Compartir (.BAT)</a>
                                 </div>
                                 
                                 <div class="os-content" id="linux-share">

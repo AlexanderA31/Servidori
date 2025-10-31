@@ -122,11 +122,9 @@ function downloadWindowsClientScript() {
     // - El servidor detecta si es USB compartida y reenvía al cliente USB
     // - Si es impresora de red, el servidor la envía directamente
     if (isSharedUSB) {
-        console.log('Impresora USB compartida - servidor actúa como intermediario');
-        console.log('Puerto del servidor: ' + serverPort + ' (reenvía a cliente USB)');
+    
     } else {
-        console.log('Impresora de red - conexión al servidor');
-        console.log('Puerto del servidor: ' + serverPort);
+    
     }
     
     const printerPath = urlParts ? urlParts[3] : printerName.replace(/\s/g, '_');
