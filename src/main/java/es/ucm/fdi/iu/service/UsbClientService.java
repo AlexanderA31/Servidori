@@ -120,13 +120,14 @@ public class UsbClientService {
 
     /**
      * Detecta impresoras USB locales usando PowerShell
+     * FILTRA impresoras de red (puerto IP_*) y busca SOLO puerto USB
      */
     private void detectLocalPrinters() {
         try {
             log.info("🔍 Buscando impresoras USB locales...");
             
-            // Ejecutar comando PowerShell para listar impresoras USB
-            String command = "powershell.exe -Command \"Get-Printer | Where-Object {$_.Type -eq 'Local' -or $_.PortName -like 'USB*'} | Select-Object -First 1 -ExpandProperty Name\"";
+            // Buscar impresoras con puerto USB* y excluir puertos de red (IP_*)
+            String command = "powershell.exe -Command \"Get-Printer | Where-Object {$_.PortName -like 'USB*' -and $_.PortName -notlike 'IP_*'} | Select-Object -First 1 -ExpandProperty Name\"";
             
             Process process = Runtime.getRuntime().exec(command);
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
@@ -134,9 +135,22 @@ public class UsbClientService {
             String printerName = reader.readLine();
             if (printerName != null && !printerName.trim().isEmpty()) {
                 localPrinterName = printerName.trim();
+                
+                // Obtener información del puerto para logging
+                String portCommand = String.format(
+                    "powershell.exe -Command \"Get-Printer -Name '%s' | Select-Object -ExpandProperty PortName\"",
+                    localPrinterName
+                );
+                Process portProcess = Runtime.getRuntime().exec(portCommand);
+                BufferedReader portReader = new BufferedReader(new InputStreamReader(portProcess.getInputStream()));
+                String portName = portReader.readLine();
+                portProcess.waitFor();
+                
                 log.info("   ✅ Encontrada: {}", localPrinterName);
+                log.info("   🔌 Puerto USB: {}", portName != null ? portName.trim() : "Desconocido");
             } else {
-                log.warn("   ⚠️ No se encontraron impresoras USB");
+                log.warn("   ⚠️ No se encontraron impresoras con puerto USB");
+                log.warn("   💡 Verifica que la impresora esté conectada por USB");
             }
             
             process.waitFor();
