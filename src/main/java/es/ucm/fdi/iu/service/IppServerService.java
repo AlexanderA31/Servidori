@@ -343,9 +343,9 @@ public class IppServerService {
 
     private String buildPrinterUri(Printer printer) {
         try {
-            String serverHost = es.ucm.fdi.iu.util.NetworkUtils.getServerHost();
+            String serverIp = es.ucm.fdi.iu.util.NetworkUtils.getServerIpAddress();
             return String.format("ipp://%s:%d/printers/%s", 
-                serverHost, IPP_PORT, printer.getAlias().replace(" ", "_"));
+                serverIp, IPP_PORT, printer.getAlias().replace(" ", "_"));
         } catch (Exception e) {
             log.error("Error obteniendo IP del servidor", e);
             return String.format("ipp://localhost:%d/printers/%s", IPP_PORT, printer.getAlias());

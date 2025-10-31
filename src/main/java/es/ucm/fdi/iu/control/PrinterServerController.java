@@ -44,9 +44,9 @@ public class PrinterServerController {
      */
     @GetMapping
     public String printServerIndex(Model model) {
-                try {
-            String serverHost = NetworkUtils.getServerHost();
-            model.addAttribute("serverIp", serverHost);
+        try {
+            String serverIp = NetworkUtils.getServerIpAddress();
+            model.addAttribute("serverIp", serverIp);
             
             List<Printer> printers = entityManager.createQuery(
                 "SELECT p FROM Printer p ORDER BY p.id", Printer.class).getResultList();
@@ -62,9 +62,9 @@ public class PrinterServerController {
                         p.getAlias(),
                         p.getModel(),
                         p.getLocation(),
-                                                buildIppUriWithPort(serverHost, p.getAlias(), port),
-                        buildWindowsCommand(serverHost, p.getAlias()),
-                        buildLinuxCommand(serverHost, p.getAlias()),
+                        buildIppUriWithPort(serverIp, p.getAlias(), port),
+                        buildWindowsCommand(serverIp, p.getAlias()),
+                        buildLinuxCommand(serverIp, p.getAlias()),
                         port
                     );
                 })
@@ -89,8 +89,8 @@ public class PrinterServerController {
     @GetMapping("/api/printers")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> listPrinters() {
-                try {
-            String serverHost = NetworkUtils.getServerHost();
+        try {
+            String serverIp = NetworkUtils.getServerIpAddress();
             List<Printer> printers = entityManager.createQuery(
                 "SELECT p FROM Printer p ORDER BY p.id", Printer.class).getResultList();
             
@@ -104,16 +104,16 @@ public class PrinterServerController {
                     info.put("name", p.getAlias());
                     info.put("model", p.getModel());
                     info.put("location", p.getLocation());
-                                        info.put("ip", serverHost);  // Siempre host del servidor
+                    info.put("ip", serverIp);  // Siempre IP del servidor
                     info.put("port", port);  // Puerto del servidor
-                    info.put("ippUri", buildIppUriWithPort(serverHost, p.getAlias(), port));
+                    info.put("ippUri", buildIppUriWithPort(serverIp, p.getAlias(), port));
                     info.put("isSharedUSB", isSharedUSB);
                     return info;
                 })
                 .collect(Collectors.toList());
             
-                        Map<String, Object> response = new HashMap<>();
-            response.put("serverIp", serverHost);
+            Map<String, Object> response = new HashMap<>();
+            response.put("serverIp", serverIp);
             response.put("basePort", 8631);  // Puerto base (primera impresora)
             response.put("printers", printerList);
             response.put("total", printerList.size());
@@ -131,8 +131,8 @@ public class PrinterServerController {
      */
     @GetMapping("/download/windows-script/{printerName}")
     public ResponseEntity<String> downloadWindowsScriptForPrinter(@PathVariable String printerName) {
-                try {
-            String serverHost = NetworkUtils.getServerHost();
+        try {
+            String serverIp = NetworkUtils.getServerIpAddress();
             
             // Obtener el puerto especifico de esta impresora
             List<Printer> printers = entityManager.createQuery(
@@ -145,7 +145,7 @@ public class PrinterServerController {
                 port = multiPortIppService.getPortForPrinter(printers.get(0));
             }
             
-            String script = generateWindowsScriptForPrinter(serverHost, port, printerName);
+            String script = generateWindowsScriptForPrinter(serverIp, port, printerName);
             
             log.info("Generando script Windows personalizado para impresora: {} (Puerto: {})", printerName, port);
             
@@ -164,9 +164,9 @@ public class PrinterServerController {
      */
     @GetMapping("/download/linux-script/{printerName}")
     public ResponseEntity<String> downloadLinuxScriptForPrinter(@PathVariable String printerName) {
-                try {
-            String serverHost = NetworkUtils.getServerHost();
-            String script = generateLinuxScriptForPrinter(serverHost, printerName);
+        try {
+            String serverIp = NetworkUtils.getServerIpAddress();
+            String script = generateLinuxScriptForPrinter(serverIp, printerName);
             
             log.info("Generando script Linux personalizado para impresora: {}", printerName);
             
@@ -284,8 +284,8 @@ public class PrinterServerController {
     @GetMapping("/api/install-command/{printerName}")
     @ResponseBody
     public ResponseEntity<Map<String, String>> getInstallCommand(@PathVariable String printerName) {
-                try {
-            String serverHost = NetworkUtils.getServerHost();
+        try {
+            String serverIp = NetworkUtils.getServerIpAddress();
             
             // Buscar la impresora para obtener su puerto
             List<Printer> printers = entityManager.createQuery(
@@ -298,10 +298,10 @@ public class PrinterServerController {
                 port = multiPortIppService.getPortForPrinter(printers.get(0));
             }
             
-                        Map<String, String> commands = new HashMap<>();
-            commands.put("windows", buildWindowsCommand(serverHost, printerName));
-            commands.put("linux", buildLinuxCommand(serverHost, printerName));
-            commands.put("ippUri", buildIppUriWithPort(serverHost, printerName, port));
+            Map<String, String> commands = new HashMap<>();
+            commands.put("windows", buildWindowsCommand(serverIp, printerName));
+            commands.put("linux", buildLinuxCommand(serverIp, printerName));
+            commands.put("ippUri", buildIppUriWithPort(serverIp, printerName, port));
             commands.put("port", String.valueOf(port));
             
             return ResponseEntity.ok(commands);
