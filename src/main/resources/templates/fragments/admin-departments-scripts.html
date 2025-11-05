@@ -14,6 +14,15 @@
             openModal('assignPrinterModal');
         }
 
+        function openEditDepartmentModal(data) {
+            document.getElementById('editDepartmentId').value = data.deptId;
+            document.getElementById('editDepartmentName').value = data.deptName;
+            document.getElementById('editDepartmentDescription').value = data.deptDescription || '';
+            document.getElementById('editDepartmentLocation').value = data.deptLocation || '';
+            document.getElementById('editDepartmentColor').value = data.deptColor || '#667eea';
+            openModal('editDepartmentModal');
+        }
+
         // Auto-cerrar alertas
         document.addEventListener('DOMContentLoaded', function() {
             const alerts = document.querySelectorAll('.alert');

@@ -126,8 +126,14 @@
                                                 </button>
                                             </div>
                                         </td>
-                                        <td>
+                                                                                <td>
                                             <div class="action-buttons">
+                                                <button class="btn btn-sm btn-primary" 
+                                                        th:attr="data-dept-id=${dept.id}, data-dept-name=${dept.name}, data-dept-description=${dept.description}, data-dept-location=${dept.location}, data-dept-color=${dept.color}"
+                                                        onclick="openEditDepartmentModal(this.dataset)"
+                                                        title="Editar departamento">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
                                                 <form method="post" th:action="@{/admin/delete-department(id=${dept.id})}" 
                                                       class="d-inline" onsubmit="return confirm('¿Eliminar este departamento?')">
                                                     <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">

@@ -629,7 +629,7 @@ public class AdminController {
 
     // ========== GESTIÓN DE DEPARTAMENTOS ==========
     
-    @PostMapping("/create-department")
+        @PostMapping("/create-department")
     @Transactional
     public String createDepartment(
             @RequestParam String name,
@@ -652,6 +652,33 @@ public class AdminController {
             ra.addFlashAttribute("success", "Departamento creado: " + name);
         } catch (Exception e) {
             log.error("Error creating department", e);
+            ra.addFlashAttribute("error", "Error: " + e.getMessage());
+        }
+        return "redirect:/admin/departments";
+    }
+    
+    @PostMapping("/edit-department")
+    @Transactional
+    public String editDepartment(
+            @RequestParam Long id,
+            @RequestParam String name,
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false) String location,
+            @RequestParam(required = false) String color,
+            RedirectAttributes ra) {
+        try {
+            Department dept = entityManager.find(Department.class, id);
+            if (dept != null) {
+                dept.setName(name);
+                dept.setDescription(description);
+                dept.setLocation(location);
+                dept.setColor(color != null && !color.isEmpty() ? color : "#667eea");
+                ra.addFlashAttribute("success", "Departamento actualizado: " + name);
+            } else {
+                ra.addFlashAttribute("error", "Departamento no encontrado");
+            }
+        } catch (Exception e) {
+            log.error("Error editing department", e);
             ra.addFlashAttribute("error", "Error: " + e.getMessage());
         }
         return "redirect:/admin/departments";
