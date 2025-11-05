@@ -964,7 +964,7 @@ public class ApiController {
         }
     }
     
-        /**
+            /**
      * Endpoint público para descargar el script de instalación para Linux
      */
     @GetMapping("/download/install-linux-script")
@@ -1003,6 +1003,49 @@ public class ApiController {
                 .body(script);
         } catch (Exception e) {
             log.error("Error leyendo script de instalación Linux", e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
+    /**
+     * Endpoint público para descargar el script de desinstalación/descompartir para Windows
+     */
+    @GetMapping("/download/uninstall-printershare-script")
+    public ResponseEntity<String> downloadUninstallPrintershareScript() {
+        try {
+            // Intentar desde el directorio del proyecto
+            java.nio.file.Path scriptPath = java.nio.file.Paths.get("scripts/desinstalar-printershare.bat");
+            
+            // Si no existe, intentar desde resources
+            if (!java.nio.file.Files.exists(scriptPath)) {
+                try {
+                    java.io.InputStream is = getClass().getResourceAsStream("/scripts/desinstalar-printershare.bat");
+                    if (is != null) {
+                        String script = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                        log.info("Sirviendo script de desinstalación desde classpath ({} bytes)", script.length());
+                        
+                        return ResponseEntity.ok()
+                            .header("Content-Disposition", "attachment; filename=desinstalar-printershare.bat")
+                            .header("Content-Type", "text/plain; charset=UTF-8")
+                            .body(script);
+                    }
+                } catch (Exception ex) {
+                    log.debug("No se pudo cargar desde classpath: {}", ex.getMessage());
+                }
+                
+                log.error("Script de desinstalación no encontrado");
+                return ResponseEntity.notFound().build();
+            }
+            
+            String script = new String(java.nio.file.Files.readAllBytes(scriptPath), java.nio.charset.StandardCharsets.UTF_8);
+            log.info("Sirviendo script de desinstalación: {} bytes", script.length());
+            
+            return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=desinstalar-printershare.bat")
+                .header("Content-Type", "text/plain; charset=UTF-8")
+                .body(script);
+        } catch (Exception e) {
+            log.error("Error leyendo script de desinstalación", e);
             return ResponseEntity.internalServerError().build();
         }
     }
