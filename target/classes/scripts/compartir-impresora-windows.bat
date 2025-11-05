@@ -300,7 +300,7 @@ if errorlevel 1 (
     echo   3. Reinicia esta PC
     echo.
     echo OPCION 3: Descarga Directa Microsoft JDK
-    echo   1. Ve a: https://aka.ms/download-jdk/microsoft-jdk-21-windows-x64.msi
+    echo   1. Ve a: https://aka.ms/download-jdk/microsoft-jdk-17-windows-x64.msi
     echo   2. Descarga e instala el archivo MSI
     echo   3. Reinicia esta PC
     echo.
