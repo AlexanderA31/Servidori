@@ -302,23 +302,34 @@
     font-size: 1rem;
 }
 
-/* Selector de departamento */
+/* Selector de departamento - Destacado */
 #departmentSelect {
-    background-color: #f8f9fa;
-    background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%230B283F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3e%3cpolyline points="6 9 12 15 18 9"%3e%3c/polyline%3e%3c/svg%3e');
+    /* Sobrescribir fondo con color destacado */
+    background-color: #f0f7ff;
+    background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%230B283F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"%3e%3cpolyline points="6 9 12 15 18 9"%3e%3c/polyline%3e%3c/svg%3e');
     background-repeat: no-repeat;
-    background-position: right 0.75rem center;
+    background-position: right 0.875rem center;
     background-size: 1.25em 1.25em;
+    
+    /* Borde destacado */
     border: 2px solid #0B283F;
+    border-width: 2.5px;
+    
+    /* Tipografía más destacada */
     font-weight: 500;
+    color: #0B283F;
+    
+    /* Altura mínima específica */
+    min-height: 52px;
 }
 
 #departmentSelect:focus {
     border-color: #0B283F;
-    box-shadow: 0 0 0 3px rgba(11, 40, 63, 0.1);
+    box-shadow: 0 0 0 4px rgba(11, 40, 63, 0.15);
+    background-color: #ffffff;
 }
 
-#departmentSelect:hover {
+#departmentSelect:hover:not(:disabled) {
     background-color: #ffffff;
     border-color: #0B283F;
 }
@@ -326,71 +337,106 @@
 /* Selector de impresora */
 #printerSelect {
     background-color: #ffffff;
-    border: 2px solid #e2e8f0;
+    border: 2px solid #cbd5e0;
+    min-height: 30px;
 }
 
 #printerSelect:focus {
-    border-color: #1a1f2e;
-    box-shadow: 0 0 0 3px rgba(26, 31, 46, 0.1);
+    border-color: #475569;
+  
+}
+
+#printerSelect:hover:not(:disabled) {
+    border-color: #94a3b8;
 }
 
 /* Cuando el selector está deshabilitado o vacío */
-#printerSelect:disabled,
-#printerSelect option[value=""]:only-child {
-    background-color: #f7fafc;
-    color: #a0aec0;
+#printerSelect:disabled {
+    background-color: #f8fafc;
+    color: #94a3b8;
     cursor: not-allowed;
 }
 
 .form-control {
+    /* Dimensiones y posicionamiento */
     width: 100%;
-    padding: 0.75rem;
+    display: block;
+    min-height: 48px;
+    height: auto;
+    
+    /* Espaciado interno - más generoso */
+    padding: 0.875rem 2.75rem 0.875rem 1rem;
+    
+    /* Bordes y forma */
     border: 2px solid #e2e8f0;
     border-radius: 8px;
-    font-size: 0.95rem;
-    transition: border-color 0.2s;
-    /* Estilos específicos para select */
+    box-sizing: border-box;
+    
+    /* Tipografía */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1;
+    color: #1a202c;
+    
+    /* Eliminar estilos nativos del navegador */
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
+    
+    /* Fondo y flecha personalizada */
     background-color: white;
-    background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3e%3cpolyline points="6 9 12 15 18 9"%3e%3c/polyline%3e%3c/svg%3e');
+    background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23475569" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"%3e%3cpolyline points="6 9 12 15 18 9"%3e%3c/polyline%3e%3c/svg%3e');
     background-repeat: no-repeat;
-    background-position: right 0.75rem center;
+    background-position: right 0.875rem center;
     background-size: 1.25em 1.25em;
-    padding-right: 2.5rem;
+    
+    /* Interactividad */
     cursor: pointer;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-    line-height: 1.5;
-    color: #1a202c;
+    transition: all 0.2s ease;
+    
+    /* Alineación vertical del texto */
+    vertical-align: middle;
 }
 
 .form-control:focus {
     outline: none;
     border-color: #1a1f2e;
-    box-shadow: 0 0 0 3px rgba(26, 31, 46, 0.1);
+    box-shadow: 0 0 0 4px rgba(26, 31, 46, 0.1);
+    background-color: #ffffff;
 }
 
-.form-control:hover {
-    border-color: #cbd5e0;
+.form-control:hover:not(:disabled) {
+    border-color: #94a3b8;
+    background-color: #fafafa;
 }
 
 .form-control:disabled {
-    background-color: #f7fafc;
-    color: #a0aec0;
+    background-color: #f1f5f9;
+    background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23cbd5e0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"%3e%3cpolyline points="6 9 12 15 18 9"%3e%3c/polyline%3e%3c/svg%3e');
+    color: #94a3b8;
     cursor: not-allowed;
-    opacity: 0.6;
+    opacity: 0.7;
 }
 
 /* Estilos para las opciones del select */
 .form-control option {
-    padding: 0.5rem;
+    padding: 0.75rem;
     background-color: white;
     color: #1a202c;
+    font-size: 1rem;
+    line-height: 1.6;
+    min-height: 2.5rem;
 }
 
 .form-control option:disabled {
-    color: #a0aec0;
+    color: #cbd5e0;
+    background-color: #f8fafc;
+}
+
+.form-control option:checked {
+
+    color: white;
 }
 
 .info-box {
