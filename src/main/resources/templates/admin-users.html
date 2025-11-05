@@ -88,7 +88,6 @@
                                     <th>Usuario</th>
                                     <th>Rol</th>
                                     <th>Estado</th>
-                                    <th>ID</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
@@ -113,7 +112,6 @@
                                         <span th:if="${user.enabled}" class="status-badge status-active">Activo</span>
                                         <span th:unless="${user.enabled}" class="status-badge status-inactive">Inactivo</span>
                                     </td>
-                                    <td th:text="${user.id}">--</td>
                                     <td>
                                         <div class="action-buttons">
                                             <button class="btn btn-sm btn-primary" 
