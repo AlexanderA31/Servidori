@@ -239,15 +239,19 @@
             window.restoreScanModalDirect();
         }
         
-        window.cancelScan = function() {
-         
+        window.cancelScan = async function() {
+            // Usar el sistema de confirmación unificado
+            const confirmed = await showConfirm({
+                title: '¿Cancelar Escaneo?',
+                message: 'El escaneo se detendrá inmediatamente. Los trabajos encontrados hasta ahora se mantendrán.',
+                confirmText: 'Sí, Cancelar',
+                cancelText: 'No, Continuar',
+                type: 'warning'
+            });
             
-            if (!confirm('Seguro de cancelar el escaneo?')) {
-              
+            if (!confirmed) {
                 return;
             }
-            
-          
             
             const btn = document.getElementById('forceCompleteBtn');
             if (btn) {

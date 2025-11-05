@@ -1,77 +1,348 @@
 <!DOCTYPE html>
-<html 
-	xmlns:th="http://www.thymeleaf.org"
-	xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
-<head><th:block th:replace="~{fragments/head :: header}"/>
-	<title th:text="'IU: Error ' + ${status}">IU: Error</title>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <th:block th:replace="~{fragments/head :: header}"/>
+    <title th:text="'PrintManager - Error ' + ${status}">PrintManager - Error</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <style>
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+        
+        .error-page-container {
+            min-height: calc(100vh - 150px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        
+        .error-card {
+            max-width: 600px;
+            width: 100%;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+        
+        .error-header {
+            background: #0B283F;
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        .error-status {
+            font-size: 5rem;
+            font-weight: 700;
+            margin: 0;
+            line-height: 1;
+            opacity: 0.9;
+        }
+        
+        .error-title {
+            font-size: 1.5rem;
+            margin: 1rem 0 0 0;
+            font-weight: 600;
+			color: white;
+        }
+        
+        .error-body {
+            padding: 2rem;
+            text-align: center;
+			
+        }
+        
+        .error-icon {
+            font-size: 4rem;
+            color: #0B283F;
+            margin-bottom: 1.5rem;
+        }
+        
+        .error-message {
+            font-size: 1.1rem;
+            color: #4a5568;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+        
+        .error-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .error-btn {
+            padding: 0.75rem 2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s;
+        }
+        
+        .error-btn-primary {
+            background: #0B283F;
+            color: white;
+            border: 2px solid #0B283F;
+        }
+        
+        .error-btn-primary:hover {
+            background: #083152;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(11, 40, 63, 0.3);
+        }
+        
+        .error-btn-secondary {
+            background: white;
+            color: #0B283F;
+            border: 2px solid #0B283F;
+        }
+        
+        .error-btn-secondary:hover {
+            background: #f7fafc;
+            color: #0B283F;
+            transform: translateY(-2px);
+        }
+        
+        .error-footer {
+            background: #f7fafc;
+            padding: 1.5rem;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #718096;
+        }
+        
+        /* Debug mode styles */
+        .debug-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 2rem;
+        }
+        
+        .debug-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+        
+        .debug-card-header {
+            background: #0B283F;
+            color: white;
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .debug-card-body {
+            padding: 1.5rem;
+        }
+        
+        @media (max-width: 768px) {
+            .error-page-container {
+                padding: 1rem;
+            }
+            
+            .error-status {
+                font-size: 3.5rem;
+            }
+            
+            .error-title {
+                font-size: 1.25rem;
+            }
+            
+            .error-actions {
+                flex-direction: column;
+            }
+            
+            .error-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
 </head>
 <body>
-	<nav th:replace="~{fragments/nav.html :: nav}">
-		Nav goes here
-	</nav>
-	
-		<div class="container">
-		<div class="main">
-			<div class="text-center">
-				<h1 style="font-size: 4rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">⚠️ Error <span th:text="${status}"></span></h1>
-			</div>
-			
-			<div th:unless="${application.debug}" class="text-center">
-				<div class="card" style="border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
-					<div class="card-body">
-						<img th:src="|https://http.cat/${status}|" alt="gato ilustrando problema" class="img-fluid rounded mb-4" style="max-width: 400px;"/>
-						<p class="lead">Los administradores están informados. Puedes volver a intentar hacer lo que estabas haciendo de otra forma, o esperar a que solucionen el problema.</p>
-						<a href="/" class="btn btn-primary mt-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">🏠 Volver al inicio</a>
-					</div>
-				</div>
-			</div>
-				<div th:if="${application.debug}">
-				<div class="alert alert-warning" role="alert">
-					<strong>🔧 Modo Debug:</strong> Ha pasado algo feo. Mira el log del servidor para saber más detalles.
-				</div>
-
-				<h4 class="mt-4">📊 Detalles del error</h4>
-				<table class="table table-striped errTable">
-		<tr><td>Date<td th:text="${timestamp}">
-		<tr><td>Path<td th:text="${path}">
-		<tr><td>Error<td th:text="${error}">
-		<tr><td>Status<td th:text="${status}">
-		<tr><td>Mensaje<td th:text="${message}">
-		<tr><td>Excepción<td th:text="${exception}">
-		<tr><td>Traza<td><pre th:text="${trace}"/>
-	</table>
-
-	<h4>Variables definidas en sesión</h4>
-	<table class="errTable">
-		<tr th:each="v: ${session}">
-		<td><span class="errKey" th:text="${v.key}"></span>
-		<td th:text="${v.value}">
-	</table>
-
-	<h4>Variables definidas en parámetros</h4>
-	<table class="errTable">
-		<tr th:each="v: ${param}">
-		<td th:text="${v.key}">
-		<td> <div th:each="v: ${v.value}"><div th:text="${v}"></div></div>
-	</table>
-
-	<h4>Otras</h4>
-	<table class="errTable">
-		<tr><td>req.url
-			<td th:text="${#request.requestURL}">
-		<tr><td>req.uri
-			<td th:text="${#request.requestURI}">
-		<tr><td>req.getHeader("User-Agent")
-			<td th:text="${#request.getHeader('User-Agent')}">			
-	</table>
-
-	</div>
-	
-	</div> <!-- end main div -->
-	</div> <!-- end container div -->
-	
-	<footer th:replace="~{fragments/footer.html :: footer}">
-		Footer goes here
-	</footer>
+    <nav th:replace="~{fragments/nav.html :: nav}">Nav goes here</nav>
+    
+    <!-- Vista Normal (No Debug) -->
+    <div th:unless="${application.debug}">
+        <div class="error-page-container">
+            <div class="error-card">
+                <div class="error-header">
+                    <div class="error-status" th:text="${status}">404</div>
+                    <h1 class="error-title">
+                        <span th:if="${status == 404}">Página No Encontrada</span>
+                        <span th:if="${status == 403}">Acceso Denegado</span>
+                        <span th:if="${status == 500}">Error Interno del Servidor</span>
+                        <span th:if="${status == 401}">No Autorizado</span>
+                        <span th:unless="${status == 404 || status == 403 || status == 500 || status == 401}">Error del Sistema</span>
+                    </h1>
+                </div>
+                
+                <div class="error-body">
+                    <div class="error-icon">
+                        <i th:if="${status == 404}" class="fas fa-search"></i>
+                        <i th:if="${status == 403}" class="fas fa-lock"></i>
+                        <i th:if="${status == 500}" class="fas fa-server"></i>
+                        <i th:if="${status == 401}" class="fas fa-user-lock"></i>
+                        <i th:unless="${status == 404 || status == 403 || status == 500 || status == 401}" class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    
+                    <p class="error-message">
+                        <span th:if="${status == 404}">
+                            Lo sentimos, la página que buscas no existe o ha sido movida.
+                        </span>
+                        <span th:if="${status == 403}">
+                            No tienes permisos suficientes para acceder a este recurso.
+                        </span>
+                        <span th:if="${status == 500}">
+                            Ha ocurrido un error interno en el servidor. Nuestro equipo ha sido notificado y está trabajando en solucionarlo.
+                        </span>
+                        <span th:if="${status == 401}">
+                            Debes iniciar sesión para acceder a este contenido.
+                        </span>
+                        <span th:unless="${status == 404 || status == 403 || status == 500 || status == 401}">
+                            Ha ocurrido un error inesperado. Por favor, inténtalo de nuevo más tarde.
+                        </span>
+                    </p>
+                    
+                    <div class="error-actions">
+                        <a href="/" class="error-btn error-btn-primary">
+                            <i class="fas fa-home"></i> Volver al Inicio
+                        </a>
+                        <a href="javascript:history.back()" class="error-btn error-btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Página Anterior
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="error-footer">
+                    <i class="fas fa-info-circle"></i> Si el problema persiste, contacta con el administrador del sistema
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Vista Debug (Solo Desarrollo) -->
+    <div th:if="${application.debug}" class="debug-container">
+        <div class="alert alert-warning" style="border-left: 4px solid #f59e0b;">
+            <strong><i class="fas fa-wrench"></i> Modo Debug:</strong> Ha ocurrido un error. Revisa los detalles a continuación.
+        </div>
+        
+        <!-- Detalles del Error -->
+        <div class="debug-card">
+            <div class="debug-card-header">
+                <i class="fas fa-chart-bar"></i> Detalles del Error
+            </div>
+            <div class="debug-card-body">
+                <table class="table table-striped">
+                    <tr><td style="font-weight: 600; width: 200px;">Fecha</td><td th:text="${timestamp}">--</td></tr>
+                    <tr><td style="font-weight: 600;">Ruta</td><td th:text="${path}">--</td></tr>
+                    <tr><td style="font-weight: 600;">Error</td><td th:text="${error}">--</td></tr>
+                    <tr><td style="font-weight: 600;">Estado</td><td th:text="${status}">--</td></tr>
+                    <tr><td style="font-weight: 600;">Mensaje</td><td th:text="${message}">--</td></tr>
+                    <tr><td style="font-weight: 600;">Excepción</td><td th:text="${exception}">--</td></tr>
+                    <tr>
+                        <td style="font-weight: 600; vertical-align: top;">Traza</td>
+                        <td><pre style="background: #f7fafc; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem;" th:text="${trace}">--</pre></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Variables de Sesión -->
+        <div class="debug-card">
+            <div class="debug-card-header">
+                <i class="fas fa-database"></i> Variables de Sesión
+            </div>
+            <div class="debug-card-body">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th style="width: 250px;">Variable</th>
+                            <th>Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="v: ${session}">
+                            <td style="font-weight: 600;" th:text="${v.key}">key</td>
+                            <td th:text="${v.value}">value</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Parámetros de Petición -->
+        <div class="debug-card">
+            <div class="debug-card-header">
+                <i class="fas fa-sliders-h"></i> Parámetros de Petición
+            </div>
+            <div class="debug-card-body">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th style="width: 250px;">Parámetro</th>
+                            <th>Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="v: ${param}">
+                            <td style="font-weight: 600;" th:text="${v.key}">key</td>
+                            <td>
+                                <div th:each="val: ${v.value}">
+                                    <span th:text="${val}">value</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Información Adicional -->
+        <div class="debug-card">
+            <div class="debug-card-header">
+                <i class="fas fa-info-circle"></i> Información Adicional
+            </div>
+            <div class="debug-card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <td style="font-weight: 600; width: 250px;">URL Completa</td>
+                        <td th:text="${#request.requestURL}">--</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">URI</td>
+                        <td th:text="${#request.requestURI}">--</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">User-Agent</td>
+                        <td th:text="${#request.getHeader('User-Agent')}">--</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 2rem;">
+            <a href="/" class="error-btn error-btn-primary">
+                <i class="fas fa-home"></i> Volver al Inicio
+            </a>
+        </div>
+    </div>
+    
+ 
 </body>
 </html>
