@@ -3,6 +3,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     initializeTabs();
     initializePrinterSelect();
+    initializeDepartmentSelect();
 });
 
 // Inicializar tabs de OS para compartir
@@ -32,6 +33,15 @@ function initializeTabs() {
             document.getElementById(client).classList.add('active');
         });
     });
+}
+
+// Inicializar selector de departamentos
+function initializeDepartmentSelect() {
+    const departmentSelect = document.getElementById('departmentSelect');
+    if (!departmentSelect) return;
+    
+    // El evento change ya se configura en el HTML inline
+    // Esta función es para inicializaciones adicionales si se necesitan
 }
 
 // Inicializar selector de impresoras

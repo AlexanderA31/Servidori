@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <th:block th:replace="fragments/head :: header"/>
-    <title>Compartir Impresoras</title>
+    <title>Compartir Impresoras - PrintManager</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
     <link rel="stylesheet" th:href="@{/css/admin-sidebar.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-modern.css}"/>
@@ -171,14 +171,20 @@
                                 </div>
                             </div>
                             
-                            <div class="tool-section">
+                                                        <div class="tool-section">
                                 <h3><i class="fas fa-network-wired"></i> Configurar Impresora IPP en Cliente</h3>
                                 <p>Configura una computadora cliente para usar las impresoras compartidas</p>
                                 
                                 <div class="ipp-config">
-                                    <label>Selecciona la impresora:</label>
+                                    <label>1. Selecciona el departamento:</label>
+                                    <select id="departmentSelect" class="form-control" style="margin-bottom: 1rem;">
+                                        <option value="">-- Selecciona un departamento --</option>
+                                        <option value="all">Todas las impresoras</option>
+                                    </select>
+                                    
+                                    <label>2. Selecciona la impresora:</label>
                                     <select id="printerSelect" class="form-control">
-                                        <option value="">-- Selecciona una impresora --</option>
+                                        <option value="">-- Primero selecciona un departamento --</option>
                                     </select>
                                     
                                     <div id="ippInstructions" style="display:none; margin-top: 1rem;">
@@ -357,36 +363,107 @@ lpadmin -p "EPSON-Oficina" \<br>
     <script th:src="@{/js/scan-monitor-global.js}"></script>
     <script th:src="@{/js/notifications.js}"></script>
     <script th:src="@{/js/home-printer-sharing.js}"></script>
-    <script>
-        // Cargar impresoras desde la API al cargar la página
+        <script>
+        // Variables globales para almacenar todos los datos
+        let allPrinters = [];
+        let allDepartments = [];
+        let serverIp = '';
+        
+        // Cargar departamentos e impresoras desde la API al cargar la página
         document.addEventListener('DOMContentLoaded', function() {
-            loadPrinters();
+            loadDepartments();
         });
         
-        async function loadPrinters() {
+        async function loadDepartments() {
             try {
-                const response = await fetch('/api/printers');
-                const data = await response.json();
+                // Cargar departamentos
+                const deptResponse = await fetch('/api/departments');
+                const deptData = await deptResponse.json();
+                allDepartments = deptData.departments || [];
                 
-                const serverIp = data.serverIp;
-                const printers = data.printers;
+                // Cargar todas las impresoras
+                const printersResponse = await fetch('/api/printers');
+                const printersData = await printersResponse.json();
+                allPrinters = printersData.printers || [];
+                serverIp = printersData.serverIp;
+                
+                // Poblar el selector de departamentos
+                const deptSelect = document.getElementById('departmentSelect');
+                deptSelect.innerHTML = '<option value="">-- Selecciona un departamento --</option>';
+                deptSelect.innerHTML += '<option value="all">Todas las impresoras</option>';
+                
+                allDepartments.forEach(dept => {
+                    const option = document.createElement('option');
+                    option.value = dept.id;
+                    option.textContent = dept.name + ' (' + dept.totalPrinters + ' impresoras)';
+                    deptSelect.appendChild(option);
+                });
+                
+                // Agregar listener para cambio de departamento
+                deptSelect.addEventListener('change', function() {
+                    if (this.value === '') {
+                        // No hay selección
+                        const printerSelect = document.getElementById('printerSelect');
+                        printerSelect.innerHTML = '<option value="">-- Primero selecciona un departamento --</option>';
+                        document.getElementById('ippInstructions').style.display = 'none';
+                    } else if (this.value === 'all') {
+                        // Todas las impresoras
+                        loadAllPrinters();
+                    } else {
+                        // Cargar impresoras del departamento seleccionado
+                        loadPrintersByDepartment(this.value);
+                    }
+                });
+                
+            } catch (error) {
+                console.error('❌ Error cargando departamentos:', error);
+                showError('Error cargando departamentos: ' + error.message);
+            }
+        }
+        
+        function loadAllPrinters() {
+            const select = document.getElementById('printerSelect');
+            select.innerHTML = '<option value="">-- Selecciona una impresora --</option>';
+            
+            allPrinters.forEach(printer => {
+                const option = document.createElement('option');
+                option.value = printer.id;
+                option.textContent = printer.alias;
+                option.dataset.ippuri = printer.ippUri;
+                option.dataset.name = printer.alias;
+                option.dataset.location = printer.location || '';
+                select.appendChild(option);
+            });
+        }
+        
+        async function loadPrintersByDepartment(departmentId) {
+            try {
+                const response = await fetch('/api/departments/' + departmentId + '/printers');
+                const data = await response.json();
                 
                 const select = document.getElementById('printerSelect');
                 select.innerHTML = '<option value="">-- Selecciona una impresora --</option>';
                 
-                printers.forEach(printer => {
-                    const option = document.createElement('option');
-                    option.value = printer.id;
-                    option.textContent = printer.alias;
-                    option.dataset.ippuri = printer.ippUri;
-                    option.dataset.name = printer.alias;
-                    option.dataset.location = printer.location || ''; // Agregar ubicación para detectar USB
-                    select.appendChild(option);
-                });
+                if (data.printers && data.printers.length > 0) {
+                    data.printers.forEach(printer => {
+                        const option = document.createElement('option');
+                        option.value = printer.id;
+                        option.textContent = printer.alias;
+                        option.dataset.ippuri = printer.ippUri;
+                        option.dataset.name = printer.alias;
+                        option.dataset.location = printer.location || '';
+                        select.appendChild(option);
+                    });
+                } else {
+                    select.innerHTML = '<option value="">-- Este departamento no tiene impresoras asignadas --</option>';
+                }
                 
-               
+                // Ocultar instrucciones hasta que se seleccione una impresora
+                document.getElementById('ippInstructions').style.display = 'none';
+                
             } catch (error) {
-                console.error('❌ Error cargando impresoras:', error);
+                console.error('❌ Error cargando impresoras del departamento:', error);
+                showError('Error cargando impresoras: ' + error.message);
             }
         }
         

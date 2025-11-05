@@ -1007,6 +1007,38 @@ public class ApiController {
         }
     }
     
+        /**
+     * Endpoint público para obtener todos los departamentos
+     * Para usar en el landing page (sin autenticación)
+     */
+    @GetMapping("/departments")
+    public Map<String, Object> getAllDepartments() {
+        log.info("Public API: /api/departments");
+        
+        List<Map<String, String>> departmentsList = new ArrayList<>();
+        List<Department> departments = entityManager.createQuery(
+                "SELECT d FROM Department d ORDER BY d.name", Department.class)
+                .getResultList();
+        
+        for (Department d : departments) {
+            Map<String, String> deptData = new HashMap<>();
+            deptData.put("id", String.valueOf(d.getId()));
+            deptData.put("name", d.getName());
+            deptData.put("description", d.getDescription() != null ? d.getDescription() : "");
+            deptData.put("location", d.getLocation() != null ? d.getLocation() : "");
+            deptData.put("color", d.getColor() != null ? d.getColor() : "#667eea");
+            deptData.put("totalPrinters", String.valueOf(d.getPrinters().size()));
+            departmentsList.add(deptData);
+        }
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("departments", departmentsList);
+        response.put("total", departmentsList.size());
+        
+        log.info("Returning {} departments", departmentsList.size());
+        return response;
+    }
+    
     /**
      * Endpoint público para obtener todas las impresoras del sistema
      * Para usar en el landing page (sin autenticación)
@@ -1067,7 +1099,72 @@ public class ApiController {
         response.put("printers", printersList);
         response.put("total", printersList.size());
         
-        log.info("Returning {} printers (server IP: {})", printersList.size(), serverIp);
+                log.info("Returning {} printers (server IP: {})", printersList.size(), serverIp);
+        return response;
+    }
+    
+    /**
+     * Endpoint público para obtener impresoras de un departamento específico
+     * Para usar en el landing page (sin autenticación)
+     */
+    @GetMapping("/departments/{departmentId}/printers")
+    public Map<String, Object> getPrintersByDepartment(@PathVariable Long departmentId) {
+        log.info("Public API: /api/departments/{}/printers", departmentId);
+        
+        Department department = entityManager.find(Department.class, departmentId);
+        
+        if (department == null) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Departamento no encontrado");
+            errorResponse.put("total", 0);
+            errorResponse.put("printers", new ArrayList<>());
+            return errorResponse;
+        }
+        
+        // Obtener IP del servidor (FIJA para todas las impresoras)
+        String serverIp = es.ucm.fdi.iu.util.NetworkUtils.getServerIpAddress();
+        
+        List<Map<String, String>> printersList = new ArrayList<>();
+        List<Printer> printers = department.getPrinters();
+        
+        for (Printer p : printers) {
+            Map<String, String> printerData = new HashMap<>();
+            printerData.put("id", String.valueOf(p.getId()));
+            printerData.put("alias", p.getAlias());
+            printerData.put("model", p.getModel() != null ? p.getModel() : "");
+            
+            // Location (IMPORTANTE para detectar impresoras USB compartidas)
+            String location = p.getLocation() != null ? p.getLocation() : "";
+            printerData.put("location", location);
+            boolean isSharedUSB = location.contains("Compartida-USB");
+            printerData.put("isSharedUSB", String.valueOf(isSharedUSB));
+            
+            // Puerto IPP dedicado de esta impresora en el SERVIDOR
+            int ippPort = p.getIppPort() != null ? p.getIppPort() : 8631;
+            printerData.put("ippPort", String.valueOf(ippPort));
+            
+            // IP física de la impresora (para información)
+            printerData.put("printerIp", p.getIp() != null ? p.getIp() : "");
+            
+            // TODAS las conexiones van AL SERVIDOR en su puerto dedicado
+            String safeName = p.getAlias().replace(" ", "_");
+            String ippUri = String.format("ipp://%s:%d/printers/%s", serverIp, ippPort, safeName);
+            printerData.put("ippUri", ippUri);
+            printerData.put("connectionType", "server");
+            
+            printersList.add(printerData);
+        }
+        
+        // Construir respuesta completa
+        Map<String, Object> response = new HashMap<>();
+        response.put("serverIp", serverIp);
+        response.put("departmentId", departmentId);
+        response.put("departmentName", department.getName());
+        response.put("printers", printersList);
+        response.put("total", printersList.size());
+        
+        log.info("Returning {} printers for department '{}' (server IP: {})", 
+                 printersList.size(), department.getName(), serverIp);
         return response;
     }
 }

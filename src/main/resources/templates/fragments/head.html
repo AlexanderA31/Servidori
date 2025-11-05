@@ -2,12 +2,28 @@
 <html 
 	xmlns:th="http://www.thymeleaf.org">
 <head>
-	<title>IU 2020-21</title>
+	<title>PrintManager - Sistema de Gestión de Impresoras</title>
 		<th:block th:fragment="header">
 			<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	
+	<!-- Metadatos del sitio -->
+	<meta name="description" content="Sistema de gestión centralizada de impresoras e impresión. Administra impresoras, departamentos, colas de impresión y comparte impresoras en red.">
+	<meta name="keywords" content="impresoras, gestión, impresión, IPP, CUPS, compartir impresoras">
+	<meta name="author" content="PrintManager System">
+	<meta name="application-name" content="PrintManager">
+	
+		<!-- Favicon -->
+	<link rel="icon" type="image/png" th:href="@{/images/logo.png}" href="/images/logo.png">
+	<link rel="shortcut icon" type="image/png" th:href="@{/images/logo.png}" href="/images/logo.png">
+	<link rel="apple-touch-icon" type="image/png" th:href="@{/images/logo.png}" href="/images/logo.png">
+	
+	<!-- Theme Color para navegadores móviles -->
+	<meta name="theme-color" content="#0B283F">
 			<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
-			<link rel="stylesheet" th:href="@{/css/theme.css}" href="css/theme.css" type="text/css"/>
+			
+	<!-- Hojas de estilo -->
+	<link rel="stylesheet" th:href="@{/css/theme.css}" href="css/theme.css" type="text/css"/>
 	<link rel="stylesheet" th:href="@{/css/bootstrap.css}" href="css/bootstrap.css" type="text/css"/>
 	<link rel="stylesheet" th:href="@{/css/navbar.css}" href="css/navbar.css" type="text/css"/>
 	<link rel="stylesheet" th:href="@{/css/custom.css}" href="css/custom.css" type="text/css"/>

@@ -293,6 +293,44 @@
     margin-bottom: 0.5rem;
     font-weight: 600;
     color: #1a1f2e;
+    font-size: 0.95rem;
+}
+
+/* Destacar el paso 1 y 2 */
+.ipp-config label:first-of-type {
+    color: #0B283F;
+    font-size: 1rem;
+}
+
+/* Selector de departamento */
+#departmentSelect {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border: 2px solid #0B283F;
+    font-weight: 500;
+}
+
+#departmentSelect:focus {
+    border-color: #0B283F;
+    box-shadow: 0 0 0 3px rgba(11, 40, 63, 0.1);
+}
+
+/* Selector de impresora */
+#printerSelect {
+    background: #ffffff;
+    border: 2px solid #e2e8f0;
+}
+
+#printerSelect:focus {
+    border-color: #1a1f2e;
+    box-shadow: 0 0 0 3px rgba(26, 31, 46, 0.1);
+}
+
+/* Cuando el selector está deshabilitado o vacío */
+#printerSelect:disabled,
+#printerSelect option[value=""]:only-child {
+    background: #f7fafc;
+    color: #a0aec0;
+    cursor: not-allowed;
 }
 
 .form-control {
