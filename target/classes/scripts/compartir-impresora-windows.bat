@@ -292,7 +292,7 @@ if errorlevel 1 (
     echo OPCION 1: Instalacion Rapida con Winget ^(Recomendado^)
     echo   1. Abre PowerShell como Administrador
     echo   2. Ejecuta:
-    echo      winget install EclipseAdoptium.Temurin.17.JRE
+    echo      winget install EclipseAdoptium.Temurin.21.JRE
     echo.
     echo OPCION 2: Descarga Manual
     echo   1. Ve a: https://www.java.com/es/download/
