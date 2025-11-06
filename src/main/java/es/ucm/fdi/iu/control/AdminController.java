@@ -629,12 +629,13 @@ public class AdminController {
 
     // ========== GESTIÓN DE DEPARTAMENTOS ==========
     
-        @PostMapping("/create-department")
+            @PostMapping("/create-department")
     @Transactional
     public String createDepartment(
             @RequestParam String name,
             @RequestParam(required = false) String description,
             @RequestParam(required = false) String location,
+            @RequestParam(required = false) String building,
             @RequestParam(required = false) String color,
             HttpSession session,
             RedirectAttributes ra) {
@@ -645,6 +646,7 @@ public class AdminController {
             dept.setName(name);
             dept.setDescription(description);
             dept.setLocation(location);
+            dept.setBuilding(building);
             dept.setColor(color != null && !color.isEmpty() ? color : "#667eea");
             dept.setInstance(user);
             
@@ -657,13 +659,14 @@ public class AdminController {
         return "redirect:/admin/departments";
     }
     
-    @PostMapping("/edit-department")
+        @PostMapping("/edit-department")
     @Transactional
     public String editDepartment(
             @RequestParam Long id,
             @RequestParam String name,
             @RequestParam(required = false) String description,
             @RequestParam(required = false) String location,
+            @RequestParam(required = false) String building,
             @RequestParam(required = false) String color,
             RedirectAttributes ra) {
         try {
@@ -672,6 +675,7 @@ public class AdminController {
                 dept.setName(name);
                 dept.setDescription(description);
                 dept.setLocation(location);
+                dept.setBuilding(building);
                 dept.setColor(color != null && !color.isEmpty() ? color : "#667eea");
                 ra.addFlashAttribute("success", "Departamento actualizado: " + name);
             } else {

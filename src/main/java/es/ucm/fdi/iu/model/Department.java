@@ -53,6 +53,11 @@ public class Department implements Transferable<Department.Transfer> {
     private String location;
 
     /**
+     * Edificio donde se encuentra el departamento
+     */
+    private String building;
+
+    /**
      * Color para identificación visual (hex)
      */
     private String color;
@@ -82,6 +87,7 @@ public class Department implements Transferable<Department.Transfer> {
         private String name;
         private String description;
         private String location;
+        private String building;
         private String color;
         private int totalComputers;
         private int totalPrinters;
@@ -124,6 +130,7 @@ public class Department implements Transferable<Department.Transfer> {
             name, 
             description, 
             location,
+            building,
             color,
             computers.size(),
             printers.size(),

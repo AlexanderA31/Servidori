@@ -80,10 +80,11 @@
                         
                         <div th:unless="${departments == null || (departments.content != null && #lists.isEmpty(departments.content)) || (departments.content == null && #lists.isEmpty(departments))}">
                             <table class="data-table">
-                                <thead>
+                                                                <thead>
                                     <tr>
                                         <th>Departamento</th>
                                         <th>Descripción</th>
+                                        <th>Edificio</th>
                                         <th>Ubicación</th>
                                         <th>Computadoras</th>
                                         <th>Impresoras</th>
@@ -99,7 +100,11 @@
                                                 <strong th:text="${dept.name}">Departamento</strong>
                                             </div>
                                         </td>
-                                        <td th:text="${dept.description}">Descripción</td>
+                                                                                <td th:text="${dept.description}">Descripción</td>
+                                        <td>
+                                            <span th:if="${dept.building}" th:text="${dept.building}">Edificio</span>
+                                            <span th:unless="${dept.building}" class="text-muted">--</span>
+                                        </td>
                                         <td>
                                             <span th:if="${dept.location}" th:text="${dept.location}">Ubicación</span>
                                             <span th:unless="${dept.location}" class="text-muted">--</span>
@@ -127,9 +132,9 @@
                                             </div>
                                         </td>
                                                                                 <td>
-                                            <div class="action-buttons">
+                                                                                        <div class="action-buttons">
                                                 <button class="btn btn-sm btn-primary" 
-                                                        th:attr="data-dept-id=${dept.id}, data-dept-name=${dept.name}, data-dept-description=${dept.description}, data-dept-location=${dept.location}, data-dept-color=${dept.color}"
+                                                        th:attr="data-dept-id=${dept.id}, data-dept-name=${dept.name}, data-dept-description=${dept.description}, data-dept-building=${dept.building}, data-dept-location=${dept.location}, data-dept-color=${dept.color}"
                                                         onclick="openEditDepartmentModal(this.dataset)"
                                                         title="Editar departamento">
                                                     <i class="fas fa-edit"></i>
@@ -148,7 +153,7 @@
                                     <tr th:if="${(dept.computers != null && #lists.size(dept.computers) > 0) || (dept.printers != null && #lists.size(dept.printers) > 0)}" 
                                         class="dept-expanded-row"
                                         th:style="'border-left: 4px solid ' + ${dept.color}">
-                                        <td colspan="6" class="dept-expanded-cell">
+                                        <td colspan="7" class="dept-expanded-cell">
                                             <div class="dept-expanded-content">
                                                 <!-- Computadoras asignadas -->
                                                 <div th:if="${dept.computers != null && #lists.size(dept.computers) > 0}" class="dept-section">
