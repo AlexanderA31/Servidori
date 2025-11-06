@@ -167,71 +167,68 @@ public class IppPrintService {
         try {
             log.debug("🔧 Ejecutando ipptool para {}", printerUri);
             
-            // Ejecutar ipptool sin -t para obtener la salida completa
-            // -v para verbose, captura TODO en stdout
-            ProcessBuilder pb = new ProcessBuilder(
-                "ipptool", "-v", printerUri, 
-                "/usr/share/cups/ipptool/get-printer-attributes.test"
-            );
-            pb.redirectErrorStream(true);
-            Process process = pb.start();
+            // Crear archivo temporal para capturar TODA la salida
+            Path tempFile = Files.createTempFile("ipptool-output-", ".txt");
             
-            // Leer salida en hilo separado para no perder datos
-            StringBuilder output = new StringBuilder();
-            Thread readerThread = new Thread(() -> {
-                try (BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(process.getInputStream()))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        output.append(line).append("\n");
-                    }
-                } catch (IOException e) {
-                    log.trace("Error leyendo salida ipptool: {}", e.getMessage());
+            try {
+                // Ejecutar ipptool y redirigir salida al archivo
+                ProcessBuilder pb = new ProcessBuilder(
+                    "ipptool", "-tv", printerUri, 
+                    "/usr/share/cups/ipptool/get-printer-attributes.test"
+                );
+                pb.redirectOutput(ProcessBuilder.Redirect.appendTo(tempFile.toFile()));
+                pb.redirectError(ProcessBuilder.Redirect.appendTo(tempFile.toFile()));
+                Process process = pb.start();
+                
+                // Esperar a que termine el proceso (máximo 5 segundos)
+                boolean completed = process.waitFor(5, TimeUnit.SECONDS);
+                
+                if (!completed) {
+                    log.debug("⚠️ ipptool timeout para {}", printerUri);
+                    process.destroyForcibly();
+                    return null;
                 }
-            });
-            readerThread.start();
-            
-            // Esperar a que termine el proceso (máximo 5 segundos)
-            boolean completed = process.waitFor(5, TimeUnit.SECONDS);
-            
-            if (!completed) {
-                log.debug("⚠️ ipptool timeout para {}", printerUri);
-                process.destroyForcibly();
-                readerThread.interrupt();
-                return null;
+                
+                int exitCode = process.exitValue();
+                
+                // Leer el contenido del archivo temporal
+                String output = Files.readString(tempFile);
+                
+                log.debug("🔧 ipptool finalizó con código: {}", exitCode);
+                log.debug("📝 Salida capturada desde archivo: {} caracteres", output.length());
+                
+                // Mostrar la salida si es pequeña (probablemente incompleta)
+                if (output.length() < 1000) {
+                    log.warn("⚠️ Salida sospechosamente pequeña ({} chars): '{}'", 
+                        output.length(), output.substring(0, Math.min(200, output.length())));
+                }
+                
+                if (exitCode != 0) {
+                    log.debug("⚠️ ipptool falló con código: {} para {}", exitCode, printerUri);
+                    return null;
+                }
+                
+                log.debug("✅ ipptool ejecutado exitosamente para {}", printerUri);
+                
+                // Parsear la salida
+                IppPrinterInfo info = parseIpptoolOutput(output, printerUri);
+                
+                if (info != null) {
+                    log.info("✅ Info parseada exitosamente: {} - {}", info.getName(), info.getMakeModel());
+                } else {
+                    log.warn("⚠️ No se pudo parsear la salida de ipptool");
+                }
+                
+                return info;
+                
+            } finally {
+                // Limpiar archivo temporal
+                try {
+                    Files.deleteIfExists(tempFile);
+                } catch (IOException e) {
+                    log.trace("No se pudo eliminar archivo temporal: {}", e.getMessage());
+                }
             }
-            
-            // Esperar a que el hilo lector termine
-            readerThread.join(1000);
-            
-            int exitCode = process.exitValue();
-            
-            log.debug("🔧 ipptool finalizó con código: {}", exitCode);
-            log.debug("📝 Salida capturada: {} caracteres", output.length());
-            
-            // Mostrar la salida si es pequeña (probablemente incompleta)
-            if (output.length() < 1000) {
-                log.warn("⚠️ Salida sospechosamente pequeña: '{}'", output.toString());
-            }
-            
-            if (exitCode != 0) {
-                log.debug("⚠️ ipptool falló con código: {} para {}", exitCode, printerUri);
-                log.debug("Salida: {}", output.substring(0, Math.min(200, output.length())));
-                return null;
-            }
-            
-            log.debug("✅ ipptool ejecutado exitosamente para {}", printerUri);
-            
-            // Parsear la salida
-            IppPrinterInfo info = parseIpptoolOutput(output.toString(), printerUri);
-            
-            if (info != null) {
-                log.debug("✅ Info parseada: {} - {}", info.getName(), info.getMakeModel());
-            } else {
-                log.debug("⚠️ No se pudo parsear la salida de ipptool");
-            }
-            
-            return info;
             
         } catch (Exception e) {
             log.debug("❌ Error ejecutando ipptool para {}: {}", printerUri, e.getMessage());
