@@ -14,14 +14,17 @@ echo "▶ Deteniendo servicio actual..."
 sudo systemctl stop print-manager || true
 sudo systemctl disable print-manager || true
 
-# 2. Hacer backup de la base de datos
-echo "▶ Haciendo backup de BD..."
-sudo -u postgres pg_dump impre > ~/impre_backup_$(date +%Y%m%d_%H%M%S).sql
+# 2. Crear carpeta de backups si no existe
+mkdir -p ~/backups
 
-# 2.1 Limpiar backups antiguos (mantener solo últimos 7 días)
-echo "▶ Limpiando backups antiguos..."
-find ~/ -name "impre_backup_*.sql" -type f -mtime +7 -delete 2>/dev/null || true
-BACKUP_COUNT=$(ls -1 ~/impre_backup_*.sql 2>/dev/null | wc -l)
+# 2.1 Hacer backup de la base de datos
+echo "▶ Haciendo backup de BD..."
+sudo -u postgres pg_dump impre > ~/backups/impre_backup_$(date +%Y%m%d_%H%M%S).sql
+
+# 2.2 Mantener solo los últimos 4 backups
+echo "▶ Limpiando backups antiguos (manteniendo últimos 4)..."
+ls -1t ~/backups/impre_backup_*.sql 2>/dev/null | tail -n +5 | xargs rm -f 2>/dev/null || true
+BACKUP_COUNT=$(ls -1 ~/backups/impre_backup_*.sql 2>/dev/null | wc -l)
 echo "  Backups actuales: $BACKUP_COUNT"
 
 # 3. Limpiar instalación anterior
