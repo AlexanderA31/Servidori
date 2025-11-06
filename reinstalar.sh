@@ -18,6 +18,12 @@ sudo systemctl disable print-manager || true
 echo "▶ Haciendo backup de BD..."
 sudo -u postgres pg_dump impre > ~/impre_backup_$(date +%Y%m%d_%H%M%S).sql
 
+# 2.1 Limpiar backups antiguos (mantener solo últimos 7 días)
+echo "▶ Limpiando backups antiguos..."
+find ~/ -name "impre_backup_*.sql" -type f -mtime +7 -delete 2>/dev/null || true
+BACKUP_COUNT=$(ls -1 ~/impre_backup_*.sql 2>/dev/null | wc -l)
+echo "  Backups actuales: $BACKUP_COUNT"
+
 # 3. Limpiar instalación anterior
 echo "▶ Limpiando instalación anterior..."
 sudo rm -rf /opt/print-manager.old || true
