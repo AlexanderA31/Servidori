@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Configuración
-SUBDOMINIO="ueb-impresoras.ueb.edu.ec"
+SUBDOMINIO="impresoras.ueb.edu.ec"
 CERT_DIR="/etc/ssl/certs/ueb"
 KEY_DIR="/etc/ssl/private"
 
@@ -109,8 +109,8 @@ echo ""
 echo -e "${BLUE}[4/6] Respaldando configuración anterior...${NC}"
 
 if [ -f /etc/nginx/sites-available/ueb-impresoras ]; then
-    cp /etc/nginx/sites-available/ueb-impresoras \
-       /etc/nginx/sites-available/ueb-impresoras.backup.$(date +%Y%m%d_%H%M%S)
+    cp /etc/nginx/sites-available/impresoras \
+       /etc/nginx/sites-available/impresoras.backup.$(date +%Y%m%d_%H%M%S)
     echo -e "${GREEN}✓ Backup creado${NC}"
 fi
 
@@ -122,7 +122,7 @@ cat > /etc/nginx/sites-available/ueb-impresoras << 'EOFNGINX'
 # Redirigir HTTP a HTTPS
 server {
     listen 80;
-    server_name ueb-impresoras.ueb.edu.ec;
+    server_name impresoras.ueb.edu.ec;
     
     # Redirigir todo el tráfico HTTP a HTTPS
     return 301 https://$server_name$request_uri;
@@ -131,7 +131,7 @@ server {
 # Servidor HTTPS
 server {
     listen 443 ssl http2;
-    server_name ueb-impresoras.ueb.edu.ec;
+    server_name impresoras.ueb.edu.ec;
     
     # Certificados SSL
     ssl_certificate /etc/ssl/certs/ueb/ueb-wildcard.crt;

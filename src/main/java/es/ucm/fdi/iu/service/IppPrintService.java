@@ -208,6 +208,11 @@ public class IppPrintService {
             log.debug("🔧 ipptool finalizó con código: {}", exitCode);
             log.debug("📝 Salida capturada: {} caracteres", output.length());
             
+            // Mostrar la salida si es pequeña (probablemente incompleta)
+            if (output.length() < 1000) {
+                log.warn("⚠️ Salida sospechosamente pequeña: '{}'", output.toString());
+            }
+            
             if (exitCode != 0) {
                 log.debug("⚠️ ipptool falló con código: {} para {}", exitCode, printerUri);
                 log.debug("Salida: {}", output.substring(0, Math.min(200, output.length())));
