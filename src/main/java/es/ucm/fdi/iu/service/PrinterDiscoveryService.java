@@ -81,11 +81,14 @@ public class PrinterDiscoveryService {
     @Value("${printer.discovery.snmp.enabled:true}")
     private boolean snmpEnabled;
     
-    @Value("${printer.discovery.snmp.timeout:500}")
+        @Value("${printer.discovery.snmp.timeout:3000}")
     private int snmpTimeout;
     
-    @Value("${printer.discovery.port.timeout:200}")
+    @Value("${printer.discovery.port.timeout:2000}")
     private int portTimeout;
+    
+    @Value("${printer.discovery.snmp.retries:5}")
+    private int snmpRetries;
 
     /**
      * Obtiene los rangos de red configurados o usa los por defecto
@@ -380,35 +383,41 @@ public class PrinterDiscoveryService {
         return discovered;
     }
 
-    /**
+        /**
      * Escanea una IP específica para ver si hay una impresora
      * MEJORADO: Ahora intenta múltiples protocolos (SNMP, IPP, SMB)
+     * CON LOGGING DETALLADO para diagnóstico
      */
     private DiscoveredPrinter scanIPForPrinter(String ip) {
-        // ESTRATEGIA 1: Intentar descubrimiento SNMP (MEJOR para cross-VLAN)
-        DiscoveredPrinter snmpPrinter = scanViaSNMP(ip);
-        if (snmpPrinter != null) {
-            log.debug("Impresora descubierta vía SNMP en {}", ip);
-            return snmpPrinter;
+        // Log detallado cada 50 IPs escaneadas
+        if (scannedHosts % 50 == 0) {
+            log.info("Progreso: {}/{} hosts escaneados, {} impresoras encontradas", 
+                scannedHosts, totalHosts, foundPrinters);
         }
         
-        // ESTRATEGIA 2: Intentar IPP (puerto 631)
-        DiscoveredPrinter ippPrinter = scanViaIPP(ip);
-        if (ippPrinter != null) {
-            log.debug("Impresora descubierta vía IPP en {}", ip);
-            return ippPrinter;
-        }
-        
-        // ESTRATEGIA 3: Intentar SMB (puerto 445) para impresoras compartidas Windows
-        DiscoveredPrinter smbPrinter = scanViaSMB(ip);
-        if (smbPrinter != null) {
-            log.debug("Impresora descubierta vía SMB en {}", ip);
-            return smbPrinter;
-        }
-        
-        // ESTRATEGIA 4: Verificar puertos RAW/LPD directamente
-        for (int port : new int[]{9100, 515}) { // RAW, LPD (ya probamos IPP)
+        // ESTRATEGIA 1: Verificar puertos TCP PRIMERO (más rápido que SNMP)
+        for (int port : new int[]{9100, 631, 515, 445}) { // RAW, IPP, LPD, SMB
             if (isPortOpen(ip, port, portTimeout)) {
+                log.info("🔍 Puerto {} abierto en {}", port, ip);
+                
+                // Intentar obtener info por protocolo específico
+                if (port == 631) {
+                    DiscoveredPrinter ippPrinter = scanViaIPP(ip);
+                    if (ippPrinter != null) {
+                        log.info("✅ Impresora IPP descubierta en {}", ip);
+                        return ippPrinter;
+                    }
+                }
+                
+                if (port == 445) {
+                    DiscoveredPrinter smbPrinter = scanViaSMB(ip);
+                    if (smbPrinter != null) {
+                        log.info("✅ Impresora SMB descubierta en {}", ip);
+                        return smbPrinter;
+                    }
+                }
+                
+                // Si no se pudo obtener info, crear impresora genérica
                 DiscoveredPrinter printer = new DiscoveredPrinter();
                 printer.setIp(ip);
                 printer.setName(resolveDNSName(ip));
@@ -417,9 +426,16 @@ public class PrinterDiscoveryService {
                 printer.setStatus("En línea");
                 printer.setConnectionType("RED");
                 printer.setPort(port);
-                log.debug("Impresora descubierta vía escaneo de puertos en {}:{}", ip, port);
+                log.info("✅ Impresora detectada vía puerto {} en {}", port, ip);
                 return printer;
             }
+        }
+        
+        // ESTRATEGIA 2: Intentar SNMP (solo si puertos TCP fallaron)
+        DiscoveredPrinter snmpPrinter = scanViaSNMP(ip);
+        if (snmpPrinter != null) {
+            log.info("✅ Impresora SNMP descubierta en {}", ip);
+            return snmpPrinter;
         }
         
         return null;
@@ -501,11 +517,11 @@ public class PrinterDiscoveryService {
             snmp = new Snmp(transport);
             transport.listen();
             
-            // Crear target con más reintentos para cross-VLAN
+                        // Crear target con más reintentos para cross-VLAN
             CommunityTarget target = new CommunityTarget();
             target.setCommunity(new OctetString(SNMP_COMMUNITY));
             target.setAddress(new UdpAddress(ip + "/" + SNMP_PORT));
-            target.setRetries(3); // Aumentado de 1 a 3 para redes cross-VLAN
+            target.setRetries(snmpRetries); // Configurado desde application.properties
             target.setTimeout(snmpTimeout);
             target.setVersion(SnmpConstants.version2c);
             

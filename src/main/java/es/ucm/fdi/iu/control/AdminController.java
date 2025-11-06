@@ -1156,7 +1156,7 @@ public class AdminController {
     
     // ========== API REST PARA REGISTRO AUTOMÁTICO DE IMPRESORAS COMPARTIDAS ==========
     
-    @PostMapping("/api/register-shared-printer")
+        @PostMapping("/api/register-shared-printer")
     @ResponseBody
     @Transactional
     public Map<String, Object> registerSharedPrinter(
@@ -1164,15 +1164,23 @@ public class AdminController {
             HttpSession session) {
         Map<String, Object> response = new HashMap<>();
         try {
+            log.info("════════════════════════════════════════════════════════════");
+            log.info("📝 REGISTRO DE IMPRESORA USB COMPARTIDA");
+            log.info("════════════════════════════════════════════════════════════");
+            
             User user = (User) session.getAttribute("u");
             if (user == null) {
                 // Si no hay sesión, usar el usuario admin por defecto (ID 1)
                 user = entityManager.find(User.class, 1L);
                 if (user == null) {
+                    log.error("❌ No se pudo identificar usuario para registro");
                     response.put("success", false);
                     response.put("error", "No se pudo identificar el usuario");
                     return response;
                 }
+                log.info("👤 Usuario automático: admin (sin sesión activa)");
+            } else {
+                log.info("👤 Usuario: {}", user.getUsername());
             }
             
             String alias = printerData.get("alias");
@@ -1182,6 +1190,14 @@ public class AdminController {
             String protocol = printerData.getOrDefault("protocol", "IPP");
             Integer port = Integer.parseInt(printerData.getOrDefault("port", "631"));
             
+            log.info("⚙️ Datos recibidos:");
+            log.info("   ➤ Nombre: {}", alias);
+            log.info("   ➤ Modelo: {}", model);
+            log.info("   ➤ IP del cliente: {}", ip);
+            log.info("   ➤ Puerto: {}", port);
+            log.info("   ➤ Protocolo: {}", protocol);
+            log.info("   ➤ Ubicación: {}", location);
+            
             // Verificar si ya existe una impresora con esa IP
             List<Printer> existing = entityManager.createQuery(
                 "SELECT p FROM Printer p WHERE p.ip = :ip", Printer.class)
@@ -1189,11 +1205,19 @@ public class AdminController {
                 .getResultList();
             
             if (!existing.isEmpty()) {
+                log.warn("⚠️ Impresora duplicada detectada");
+                log.warn("   ➤ IP: {}", ip);
+                log.warn("   ➤ Impresora existente: {}", existing.get(0).getAlias());
+                log.warn("   ➤ ID existente: {}", existing.get(0).getId());
+                log.info("════════════════════════════════════════════════════════════");
+                
                 response.put("success", false);
                 response.put("error", "Ya existe una impresora registrada con esa IP");
                 response.put("existingPrinter", existing.get(0).getAlias());
                 return response;
             }
+            
+            log.info("🔧 Creando nueva impresora en base de datos...");
             
             // Crear nueva impresora
             Printer printer = new Printer();
@@ -1208,18 +1232,38 @@ public class AdminController {
             printer.setInk(100);
             printer.setPaper(100);
             
+            // Asignar puerto IPP único
+            Integer maxPort = entityManager.createQuery(
+                "SELECT MAX(p.ippPort) FROM Printer p", Integer.class)
+                .getSingleResult();
+            int nextPort = (maxPort != null) ? maxPort + 1 : 8631;
+            printer.setIppPort(nextPort);
+            
+            log.info("🔌 Puerto IPP {} asignado", nextPort);
+            
             entityManager.persist(printer);
             entityManager.flush();
+            
+            log.info("✅ Impresora guardada en base de datos (ID: {})", printer.getId());
+            log.info("📡 URI de acceso: ipp://[SERVIDOR]:{}/ printers/{}", nextPort, alias.replace(" ", "_"));
+            log.info("🕰️ Monitor de puertos detectará esta impresora en ~10 segundos");
+            log.info("✅ Puerto {} se activará automáticamente SIN REINICIAR", nextPort);
+            log.info("════════════════════════════════════════════════════════════");
             
             response.put("success", true);
             response.put("message", "Impresora registrada exitosamente");
             response.put("printerId", printer.getId());
             response.put("printerName", printer.getAlias());
-            
-            log.info("✅ Impresora compartida registrada automáticamente: {} (IP: {})", alias, ip);
+            response.put("ippPort", nextPort);
             
         } catch (Exception e) {
-            log.error("❌ Error registrando impresora compartida", e);
+            log.error("════════════════════════════════════════════════════════════");
+            log.error("❌ ERROR AL REGISTRAR IMPRESORA USB COMPARTIDA");
+            log.error("════════════════════════════════════════════════════════════");
+            log.error("🐛 Tipo: {}", e.getClass().getSimpleName());
+            log.error("📝 Mensaje: {}", e.getMessage());
+            log.error("📄 Stack trace:", e);
+            log.error("════════════════════════════════════════════════════════════");
             response.put("success", false);
             response.put("error", e.getMessage());
         }

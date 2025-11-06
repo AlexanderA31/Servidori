@@ -15,7 +15,7 @@ import java.util.concurrent.*;
 import java.util.Optional;
 
 /**
- * Servidor IPP Multi-Puerto
+ * Servidor IPP Multi-Puerto CON DETECCIÓN DINÁMICA
  * 
  * Cada impresora tiene su propio puerto dedicado:
  * - Primera impresora (ID=1): Puerto 8631
@@ -23,8 +23,15 @@ import java.util.Optional;
  * - Tercera impresora (ID=3): Puerto 8633
  * etc.
  * 
- * Esto permite que Windows identifique correctamente cada impresora
- * sin necesidad de protocolo IPP completo.
+ * CARACTERÍSTICAS:
+ * 1. Los puertos se asignan automáticamente al agregar impresoras
+ * 2. Un monitor interno detecta nuevas impresoras cada 10 segundos
+ * 3. NO REQUIERE REINICIAR EL SERVIDOR al compartir impresoras USB
+ * 4. Los puertos se activan dinámicamente en tiempo real
+ * 
+ * SOLUCIÓN AL PROBLEMA:
+ * Antes: Al compartir una impresora USB, había que reiniciar el servidor
+ * Ahora: El servidor detecta y activa el puerto automáticamente en 10 segundos
  * 
  * Only loads in server mode (NOT in usb-client)
  */
@@ -63,6 +70,17 @@ public class MultiPortIppServerService {
         // Asignar puertos a impresoras que no tengan uno asignado
         assignIppPortsIfNeeded();
         
+        // Iniciar todos los puertos existentes
+        startAllPrinterPorts();
+        
+        // Iniciar monitor de nuevas impresoras
+        startPrinterMonitor();
+    }
+    
+    /**
+     * Inicia puertos para todas las impresoras registradas
+     */
+    private void startAllPrinterPorts() {
         // Obtener todas las impresoras ordenadas por ID
         List<Printer> printers = printerRepository.findAllByOrderByIdAsc();
         
@@ -76,27 +94,116 @@ public class MultiPortIppServerService {
         log.info("════════════════════════════════════════════════════════════");
         
         for (Printer printer : printers) {
-            int port = printer.getIppPort() != null ? printer.getIppPort() : BASE_PORT;
-            
-            try {
-                ServerSocket socket = new ServerSocket(port);
-                serverSockets.put(printer.getId(), socket);
-                printerByPort.put(printer.getId(), printer);
-                
-                // Iniciar listener para esta impresora
-                executorService.submit(() -> acceptConnections(printer, socket, port));
-                
-                log.info("  ✓ {} → Puerto {} (FIJO)", printer.getAlias(), port);
-                
-            } catch (IOException e) {
-                log.error("  ✗ Error iniciando puerto {} para {}: {}", 
-                    port, printer.getAlias(), e.getMessage());
-            }
+            startPrinterPort(printer);
         }
         
         log.info("════════════════════════════════════════════════════════════");
         log.info("Total: {} impresoras con puertos fijos dedicados", serverSockets.size());
         log.info("════════════════════════════════════════════════════════════");
+    }
+    
+    /**
+     * Inicia el puerto para una impresora específica
+     * PÚBLICO para ser llamado dinámicamente cuando se agrega una impresora
+     */
+    public synchronized boolean startPrinterPort(Printer printer) {
+        // Verificar si ya tiene un puerto activo
+        if (serverSockets.containsKey(printer.getId())) {
+            log.debug("Impresora {} ya tiene puerto {} activo", printer.getAlias(), 
+                getPortForPrinter(printer));
+            return true;
+        }
+        
+        int port = printer.getIppPort() != null ? printer.getIppPort() : BASE_PORT;
+        
+        try {
+            ServerSocket socket = new ServerSocket(port);
+            serverSockets.put(printer.getId(), socket);
+            printerByPort.put(printer.getId(), printer);
+            
+            // Iniciar listener para esta impresora
+            executorService.submit(() -> acceptConnections(printer, socket, port));
+            
+            log.info("  ✓ {} → Puerto {} (INICIADO DINÁMICAMENTE)", printer.getAlias(), port);
+            return true;
+            
+        } catch (IOException e) {
+            log.error("  ✗ Error iniciando puerto {} para {}: {}", 
+                port, printer.getAlias(), e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Inicia un monitor que detecta nuevas impresoras cada 10 segundos
+     * y les asigna puertos automáticamente sin reiniciar el servidor
+     */
+    private void startPrinterMonitor() {
+        Thread monitorThread = new Thread(() -> {
+            log.info("🔍 Monitor de nuevas impresoras iniciado (verifica cada 10s)");
+            
+            while (running) {
+                try {
+                    Thread.sleep(10000); // Verificar cada 10 segundos
+                    
+                    if (!running) break;
+                    
+                    // Obtener todas las impresoras
+                    List<Printer> allPrinters = printerRepository.findAllByOrderByIdAsc();
+                    
+                    // Detectar impresoras nuevas sin puerto asignado
+                    for (Printer printer : allPrinters) {
+                        // Si no tiene puerto activo, iniciarlo
+                        if (!serverSockets.containsKey(printer.getId())) {
+                            log.info("🆕 Nueva impresora detectada: {} (ID: {})", 
+                                printer.getAlias(), printer.getId());
+                            
+                            // Asignar puerto si no tiene
+                            if (printer.getIppPort() == null) {
+                                Integer maxPort = printerRepository.findMaxIppPort();
+                                int nextPort = (maxPort != null) ? maxPort + 1 : BASE_PORT;
+                                printer.setIppPort(nextPort);
+                                printerRepository.save(printer);
+                                log.info("   ✓ Puerto {} asignado automáticamente", nextPort);
+                            }
+                            
+                            // Iniciar puerto dinámicamente
+                            if (startPrinterPort(printer)) {
+                                log.info("   ✅ Puerto {} ahora escuchando para {}", 
+                                    printer.getIppPort(), printer.getAlias());
+                                log.info("   📍 URI: ipp://{}:{}/printers/{}", 
+                                    getServerIp(), printer.getIppPort(), printer.getAlias());
+                            }
+                        }
+                    }
+                    
+                } catch (InterruptedException e) {
+                    if (running) {
+                        log.warn("Monitor de impresoras interrumpido");
+                    }
+                    break;
+                } catch (Exception e) {
+                    log.error("Error en monitor de impresoras: {}", e.getMessage());
+                }
+            }
+            
+            log.info("🛑 Monitor de impresoras detenido");
+        });
+        
+        monitorThread.setName("PrinterMonitor-Thread");
+        monitorThread.setDaemon(true);
+        monitorThread.start();
+    }
+    
+    /**
+     * Obtiene la IP del servidor
+     */
+    private String getServerIp() {
+        try {
+            return es.ucm.fdi.iu.util.NetworkUtils.getServerIpAddress();
+        } catch (Exception e) {
+            return "localhost";
+        }
     }
 
     @PreDestroy
