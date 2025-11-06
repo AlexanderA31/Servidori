@@ -11,6 +11,8 @@ import java.net.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 /**
  * Servicio de impresión IPP (Internet Printing Protocol)
@@ -114,29 +116,38 @@ public class IppPrintService {
      */
     public IppPrinterInfo getPrinterInfo(String printerUri) {
         try {
-            log.debug("Verificando impresora IPP: {}", printerUri);
+            log.debug("Obteniendo información IPP de: {}", printerUri);
             
-            // Simplemente verificar que el puerto está abierto
+            // Primero verificar que el puerto está abierto
             URI uri = new URI(printerUri);
             String host = uri.getHost();
             int port = uri.getPort() > 0 ? uri.getPort() : 631;
             
             Socket socket = new Socket();
             try {
-                // Usar timeout configurable para cross-VLAN
                 socket.connect(new InetSocketAddress(host, port), connectionTimeout);
                 socket.close();
                 
-                IppPrinterInfo info = new IppPrinterInfo();
+                // Intentar obtener atributos reales vía comando ipptool
+                IppPrinterInfo info = getPrinterInfoViaIpptool(printerUri);
+                
+                if (info != null) {
+                    log.debug("✓ Información IPP obtenida: {} - {}", info.getName(), info.getMakeModel());
+                    return info;
+                }
+                
+                // Fallback: información básica
+                info = new IppPrinterInfo();
                 info.setUri(printerUri);
                 info.setName(extractPrinterName(printerUri));
                 info.setState("idle");
                 info.setAccepting(true);
-                info.setMakeModel("Network Printer");
+                info.setMakeModel("Impresora de Red");
                 info.setDocumentFormats(Arrays.asList("application/pdf", "application/postscript", "text/plain"));
                 
-                log.debug("✓ Impresora IPP disponible: {}", info.getName());
+                log.debug("✓ Impresora IPP disponible (info básica): {}", info.getName());
                 return info;
+                
             } catch (IOException e) {
                 log.trace("IPP no disponible en {}: {}", printerUri, e.getMessage());
                 return null;
@@ -146,6 +157,131 @@ public class IppPrintService {
             log.trace("Error verificando impresora: {}", e.getMessage());
             return null;
         }
+    }
+    
+    /**
+     * Obtiene información real de la impresora usando ipptool
+     */
+    private IppPrinterInfo getPrinterInfoViaIpptool(String printerUri) {
+        try {
+            // Verificar si ipptool está disponible
+            ProcessBuilder testPb = new ProcessBuilder("which", "ipptool");
+            Process testProcess = testPb.start();
+            if (testProcess.waitFor() != 0) {
+                log.trace("ipptool no disponible en el sistema");
+                return null;
+            }
+            
+            // Ejecutar ipptool get-printer-attributes
+            ProcessBuilder pb = new ProcessBuilder(
+                "ipptool", "-t", printerUri, 
+                "/usr/share/cups/ipptool/get-printer-attributes.test"
+            );
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append("\n");
+                }
+            }
+            
+            int exitCode = process.waitFor();
+            if (exitCode != 0) {
+                log.trace("ipptool falló con código: {}", exitCode);
+                return null;
+            }
+            
+            // Parsear la salida
+            return parseIpptoolOutput(output.toString(), printerUri);
+            
+        } catch (Exception e) {
+            log.trace("Error ejecutando ipptool: {}", e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Parsea la salida de ipptool para extraer información de la impresora
+     */
+    private IppPrinterInfo parseIpptoolOutput(String output, String printerUri) {
+        try {
+            IppPrinterInfo info = new IppPrinterInfo();
+            info.setUri(printerUri);
+            
+            // Buscar printer-info
+            String printerInfo = extractValue(output, "printer-info.*=\\s*(.+)");
+            if (printerInfo != null && !printerInfo.isEmpty()) {
+                info.setName(printerInfo);
+            }
+            
+            // Si no hay printer-info, buscar printer-name
+            if (info.getName() == null) {
+                String printerName = extractValue(output, "printer-name.*=\\s*(.+)");
+                if (printerName != null) {
+                    info.setName(printerName);
+                }
+            }
+            
+            // Buscar printer-make-and-model
+            String makeModel = extractValue(output, "printer-make-and-model.*=\\s*(.+)");
+            if (makeModel != null && !makeModel.isEmpty()) {
+                info.setMakeModel(makeModel);
+            }
+            
+            // Buscar printer-state
+            String state = extractValue(output, "printer-state.*=\\s*(.+)");
+            if (state != null) {
+                info.setState(state);
+            }
+            
+            // Buscar printer-is-accepting-jobs
+            String accepting = extractValue(output, "printer-is-accepting-jobs.*=\\s*(.+)");
+            if (accepting != null) {
+                info.setAccepting(accepting.toLowerCase().contains("true"));
+            }
+            
+            // Si no obtuvimos ningún dato, retornar null
+            if (info.getName() == null && info.getMakeModel() == null) {
+                return null;
+            }
+            
+            // Valores por defecto
+            if (info.getName() == null) {
+                info.setName("Impresora de Red");
+            }
+            if (info.getMakeModel() == null) {
+                info.setMakeModel("Desconocido");
+            }
+            if (info.getState() == null) {
+                info.setState("idle");
+            }
+            
+            return info;
+            
+        } catch (Exception e) {
+            log.trace("Error parseando salida ipptool: {}", e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Extrae un valor usando expresión regular
+     */
+    private String extractValue(String text, String pattern) {
+        try {
+            java.util.regex.Pattern p = java.util.regex.Pattern.compile(pattern, java.util.regex.Pattern.CASE_INSENSITIVE);
+            java.util.regex.Matcher m = p.matcher(text);
+            if (m.find()) {
+                return m.group(1).trim();
+            }
+        } catch (Exception e) {
+            // Ignorar
+        }
+        return null;
     }
     
     private String extractPrinterName(String uri) {
