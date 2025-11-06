@@ -441,32 +441,48 @@ public class PrinterDiscoveryService {
         return null;
     }
     
-    /**
+        /**
      * Descubre impresoras usando protocolo IPP (Java puro, sin CUPS)
      */
     private DiscoveredPrinter scanViaIPP(String ip) {
         try {
+            log.debug("🔍 Intentando IPP en {}", ip);
+            
             // Intentar varios endpoints IPP comunes
             String[] endpoints = {"/ipp/print", "/ipp", "/"};
             
             for (String endpoint : endpoints) {
                 String ippUri = ippService.buildIppUri(ip, 631, endpoint);
+                log.debug("   Probando endpoint: {}", ippUri);
+                
                 IppPrintService.IppPrinterInfo info = ippService.getPrinterInfo(ippUri);
                 
-                if (info != null && info.getName() != null) {
-                    DiscoveredPrinter printer = new DiscoveredPrinter();
-                    printer.setIp(ip);
-                    printer.setName(info.getName());
-                    printer.setModel(info.getMakeModel() != null ? info.getMakeModel() : "IPP Printer");
-                    printer.setType("Red - IPP");
-                    printer.setStatus(info.isAccepting() ? "En línea" : "No acepta trabajos");
-                    printer.setConnectionType("IPP");
-                    printer.setPort(631);
-                    return printer;
+                if (info != null) {
+                    log.debug("   ✓ Respuesta IPP recibida");
+                    
+                    if (info.getName() != null) {
+                        log.info("✅ IPP info obtenida: {} - {}", info.getName(), info.getMakeModel());
+                        
+                        DiscoveredPrinter printer = new DiscoveredPrinter();
+                        printer.setIp(ip);
+                        printer.setName(info.getName());
+                        printer.setModel(info.getMakeModel() != null ? info.getMakeModel() : "IPP Printer");
+                        printer.setType("Red - IPP");
+                        printer.setStatus(info.isAccepting() ? "En línea" : "No acepta trabajos");
+                        printer.setConnectionType("IPP");
+                        printer.setPort(631);
+                        return printer;
+                    } else {
+                        log.debug("   ⚠️ Respuesta IPP sin nombre");
+                    }
+                } else {
+                    log.debug("   ✗ Sin respuesta IPP en endpoint {}", endpoint);
                 }
             }
+            
+            log.debug("❌ Ningún endpoint IPP funcionó en {}", ip);
         } catch (Exception e) {
-            log.trace("IPP no disponible en {}: {}", ip, e.getMessage());
+            log.debug("❌ Error IPP en {}: {}", ip, e.getMessage());
         }
         return null;
     }

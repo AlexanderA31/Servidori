@@ -11,6 +11,7 @@ import java.net.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
@@ -164,15 +165,9 @@ public class IppPrintService {
      */
     private IppPrinterInfo getPrinterInfoViaIpptool(String printerUri) {
         try {
-            // Verificar si ipptool está disponible
-            ProcessBuilder testPb = new ProcessBuilder("which", "ipptool");
-            Process testProcess = testPb.start();
-            if (testProcess.waitFor() != 0) {
-                log.trace("ipptool no disponible en el sistema");
-                return null;
-            }
+            log.debug("🔧 Ejecutando ipptool para {}", printerUri);
             
-            // Ejecutar ipptool get-printer-attributes
+            // Ejecutar ipptool get-printer-attributes con timeout
             ProcessBuilder pb = new ProcessBuilder(
                 "ipptool", "-t", printerUri, 
                 "/usr/share/cups/ipptool/get-printer-attributes.test"
@@ -180,26 +175,50 @@ public class IppPrintService {
             pb.redirectErrorStream(true);
             Process process = pb.start();
             
+            // Leer salida con timeout
             StringBuilder output = new StringBuilder();
+            boolean completed = false;
+            
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream()))) {
+                
+                // Esperar máximo 3 segundos
+                completed = process.waitFor(3, TimeUnit.SECONDS);
+                
+                if (!completed) {
+                    log.debug("⚠️ ipptool timeout para {}", printerUri);
+                    process.destroyForcibly();
+                    return null;
+                }
+                
+                // Leer toda la salida
                 String line;
                 while ((line = reader.readLine()) != null) {
                     output.append(line).append("\n");
                 }
             }
             
-            int exitCode = process.waitFor();
+            int exitCode = process.exitValue();
             if (exitCode != 0) {
-                log.trace("ipptool falló con código: {}", exitCode);
+                log.debug("⚠️ ipptool falló con código: {} para {}", exitCode, printerUri);
                 return null;
             }
             
+            log.debug("✅ ipptool ejecutado exitosamente para {}", printerUri);
+            
             // Parsear la salida
-            return parseIpptoolOutput(output.toString(), printerUri);
+            IppPrinterInfo info = parseIpptoolOutput(output.toString(), printerUri);
+            
+            if (info != null) {
+                log.debug("✅ Info parseada: {} - {}", info.getName(), info.getMakeModel());
+            } else {
+                log.debug("⚠️ No se pudo parsear la salida de ipptool");
+            }
+            
+            return info;
             
         } catch (Exception e) {
-            log.trace("Error ejecutando ipptool: {}", e.getMessage());
+            log.debug("❌ Error ejecutando ipptool para {}: {}", printerUri, e.getMessage());
             return null;
         }
     }
