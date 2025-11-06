@@ -175,28 +175,33 @@ public class IppPrintService {
             pb.redirectErrorStream(true);
             Process process = pb.start();
             
-            // Leer salida con timeout
+            // Leer salida en hilo separado para no perder datos
             StringBuilder output = new StringBuilder();
-            
-            // Leer salida ANTES de waitFor
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream()))) {
-                
-                // Leer mientras el proceso está corriendo
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line).append("\n");
+            Thread readerThread = new Thread(() -> {
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        output.append(line).append("\n");
+                    }
+                } catch (IOException e) {
+                    log.trace("Error leyendo salida ipptool: {}", e.getMessage());
                 }
-            }
+            });
+            readerThread.start();
             
-            // Esperar a que termine (máximo 5 segundos)
+            // Esperar a que termine el proceso (máximo 5 segundos)
             boolean completed = process.waitFor(5, TimeUnit.SECONDS);
             
             if (!completed) {
                 log.debug("⚠️ ipptool timeout para {}", printerUri);
                 process.destroyForcibly();
+                readerThread.interrupt();
                 return null;
             }
+            
+            // Esperar a que el hilo lector termine
+            readerThread.join(1000);
             
             int exitCode = process.exitValue();
             
