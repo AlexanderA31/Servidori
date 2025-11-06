@@ -231,40 +231,48 @@ public class IppPrintService {
             IppPrinterInfo info = new IppPrinterInfo();
             info.setUri(printerUri);
             
-            // Buscar printer-info
-            String printerInfo = extractValue(output, "printer-info.*=\\s*(.+)");
+            log.debug("Parseando salida ipptool ({} caracteres)", output.length());
+            
+            // Buscar printer-info (formato: printer-info (textWithoutLanguage) = HP OfficeJet...)
+            String printerInfo = extractValue(output, "printer-info\\s*\\([^)]+\\)\\s*=\\s*(.+)");
             if (printerInfo != null && !printerInfo.isEmpty()) {
+                // Limpiar escapes de ipptool (\[ -> [)
+                printerInfo = printerInfo.replaceAll("\\\\\\[", "[").replaceAll("\\\\\\]", "]").trim();
                 info.setName(printerInfo);
+                log.debug("  Nombre encontrado: {}", info.getName());
             }
             
             // Si no hay printer-info, buscar printer-name
             if (info.getName() == null) {
-                String printerName = extractValue(output, "printer-name.*=\\s*(.+)");
-                if (printerName != null) {
-                    info.setName(printerName);
+                String printerName = extractValue(output, "printer-name\\s*\\([^)]+\\)\\s*=\\s*(.+)");
+                if (printerName != null && !printerName.isEmpty()) {
+                    info.setName(printerName.trim());
+                    log.debug("  Nombre (fallback) encontrado: {}", info.getName());
                 }
             }
             
             // Buscar printer-make-and-model
-            String makeModel = extractValue(output, "printer-make-and-model.*=\\s*(.+)");
+            String makeModel = extractValue(output, "printer-make-and-model\\s*\\([^)]+\\)\\s*=\\s*(.+)");
             if (makeModel != null && !makeModel.isEmpty()) {
-                info.setMakeModel(makeModel);
+                info.setMakeModel(makeModel.trim());
+                log.debug("  Modelo encontrado: {}", info.getMakeModel());
             }
             
             // Buscar printer-state
-            String state = extractValue(output, "printer-state.*=\\s*(.+)");
+            String state = extractValue(output, "printer-state\\s*\\([^)]+\\)\\s*=\\s*(.+)");
             if (state != null) {
-                info.setState(state);
+                info.setState(state.trim());
             }
             
             // Buscar printer-is-accepting-jobs
-            String accepting = extractValue(output, "printer-is-accepting-jobs.*=\\s*(.+)");
+            String accepting = extractValue(output, "printer-is-accepting-jobs\\s*\\([^)]+\\)\\s*=\\s*(.+)");
             if (accepting != null) {
                 info.setAccepting(accepting.toLowerCase().contains("true"));
             }
             
             // Si no obtuvimos ningún dato, retornar null
             if (info.getName() == null && info.getMakeModel() == null) {
+                log.debug("  No se encontró nombre ni modelo en la salida");
                 return null;
             }
             
@@ -279,26 +287,31 @@ public class IppPrintService {
                 info.setState("idle");
             }
             
+            log.debug("  Parseado exitoso: {} - {}", info.getName(), info.getMakeModel());
             return info;
             
         } catch (Exception e) {
-            log.trace("Error parseando salida ipptool: {}", e.getMessage());
+            log.debug("Error parseando salida ipptool: {}", e.getMessage());
             return null;
         }
     }
     
     /**
-     * Extrae un valor usando expresión regular
+     * Extrae un valor usando expresión regular (multiline)
      */
     private String extractValue(String text, String pattern) {
         try {
-            java.util.regex.Pattern p = java.util.regex.Pattern.compile(pattern, java.util.regex.Pattern.CASE_INSENSITIVE);
-            java.util.regex.Matcher m = p.matcher(text);
+            Pattern p = Pattern.compile(pattern, Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);
+            Matcher m = p.matcher(text);
             if (m.find()) {
-                return m.group(1).trim();
+                String value = m.group(1).trim();
+                log.trace("  Pattern '{}' encontró: {}", pattern, value);
+                return value;
+            } else {
+                log.trace("  Pattern '{}' no encontró coincidencias", pattern);
             }
         } catch (Exception e) {
-            // Ignorar
+            log.trace("  Error con pattern '{}': {}", pattern, e.getMessage());
         }
         return null;
     }
