@@ -167,9 +167,10 @@ public class IppPrintService {
         try {
             log.debug("🔧 Ejecutando ipptool para {}", printerUri);
             
-            // Ejecutar ipptool get-printer-attributes con timeout
+            // Ejecutar ipptool sin -t para obtener la salida completa
+            // -v para verbose, captura TODO en stdout
             ProcessBuilder pb = new ProcessBuilder(
-                "ipptool", "-t", printerUri, 
+                "ipptool", "-v", printerUri, 
                 "/usr/share/cups/ipptool/get-printer-attributes.test"
             );
             pb.redirectErrorStream(true);
