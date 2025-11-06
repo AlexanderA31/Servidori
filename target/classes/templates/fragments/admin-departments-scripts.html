@@ -33,7 +33,94 @@
                     setTimeout(() => alert.remove(), 300);
                 }, 5000);
             });
+
+            // Inicializar filtro de edificios
+            initializeBuildingFilter();
         });
+
+        // Inicializar opciones del filtro de edificios
+        function initializeBuildingFilter() {
+            const buildingFilter = document.getElementById('buildingFilter');
+            if (!buildingFilter) return;
+
+            // Obtener todos los edificios únicos de la tabla
+            const rows = document.querySelectorAll('.data-table tbody tr:not(.dept-expanded-row)');
+            const buildings = new Set();
+
+            rows.forEach(row => {
+                // La columna de edificio está en la tercera posición (índice 2)
+                const buildingCell = row.cells[2];
+                if (buildingCell) {
+                    const buildingText = buildingCell.textContent.trim();
+                    if (buildingText && buildingText !== '--') {
+                        buildings.add(buildingText);
+                    }
+                }
+            });
+
+            // Ordenar edificios alfabéticamente y agregar al select
+            Array.from(buildings).sort().forEach(building => {
+                const option = document.createElement('option');
+                option.value = building;
+                option.textContent = building;
+                buildingFilter.appendChild(option);
+            });
+        }
+
+        // Filtrar departamentos por edificio
+        function filterByBuilding() {
+            const selectedBuilding = document.getElementById('buildingFilter').value;
+            const rows = document.querySelectorAll('.data-table tbody tr:not(.dept-expanded-row)');
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const buildingCell = row.cells[2];
+                const buildingText = buildingCell ? buildingCell.textContent.trim() : '';
+                const expandedRow = row.nextElementSibling;
+
+                if (selectedBuilding === '' || buildingText === selectedBuilding) {
+                    // Mostrar fila
+                    row.style.display = '';
+                    if (expandedRow && expandedRow.classList.contains('dept-expanded-row')) {
+                        expandedRow.style.display = '';
+                    }
+                    visibleCount++;
+                } else {
+                    // Ocultar fila
+                    row.style.display = 'none';
+                    if (expandedRow && expandedRow.classList.contains('dept-expanded-row')) {
+                        expandedRow.style.display = 'none';
+                    }
+                }
+            });
+
+            // Mostrar mensaje si no hay resultados
+            updateEmptyState(visibleCount);
+        }
+
+        // Actualizar estado vacío cuando no hay resultados
+        function updateEmptyState(visibleCount) {
+            const tbody = document.querySelector('.data-table tbody');
+            let emptyMessage = tbody.querySelector('.filter-empty-message');
+
+            if (visibleCount === 0) {
+                if (!emptyMessage) {
+                    emptyMessage = document.createElement('tr');
+                    emptyMessage.className = 'filter-empty-message';
+                    emptyMessage.innerHTML = `
+                        <td colspan="7" style="text-align: center; padding: 2rem; color: #666;">
+                            <i class="fas fa-filter" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+                            <p>No se encontraron departamentos con el filtro seleccionado</p>
+                        </td>
+                    `;
+                    tbody.appendChild(emptyMessage);
+                }
+            } else {
+                if (emptyMessage) {
+                    emptyMessage.remove();
+                }
+            }
+        }
     </script>
 </body>
 </html>

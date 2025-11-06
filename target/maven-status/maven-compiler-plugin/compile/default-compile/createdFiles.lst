@@ -1,0 +1,14 @@
+es\ucm\fdi\iu\service\NetworkDiagnosticService.class
+es\ucm\fdi\iu\service\UsbClientService.class
+es\ucm\fdi\iu\control\ApiController$1.class
+es\ucm\fdi\iu\service\NetworkDiagnosticService$NetworkDiagnosticResult.class
+es\ucm\fdi\iu\model\Transferable.class
+es\ucm\fdi\iu\StartupConfig.class
+es\ucm\fdi\iu\client\PrintClient.class
+es\ucm\fdi\iu\service\SmbShareService.class
+es\ucm\fdi\iu\service\SmbShareService$SmbShareInfo.class
+es\ucm\fdi\iu\AuthenticationLogger.class
+es\ucm\fdi\iu\util\NetworkUtils.class
+es\ucm\fdi\iu\service\PrintDocumentConverter.class
+es\ucm\fdi\iu\PasswordTester.class
+es\ucm\fdi\iu\PmgrApplication.class

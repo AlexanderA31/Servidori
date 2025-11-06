@@ -32,11 +32,17 @@
                     <p>Organiza y administra los departamentos de tu empresa</p>
                 </div>
                 
-                <!-- Acciones -->
+                                <!-- Acciones -->
                 <div class="departments-actions">
                     <button class="btn btn-primary" onclick="openModal('createDepartmentModal')">
                         <i class="fas fa-plus"></i> Nuevo Departamento
                     </button>
+                    <div class="filter-group">
+                        <label for="buildingFilter"><i class="fas fa-filter"></i> Filtrar por Edificio:</label>
+                        <select id="buildingFilter" class="filter-select" onchange="filterByBuilding()">
+                            <option value="">Todos los edificios</option>
+                        </select>
+                    </div>
                 </div>
                 
                 <!-- Estadísticas -->
