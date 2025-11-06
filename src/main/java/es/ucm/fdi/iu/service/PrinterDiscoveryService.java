@@ -395,7 +395,7 @@ public class PrinterDiscoveryService {
                 scannedHosts, totalHosts, foundPrinters);
         }
         
-        // ESTRATEGIA 1: Verificar puertos TCP PRIMERO (más rápido que SNMP)
+                // ESTRATEGIA 1: Verificar puertos TCP PRIMERO (más rápido que SNMP)
         for (int port : new int[]{9100, 631, 515, 445}) { // RAW, IPP, LPD, SMB
             if (isPortOpen(ip, port, portTimeout)) {
                 log.info("🔍 Puerto {} abierto en {}", port, ip);
@@ -414,6 +414,21 @@ public class PrinterDiscoveryService {
                     if (smbPrinter != null) {
                         log.info("✅ Impresora SMB descubierta en {}", ip);
                         return smbPrinter;
+                    }
+                }
+                
+                // Si encontramos puerto 9100, SIEMPRE intentar IPP también
+                if (port == 9100) {
+                    log.info("🔍 Puerto 9100 encontrado, verificando si también tiene IPP (631)...", ip);
+                    if (isPortOpen(ip, 631, portTimeout)) {
+                        log.info("✅ Puerto 631 también abierto, obteniendo info IPP...", ip);
+                        DiscoveredPrinter ippPrinter = scanViaIPP(ip);
+                        if (ippPrinter != null) {
+                            log.info("✅ Info IPP obtenida: {} - {}", ippPrinter.getName(), ippPrinter.getModel());
+                            return ippPrinter;
+                        } else {
+                            log.warn("⚠️ Puerto 631 abierto pero no se pudo obtener info IPP");
+                        }
                     }
                 }
                 
