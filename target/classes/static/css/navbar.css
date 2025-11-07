@@ -96,7 +96,7 @@
 
 .nav-btn:hover {
     background: #e5e7eb;
-    color: white;
+    color: #374151;
     border-color: #d1d5db;
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
