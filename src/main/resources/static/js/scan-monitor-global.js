@@ -118,29 +118,66 @@
                 if (state.isMinimized && state.scanning) {
                     const minimizedBar = document.getElementById('scanProgressMinimized');
                     if (minimizedBar) {
-                        minimizedBar.style.display = 'block';
-                        
-                        // Restaurar valores visuales
-                        const progressBar = document.getElementById('scanProgressMinimizedBar');
-                        const progressPercent = document.getElementById('scanProgressMinimizedPercent');
-                        const networkSpan = document.getElementById('scanMinimizedNetwork');
-                        const printersSpan = document.getElementById('scanMinimizedPrinters');
-                        
-                        if (progressBar && state.progress !== undefined) {
-                            progressBar.style.width = state.progress + '%';
-                        }
-                        if (progressPercent && state.progress !== undefined) {
-                            progressPercent.textContent = state.progress + '%';
-                        }
-                        if (networkSpan && state.currentNetwork) {
-                            networkSpan.textContent = state.currentNetwork;
-                        }
-                        if (printersSpan && state.foundPrinters !== undefined) {
-                            printersSpan.textContent = state.foundPrinters + ' impresoras';
-                        }
-                        
-                        // Iniciar monitoreo
-                        startGlobalMonitoring();
+                        // Obtener estado actual del servidor (más confiable)
+                        fetch('/admin/scan-status')
+                            .then(response => response.json())
+                            .then(data => {
+                                // Si el escaneo ya no está activo, no mostrar la barra
+                                if (!data.scanning && data.progress === 0) {
+                                    sessionStorage.removeItem('scanMinimizedState');
+                                    return;
+                                }
+                                
+                                // Mostrar la barra minimizada con datos actuales del servidor
+                                minimizedBar.style.display = 'block';
+                                
+                                const progressBar = document.getElementById('scanProgressMinimizedBar');
+                                const progressPercent = document.getElementById('scanProgressMinimizedPercent');
+                                const networkSpan = document.getElementById('scanMinimizedNetwork');
+                                const printersSpan = document.getElementById('scanMinimizedPrinters');
+                                
+                                if (progressBar) progressBar.style.width = data.progress + '%';
+                                if (progressPercent) progressPercent.textContent = data.progress + '%';
+                                if (networkSpan) networkSpan.textContent = data.currentNetwork || 'Iniciando...';
+                                if (printersSpan) printersSpan.textContent = data.foundPrinters + ' impresoras';
+                                
+                                // Iniciar monitoreo continuo
+                                startGlobalMonitoring();
+                                
+                                // Si el escaneo ya terminó, ocultar después de un momento
+                                if (!data.scanning && data.progress >= 100) {
+                                    setTimeout(() => {
+                                        minimizedBar.style.display = 'none';
+                                        sessionStorage.removeItem('scanMinimizedState');
+                                        stopGlobalMonitoring();
+                                    }, 3000);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error al verificar estado del escaneo:', error);
+                                // Si hay error, usar el estado guardado como fallback
+                                minimizedBar.style.display = 'block';
+                                
+                                const progressBar = document.getElementById('scanProgressMinimizedBar');
+                                const progressPercent = document.getElementById('scanProgressMinimizedPercent');
+                                const networkSpan = document.getElementById('scanMinimizedNetwork');
+                                const printersSpan = document.getElementById('scanMinimizedPrinters');
+                                
+                                if (progressBar && state.progress !== undefined) {
+                                    progressBar.style.width = state.progress + '%';
+                                }
+                                if (progressPercent && state.progress !== undefined) {
+                                    progressPercent.textContent = state.progress + '%';
+                                }
+                                if (networkSpan && state.currentNetwork) {
+                                    networkSpan.textContent = state.currentNetwork;
+                                }
+                                if (printersSpan && state.foundPrinters !== undefined) {
+                                    printersSpan.textContent = state.foundPrinters + ' impresoras';
+                                }
+                                
+                                startGlobalMonitoring();
+                            });
                     }
                 }
             } catch (e) {

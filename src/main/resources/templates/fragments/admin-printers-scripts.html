@@ -229,7 +229,39 @@
             document.getElementById('scanProgressMinimized').style.display = 'none';
             document.getElementById('scanProgressModal').style.display = 'block';
             
-            // Actualizar estado
+            // IMPORTANTE: Actualizar los valores del modal con el estado actual
+            fetch('/admin/scan-status')
+                .then(response => response.json())
+                .then(data => {
+                    // Actualizar todos los campos del modal principal con el estado actual
+                    document.getElementById('progressBar').style.width = data.progress + '%';
+                    document.getElementById('scanProgress').textContent = data.progress + '%';
+                    document.getElementById('currentNetwork').textContent = data.currentNetwork || 'Iniciando...';
+                    document.getElementById('foundPrinters').textContent = data.foundPrinters;
+                    
+                    if (data.scanning) {
+                        document.getElementById('scanDetails').textContent = 
+                            'Escaneando ' + data.currentNetwork + '...';
+                        document.getElementById('scanMessage').innerHTML = '<i class="fas fa-hourglass-half"></i> Por favor espera...';
+                    } else if (data.cancelled) {
+                        document.getElementById('scanMessage').innerHTML = 
+                            '⚠️ <strong>Escaneo Cancelado</strong>';
+                    } else if (data.progress >= 100) {
+                        document.getElementById('scanMessage').innerHTML = 
+                            '✅ <strong>Escaneo Completado!</strong><br>Encontradas ' + data.foundPrinters + ' impresoras.';
+                    }
+                    
+                    // Actualizar botón de cancelar
+                    const forceBtn = document.getElementById('forceCompleteBtn');
+                    if (forceBtn) {
+                        forceBtn.style.display = data.scanning ? 'inline-block' : 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al restaurar estado del modal:', error);
+                });
+            
+            // Actualizar estado en sessionStorage
             const state = JSON.parse(sessionStorage.getItem('scanMinimizedState') || '{}');
             state.isMinimized = false;
             sessionStorage.setItem('scanMinimizedState', JSON.stringify(state));

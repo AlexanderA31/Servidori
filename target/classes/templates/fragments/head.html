@@ -35,8 +35,7 @@
 				name: "[[${_csrf.parameterName}]]",
 				value: "[[${_csrf.token}]]"
 			},
-			admin: [[${session.u != null && session.u.hasRole('ADMIN')}?true:false]],
-			userId: [[${session.u != null}?${session.u.id}:-1]]
+	
 		};
 	</script>
 	</th:block>
