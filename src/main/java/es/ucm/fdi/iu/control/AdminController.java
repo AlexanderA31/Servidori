@@ -127,13 +127,14 @@ public class AdminController {
         }
     }
     
-    // ========== SECCIÓN: DEPARTAMENTOS ==========
+        // ========== SECCIÓN: DEPARTAMENTOS ==========
     
                         @GetMapping("/departments")
     @Transactional
         public String departments(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int size,
+            @RequestParam(required = false) String building,
             Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
         try {
             User currentUser = (User) session.getAttribute("u");
@@ -143,11 +144,22 @@ public class AdminController {
                     "SELECT COUNT(d) FROM Department d", Long.class)
                     .getSingleResult();
             
-            // Cargar departamentos con paginación
+            // Cargar departamentos con paginación Y filtro de edificio
             Pageable pageable = PageRequest.of(page, size);
-            List<Department> allDepartments = entityManager.createNamedQuery(
-                    "Department.all", Department.class)
-                    .getResultList();
+            List<Department> allDepartments;
+            
+            if (building != null && !building.isEmpty()) {
+                // Filtrar por edificio
+                allDepartments = entityManager.createQuery(
+                        "SELECT d FROM Department d WHERE d.building = :building ORDER BY d.name", Department.class)
+                        .setParameter("building", building)
+                        .getResultList();
+            } else {
+                // Sin filtro, obtener todos
+                allDepartments = entityManager.createNamedQuery(
+                        "Department.all", Department.class)
+                        .getResultList();
+            }
             
             // Protección contra listas vacías o páginas fuera de rango
             int start = Math.min((int) pageable.getOffset(), allDepartments.size());
@@ -175,11 +187,12 @@ public class AdminController {
                 log.warn("No se pudieron cargar rangos de red: {}", e.getMessage());
             }
             
-                        model.addAttribute("departments", departments);
+                                                model.addAttribute("departments", departments);
             model.addAttribute("totalDepartmentsCount", totalDepartmentsCount);
             model.addAttribute("unassignedComputers", unassignedComputers);
             model.addAttribute("allPrinters", allPrinters);
             model.addAttribute("networkRanges", networkRanges);
+            model.addAttribute("selectedBuilding", building);
             model.addAttribute("currentUri", request.getRequestURI());
             
             log.info("Departments section loaded");
@@ -894,6 +907,24 @@ public class AdminController {
             ra.addFlashAttribute("error", "Error: " + e.getMessage());
         }
         return "redirect:/admin/computers";
+    }
+    
+        /**
+     * API endpoint para obtener todos los edificios únicos
+     */
+    @GetMapping("/departments/buildings")
+    @ResponseBody
+    @Transactional
+    public List<String> getAllBuildings() {
+        try {
+            return entityManager.createQuery(
+                    "SELECT DISTINCT d.building FROM Department d WHERE d.building IS NOT NULL AND d.building != '' ORDER BY d.building", 
+                    String.class)
+                    .getResultList();
+        } catch (Exception e) {
+            log.error("Error obteniendo edificios", e);
+            return java.util.Collections.emptyList();
+        }
     }
     
     @PostMapping("/delete-department")

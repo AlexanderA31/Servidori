@@ -43,84 +43,58 @@
             const buildingFilter = document.getElementById('buildingFilter');
             if (!buildingFilter) return;
 
-            // Obtener todos los edificios únicos de la tabla
-            const rows = document.querySelectorAll('.data-table tbody tr:not(.dept-expanded-row)');
-            const buildings = new Set();
-
-            rows.forEach(row => {
-                // La columna de edificio está en la tercera posición (índice 2)
-                const buildingCell = row.cells[2];
-                if (buildingCell) {
-                    const buildingText = buildingCell.textContent.trim();
-                    if (buildingText && buildingText !== '--') {
-                        buildings.add(buildingText);
+            // Obtener todos los edificios únicos desde el backend
+            fetch('/admin/departments/buildings')
+                .then(response => response.json())
+                .then(buildings => {
+                    // Limpiar opciones existentes (excepto "Todos")
+                    while (buildingFilter.options.length > 1) {
+                        buildingFilter.remove(1);
                     }
-                }
-            });
 
-            // Ordenar edificios alfabéticamente y agregar al select
-            Array.from(buildings).sort().forEach(building => {
-                const option = document.createElement('option');
-                option.value = building;
-                option.textContent = building;
-                buildingFilter.appendChild(option);
-            });
+                    // Ordenar edificios alfabéticamente y agregar al select
+                    buildings.sort().forEach(building => {
+                        if (building && building.trim() !== '') {
+                            const option = document.createElement('option');
+                            option.value = building;
+                            option.textContent = building;
+                            buildingFilter.appendChild(option);
+                        }
+                    });
+
+                    // Seleccionar el edificio si está en la URL
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const buildingParam = urlParams.get('building');
+                    if (buildingParam) {
+                        buildingFilter.value = buildingParam;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al cargar edificios:', error);
+                });
         }
 
-        // Filtrar departamentos por edificio
+        // Filtrar departamentos por edificio (redirige con parámetro)
         function filterByBuilding() {
             const selectedBuilding = document.getElementById('buildingFilter').value;
-            const rows = document.querySelectorAll('.data-table tbody tr:not(.dept-expanded-row)');
-            let visibleCount = 0;
-
-            rows.forEach(row => {
-                const buildingCell = row.cells[2];
-                const buildingText = buildingCell ? buildingCell.textContent.trim() : '';
-                const expandedRow = row.nextElementSibling;
-
-                if (selectedBuilding === '' || buildingText === selectedBuilding) {
-                    // Mostrar fila
-                    row.style.display = '';
-                    if (expandedRow && expandedRow.classList.contains('dept-expanded-row')) {
-                        expandedRow.style.display = '';
-                    }
-                    visibleCount++;
-                } else {
-                    // Ocultar fila
-                    row.style.display = 'none';
-                    if (expandedRow && expandedRow.classList.contains('dept-expanded-row')) {
-                        expandedRow.style.display = 'none';
-                    }
-                }
-            });
-
-            // Mostrar mensaje si no hay resultados
-            updateEmptyState(visibleCount);
-        }
-
-        // Actualizar estado vacío cuando no hay resultados
-        function updateEmptyState(visibleCount) {
-            const tbody = document.querySelector('.data-table tbody');
-            let emptyMessage = tbody.querySelector('.filter-empty-message');
-
-            if (visibleCount === 0) {
-                if (!emptyMessage) {
-                    emptyMessage = document.createElement('tr');
-                    emptyMessage.className = 'filter-empty-message';
-                    emptyMessage.innerHTML = `
-                        <td colspan="7" style="text-align: center; padding: 2rem; color: #666;">
-                            <i class="fas fa-filter" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
-                            <p>No se encontraron departamentos con el filtro seleccionado</p>
-                        </td>
-                    `;
-                    tbody.appendChild(emptyMessage);
-                }
+            const url = new URL(window.location.href);
+            
+            // Resetear a la primera página al filtrar
+            url.searchParams.set('page', '0');
+            
+            if (selectedBuilding === '') {
+                // Si no hay filtro, eliminar el parámetro
+                url.searchParams.delete('building');
             } else {
-                if (emptyMessage) {
-                    emptyMessage.remove();
-                }
+                // Agregar el filtro de edificio
+                url.searchParams.set('building', selectedBuilding);
             }
+            
+            // Redirigir a la URL con el filtro
+            window.location.href = url.toString();
         }
+
+
     </script>
 </body>
 </html>
