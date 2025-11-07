@@ -1,0 +1,156 @@
+/* Estilos para el buscador de tablas - Minimalista Empresarial */
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.card-header-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 0 0 auto;
+}
+
+.search-container {
+    flex: 0 1 auto;
+    min-width: 200px;
+    max-width: 300px;
+}
+
+.search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.search-box i.fa-search {
+    position: absolute;
+    left: 0.75rem;
+    color: #6b7280;
+    pointer-events: none;
+    font-size: 0.875rem;
+    z-index: 1;
+}
+
+.search-input {
+    width: 100%;
+    padding: 0.5rem 2rem 0.5rem 2.25rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    background-color: #ffffff;
+    color: #374151;
+    font-weight: 400;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #667eea;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.08);
+}
+
+.search-input::placeholder {
+    color: #9ca3af;
+    font-weight: 400;
+}
+
+.search-clear {
+    position: absolute;
+    right: 0.25rem;
+    background: none;
+    border: none;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+    width: 24px;
+    height: 24px;
+    font-size: 0.75rem;
+}
+
+.search-clear:hover {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+.search-clear:active {
+    transform: scale(0.95);
+}
+
+/* Mensaje cuando no hay resultados */
+.no-results-row {
+    background-color: #f9f9f9;
+}
+
+.no-results-row td {
+    padding: 3rem 2rem !important;
+    text-align: center;
+    color: #999;
+}
+
+.no-results-row i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    display: block;
+    color: #ddd;
+}
+
+.no-results-row p {
+    font-size: 1rem;
+    margin: 0;
+}
+
+.no-results-row strong {
+    color: #667eea;
+}
+
+/* Animación de fade para resultados filtrados */
+tr {
+    transition: opacity 0.2s ease;
+}
+
+tr[style*="display: none"] {
+    opacity: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .search-container {
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .search-box {
+        max-width: 100%;
+    }
+    
+    .search-input {
+        font-size: 16px; /* Prevenir zoom en iOS */
+    }
+    
+    .card-header-title {
+        width: 100%;
+    }
+}
+
+@media (max-width: 640px) {
+    .search-container {
+        min-width: 100%;
+    }
+}

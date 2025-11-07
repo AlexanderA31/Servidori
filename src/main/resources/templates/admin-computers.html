@@ -7,8 +7,9 @@
     <link rel="stylesheet" th:href="@{/css/admin-sidebar.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-modern.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-computers.css}"/>
-    <link rel="stylesheet" th:href="@{/css/admin-sidebar-override.css}"/>
+        <link rel="stylesheet" th:href="@{/css/admin-sidebar-override.css}"/>
     <link rel="stylesheet" th:href="@{/css/pagination.css}"/>
+    <link rel="stylesheet" th:href="@{/css/table-search.css}"/>
 </head>
 <body>
     <nav th:replace="fragments/nav.html :: nav"></nav>
@@ -64,12 +65,30 @@
                     </div>
                 </div>
 
-                <!-- Computadoras Sin Asignar -->
+                                                <!-- Computadoras Sin Asignar -->
                 <div class="computers-section" th:if="${unassignedComputers != null && unassignedComputers.totalElements != null && unassignedComputers.totalElements > 0}">
-                    <h2 class="section-title">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        Computadoras Sin Asignar
-                    </h2>
+                    <div class="section-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                        <h2 >
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Computadoras Sin Asignar
+                        </h2>
+                        <!-- Buscador -->
+                        <div class="search-container">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" 
+                                       id="searchUnassignedComputers" 
+                                       class="search-input" 
+                                       placeholder="Buscar..." 
+                                       data-search-table=".computers-section:nth-of-type(1) .data-table">
+                                <button onclick="clearSearch('searchUnassignedComputers', '.computers-section:nth-of-type(1) .data-table')" 
+                                        class="search-clear" 
+                                        title="Limpiar búsqueda">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="card">
                         <div class="card-body">
                             <table class="data-table">
@@ -133,12 +152,30 @@
                     </div>
                 </div>
 
-                <!-- Computadoras Asignadas -->
+                                <!-- Computadoras Asignadas -->
                 <div class="computers-section">
-                    <h2 class="section-title">
-                        <i class="fas fa-check-circle"></i>
-                        Computadoras Asignadas por Departamento
-                    </h2>
+                    <div class="section-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                        <h2 >
+                            <i class="fas fa-check-circle"></i>
+                            Computadoras Asignadas por Departamento
+                        </h2>
+                        <!-- Buscador -->
+                        <div class="search-container" th:if="${assignedComputers != null && assignedComputers.totalElements != null && assignedComputers.totalElements > 0}">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" 
+                                       id="searchAssignedComputers" 
+                                       class="search-input" 
+                                       placeholder="Buscar..." 
+                                       data-search-table=".computers-section:nth-of-type(2) .data-table">
+                                <button onclick="clearSearch('searchAssignedComputers', '.computers-section:nth-of-type(2) .data-table')" 
+                                        class="search-clear" 
+                                        title="Limpiar búsqueda">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                     
                     <div th:if="${assignedComputers == null || assignedComputers.totalElements == null || assignedComputers.totalElements == 0}" class="empty-state">
                         <div class="empty-state-icon"><i class="fas fa-desktop"></i></div>
@@ -148,7 +185,7 @@
                         </button>
                     </div>
                     
-                    <div th:unless="${assignedComputers == null || assignedComputers.totalElements == null || assignedComputers.totalElements == 0}" class="card">
+                                        <div th:unless="${assignedComputers == null || assignedComputers.totalElements == null || assignedComputers.totalElements == 0}" class="card">
                         <div class="card-body">
                             <table class="data-table">
                                 <thead>
@@ -220,6 +257,7 @@
     <!-- Barra de progreso minimizada GLOBAL -->
     <div th:replace="fragments/scan-progress-minimized.html :: minimized-bar"></div>
 
+    <script th:src="@{/js/table-search.js}"></script>
     <script th:src="@{/js/admin.js}"></script>
     <script th:src="@{/js/scan-monitor-global.js}"></script>
     <script th:src="@{/js/pagination.js}"></script>

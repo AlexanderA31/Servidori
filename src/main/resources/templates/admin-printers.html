@@ -22,8 +22,9 @@
             font-size: 0.875rem;
         }
     </style>
-    <link rel="stylesheet" th:href="@{/css/admin-sidebar-override.css}"/>
+        <link rel="stylesheet" th:href="@{/css/admin-sidebar-override.css}"/>
     <link rel="stylesheet" th:href="@{/css/pagination.css}"/>
+    <link rel="stylesheet" th:href="@{/css/table-search.css}"/>
 </head>
 <body>
     <nav th:replace="fragments/nav.html :: nav"></nav>
@@ -87,10 +88,26 @@
                     </div>
                 </div>
 
-                <!-- Tabla de Impresoras -->
+                                                <!-- Tabla de Impresoras -->
                 <div class="departments-table-card">
                     <div class="card-header">
-                        <span><i class="fas fa-list"></i> Todas las Impresoras</span>
+                        <span class="card-header-title"><i class="fas fa-list"></i> Todas las Impresoras</span>
+                        <!-- Buscador -->
+                        <div class="search-container">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" 
+                                       id="searchPrinters" 
+                                       class="search-input" 
+                                       placeholder="Buscar..." 
+                                       data-search-table=".departments-table-card .data-table">
+                                <button onclick="clearSearch('searchPrinters', '.departments-table-card .data-table')" 
+                                        class="search-clear" 
+                                        title="Limpiar búsqueda">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div th:if="${allPrinters == null || (allPrinters.content != null && #lists.isEmpty(allPrinters.content)) || (allPrinters.content == null && #lists.isEmpty(allPrinters))}" class="empty-state">
@@ -195,6 +212,7 @@
     <!-- Barra de progreso minimizada GLOBAL -->
     <div th:replace="fragments/scan-progress-minimized.html :: minimized-bar"></div>
 
+    <script th:src="@{/js/table-search.js}"></script>
     <script th:src="@{/js/admin.js}"></script>
     <script th:src="@{/js/scan-monitor-global.js}"></script>
     <script th:src="@{/js/pagination.js}"></script>

@@ -131,9 +131,9 @@ public class AdminController {
     
                         @GetMapping("/departments")
     @Transactional
-    public String departments(
+        public String departments(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "5") int size,
             Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
         try {
             User currentUser = (User) session.getAttribute("u");
@@ -195,9 +195,9 @@ public class AdminController {
     
                         @GetMapping("/printers")
     @Transactional
-    public String printers(
+        public String printers(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "5") int size,
             Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
         try {
             User currentUser = (User) session.getAttribute("u");
@@ -442,9 +442,9 @@ public class AdminController {
     
                         @GetMapping("/computers")
     @Transactional
-    public String computers(
+        public String computers(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "5") int size,
             Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
         try {
             User currentUser = (User) session.getAttribute("u");
@@ -582,9 +582,9 @@ public class AdminController {
     
     @GetMapping("/users")
     @Transactional
-    public String users(
+        public String users(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "5") int size,
             Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
         try {
             User currentUser = (User) session.getAttribute("u");

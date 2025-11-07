@@ -8,8 +8,9 @@
     <link rel="stylesheet" th:href="@{/css/admin-modern.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-departments.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-users.css}"/>
-    <link rel="stylesheet" th:href="@{/css/admin-sidebar-override.css}"/>
+        <link rel="stylesheet" th:href="@{/css/admin-sidebar-override.css}"/>
     <link rel="stylesheet" th:href="@{/css/pagination.css}"/>
+    <link rel="stylesheet" th:href="@{/css/table-search.css}"/>
 </head>
 <body>
     <nav th:replace="fragments/nav.html :: nav"></nav>
@@ -65,10 +66,26 @@
                     </div>
                 </div>
 
-                <!-- Lista de Usuarios -->
+                                <!-- Lista de Usuarios -->
                 <div class="departments-table-card">
                     <div class="card-header">
-                        <span><i class="fas fa-list"></i> Todos los Usuarios</span>
+                        <span class="card-header-title"><i class="fas fa-list"></i> Todos los Usuarios</span>
+                        <!-- Buscador -->
+                        <div class="search-container">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" 
+                                       id="searchUsers" 
+                                       class="search-input" 
+                                       placeholder="Buscar..." 
+                                       data-search-table=".departments-table-card .data-table">
+                                <button onclick="clearSearch('searchUsers', '.departments-table-card .data-table')" 
+                                        class="search-clear" 
+                                        title="Limpiar búsqueda">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     
                     <div th:if="${allUsers == null || allUsers.totalElements == null || allUsers.totalElements == 0}" class="card-body">
@@ -81,7 +98,7 @@
                         </div>
                     </div>
                     
-                    <div th:unless="${allUsers == null || allUsers.totalElements == null || allUsers.totalElements == 0}" class="card-body">
+                                        <div th:unless="${allUsers == null || allUsers.totalElements == null || allUsers.totalElements == 0}" class="card-body">
                         <table class="data-table">
                             <thead>
                                 <tr>
@@ -157,6 +174,7 @@
     <!-- Barra de progreso minimizada GLOBAL -->
     <div th:replace="fragments/scan-progress-minimized.html :: minimized-bar"></div>
 
+    <script th:src="@{/js/table-search.js}"></script>
     <script th:src="@{/js/admin.js}"></script>
     <script th:src="@{/js/scan-monitor-global.js}"></script>
     <script th:src="@{/js/pagination.js}"></script>

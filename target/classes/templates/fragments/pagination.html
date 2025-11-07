@@ -74,6 +74,7 @@
         <select id="pageSize" 
                 onchange="changePageSize(this, this.dataset.baseUrl)" 
                 th:attr="data-base-url=${baseUrl}">
+            <option value="5" th:selected="${page.size == 5}">5</option>
             <option value="10" th:selected="${page.size == 10}">10</option>
             <option value="25" th:selected="${page.size == 25}">25</option>
             <option value="50" th:selected="${page.size == 50}">50</option>
