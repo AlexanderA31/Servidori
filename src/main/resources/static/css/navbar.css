@@ -96,7 +96,7 @@
 
 .nav-btn:hover {
     background: #e5e7eb;
-    color: #111827;
+    color: white;
     border-color: #d1d5db;
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
@@ -110,8 +110,8 @@
 }
 
 .nav-btn-primary:hover {
-    background: linear-gradient(135deg, #0B283F 0%, #1e40af 100%);
-    box-shadow: 0 4px 8px rgba(30, 64, 175, 0.3);
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+    
     transform: translateY(-1px);
 }
 
