@@ -8,7 +8,7 @@
     <link rel="stylesheet" th:href="@{/css/admin-modern.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-departments.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-printers.css}"/>
-    <style>
+        <style>
         .port-badge.port-usb {
             color: black;
             padding: 0.25rem 0.75rem;
@@ -20,6 +20,28 @@
         }
         .port-badge.port-usb i {
             font-size: 0.875rem;
+        }
+        .assigned-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #10b981;
+            color: white;
+            font-size: 14px;
+        }
+        .not-assigned-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #e5e7eb;
+            color: #9ca3af;
+            font-size: 14px;
         }
     </style>
         <link rel="stylesheet" th:href="@{/css/admin-sidebar-override.css}"/>
@@ -120,13 +142,14 @@
                         
                         <div th:unless="${allPrinters == null || (allPrinters.content != null && #lists.isEmpty(allPrinters.content)) || (allPrinters.content == null && #lists.isEmpty(allPrinters))}">
                             <table class="data-table">
-                                <thead>
+                                                                <thead>
                                     <tr>
                                         <th>Impresora</th>
                                         <th>Modelo</th>
                                         <th>Ubicación</th>
                                         <th>Dirección IP</th>
                                         <th>Puerto IPP</th>
+                                        <th>Asignada</th>
                                         <th>Creada por</th>
                                         <th>Acciones</th>
                                     </tr>
@@ -157,6 +180,18 @@
                                             <span th:unless="${printer.location != null and #strings.contains(printer.location, 'Compartida-USB')}">
                                                 <span class="port-badge" th:if="${printer.ippPort}" th:text="${printer.ippPort}" title="Puerto IPP del servidor">8631</span>
                                                 <span th:unless="${printer.ippPort}" class="text-muted">--</span>
+                                            </span>
+                                        </td>
+                                                                                <td style="text-align: center;">
+                                            <span th:if="${printer.departments != null and !#lists.isEmpty(printer.departments)}" 
+                                                  class="assigned-badge" 
+                                                  th:title="'Asignada a ' + ${#lists.size(printer.departments)} + ' departamento(s)'">
+                                                <i class="fas fa-check"></i>
+                                            </span>
+                                            <span th:unless="${printer.departments != null and !#lists.isEmpty(printer.departments)}" 
+                                                  class="not-assigned-badge" 
+                                                  title="Sin asignar">
+                                                <i class="fas fa-minus"></i>
                                             </span>
                                         </td>
                                         <td>
