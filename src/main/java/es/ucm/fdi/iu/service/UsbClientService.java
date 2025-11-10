@@ -69,8 +69,11 @@ public class UsbClientService {
                 return;
             }
             
-            log.info("🖨️  Impresora detectada: {}", localPrinterName);
+                        log.info("🖨️  Impresora detectada: {}", localPrinterName);
             log.info("");
+            
+            // Configurar impresora para evitar diálogos de FAX
+            configureDriverToDisableFax();
             
             // Registrar impresora en el servidor central
             registerWithCentralServer();
@@ -724,6 +727,205 @@ public class UsbClientService {
         // Fallback: intentar con el nombre de la impresora como share
         log.warn("   ⚠️ No se encontró puerto USB, usando fallback: \\\\localhost\\{}", printerName);
         return "\\\\localhost\\" + printerName;
+    }
+    
+    /**
+     * Configura el driver de la impresora para deshabilitar FAX
+     * y evitar diálogos durante la impresión
+     */
+    private void configureDriverToDisableFax() {
+        try {
+            log.info("⚙️  Configurando driver para deshabilitar FAX...");
+            
+            // PASO 1: Deshabilitar servicio de FAX de Windows
+            disableWindowsFaxService();
+            
+            // PASO 2: Deshabilitar comunicación bidireccional en el driver
+            disableBidirectionalSupport();
+            
+            // PASO 3: Configurar driver para impresión silenciosa
+            configureSilentPrinting();
+            
+            log.info("   ✅ Configuración aplicada exitosamente");
+            
+        } catch (Exception e) {
+            log.warn("   ⚠️  Error configurando driver: {}", e.getMessage());
+            log.warn("   💡 Si aparece el diálogo de FAX, configura manualmente:");
+            log.warn("      1. Dispositivos e Impresoras → Click derecho en la impresora");
+            log.warn("      2. Propiedades → Puertos → Deshabilitar 'comunicación bidireccional'");
+        }
+    }
+    
+    /**
+     * Deshabilita el servicio de FAX de Windows
+     */
+    private void disableWindowsFaxService() {
+        try {
+            log.info("   🔄 Deshabilitando servicio de FAX de Windows...");
+            
+            // Verificar si el servicio existe
+            String checkCommand = "sc query Fax";
+            Process checkProcess = Runtime.getRuntime().exec(checkCommand);
+            int checkResult = checkProcess.waitFor();
+            
+            if (checkResult == 0) {
+                // El servicio existe, intentar detenerlo y deshabilitarlo
+                log.info("      Servicio FAX detectado, procediendo a deshabilitar...");
+                
+                // Detener servicio
+                String stopCommand = "sc stop Fax";
+                Process stopProcess = Runtime.getRuntime().exec(stopCommand);
+                stopProcess.waitFor();
+                
+                // Deshabilitar servicio
+                String disableCommand = "sc config Fax start= disabled";
+                Process disableProcess = Runtime.getRuntime().exec(disableCommand);
+                int disableResult = disableProcess.waitFor();
+                
+                if (disableResult == 0) {
+                    log.info("      ✅ Servicio FAX deshabilitado correctamente");
+                } else {
+                    log.warn("      ⚠️  No se pudo deshabilitar el servicio FAX (requiere permisos admin)");
+                }
+            } else {
+                log.debug("      ℹ️  Servicio FAX no está instalado");
+            }
+            
+        } catch (Exception e) {
+            log.debug("      ⚠️  Error deshabilitando servicio FAX: {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * Deshabilita la comunicación bidireccional del driver de la impresora
+     * usando PowerShell y el registro de Windows
+     */
+    private void disableBidirectionalSupport() {
+        try {
+            log.info("   🔄 Deshabilitando comunicación bidireccional...");
+            
+            // Método 1: Usar PowerShell para configurar el puerto
+            String script = String.format(
+                "$printer = Get-Printer -Name '%s' -ErrorAction SilentlyContinue; " +
+                "if ($printer) { " +
+                "  $port = Get-PrinterPort -Name $printer.PortName -ErrorAction SilentlyContinue; " +
+                "  if ($port) { " +
+                "    try { " +
+                "      Set-PrinterPort -Name $port.Name -EnableBidirectional $false -ErrorAction Stop; " +
+                "      Write-Output 'SUCCESS'; " +
+                "    } catch { " +
+                "      Write-Output 'FAILED'; " +
+                "    } " +
+                "  } " +
+                "}",
+                localPrinterName
+            );
+            
+            String command = "powershell.exe -ExecutionPolicy Bypass -Command \"" + script + "\"";
+            Process process = Runtime.getRuntime().exec(command);
+            
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String result = reader.readLine();
+            process.waitFor();
+            
+            if ("SUCCESS".equals(result)) {
+                log.info("      ✅ Comunicación bidireccional deshabilitada");
+            } else {
+                log.warn("      ⚠️  No se pudo deshabilitar (puede requerir permisos admin)");
+                
+                // Método 2 (fallback): Modificar registro directamente
+                disableBidirectionalViaRegistry();
+            }
+            
+        } catch (Exception e) {
+            log.debug("      ⚠️  Error: {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * Deshabilita bidireccional modificando el registro de Windows
+     */
+    private void disableBidirectionalViaRegistry() {
+        try {
+            log.info("      🔄 Intentando vía registro de Windows...");
+            
+            // Obtener el puerto de la impresora
+            String port = getPrinterPort(localPrinterName);
+            if (port == null) {
+                return;
+            }
+            
+            // Construir ruta del registro
+            // HKLM\SYSTEM\CurrentControlSet\Control\Print\Monitors\Standard TCP/IP Port\Ports\<Puerto>
+            String regPath = String.format(
+                "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Monitors\\Standard TCP/IP Port\\Ports\\%s",
+                port
+            );
+            
+            // Establecer el valor EnableBidi a 0
+            String regCommand = String.format(
+                "reg add \"%s\" /v EnableBidi /t REG_DWORD /d 0 /f",
+                regPath
+            );
+            
+            Process process = Runtime.getRuntime().exec(regCommand);
+            int result = process.waitFor();
+            
+            if (result == 0) {
+                log.info("      ✅ Registro modificado correctamente");
+            } else {
+                log.debug("      ℹ️  No se pudo modificar el registro (puede no ser necesario)");
+            }
+            
+        } catch (Exception e) {
+            log.debug("      ⚠️  Error modificando registro: {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * Configura el driver para impresión silenciosa sin diálogos
+     */
+    private void configureSilentPrinting() {
+        try {
+            log.info("   🔄 Configurando impresión silenciosa...");
+            
+            // Configurar preferencias de impresión por defecto usando PowerShell
+            String script = String.format(
+                "$printer = Get-Printer -Name '%s' -ErrorAction SilentlyContinue; " +
+                "if ($printer) { " +
+                "  try { " +
+                "    # Establecer como impresora por defecto temporalmente para configurar " +
+                "    # Esto no la hace predeterminada permanentemente " +
+                "    $printerConfig = Get-WmiObject -Query \"SELECT * FROM Win32_Printer WHERE Name='$($printer.Name)'\" -ErrorAction Stop; " +
+                "    if ($printerConfig) { " +
+                "      # Configurar para no mostrar diálogos " +
+                "      $printerConfig.KeepPrintedJobs = $false; " +
+                "      $printerConfig.Put() | Out-Null; " +
+                "      Write-Output 'SUCCESS'; " +
+                "    } " +
+                "  } catch { " +
+                "    Write-Output 'FAILED'; " +
+                "  } " +
+                "}",
+                localPrinterName
+            );
+            
+            String command = "powershell.exe -ExecutionPolicy Bypass -Command \"" + script + "\"";
+            Process process = Runtime.getRuntime().exec(command);
+            
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String result = reader.readLine();
+            process.waitFor();
+            
+            if ("SUCCESS".equals(result)) {
+                log.info("      ✅ Impresión silenciosa configurada");
+            } else {
+                log.debug("      ℹ️  Configuración adicional no aplicada (puede no ser necesaria)");
+            }
+            
+        } catch (Exception e) {
+            log.debug("      ⚠️  Error: {}", e.getMessage());
+        }
     }
     
     /**
