@@ -69,8 +69,23 @@ public class UsbClientService {
                 return;
             }
             
-                        log.info("🖨️  Impresora detectada: {}", localPrinterName);
+                                    log.info("🖨️  Impresora detectada: {}", localPrinterName);
             log.info("");
+            
+            // Verificar permisos de administrador
+            if (!isRunningAsAdmin()) {
+                log.warn("⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️");
+                log.warn("🚫 EL CLIENTE USB NO TIENE PERMISOS DE ADMINISTRADOR");
+                log.warn("⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️");
+                log.warn("");
+                log.warn("🚨 PROBLEMA: El diálogo de FAX puede aparecer");
+                log.warn("");
+                log.warn("🔧 SOLUCIÓN: Cierra este programa y ejecútalo como administrador:");
+                log.warn("   1. Click derecho en el archivo .bat o .jar");
+                log.warn("   2. Selecciona 'Ejecutar como administrador'");
+                log.warn("");
+                log.warn("⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️");
+            }
             
             // Configurar impresora para evitar diálogos de FAX
             configureDriverToDisableFax();
@@ -1029,6 +1044,29 @@ public class UsbClientService {
         }
         
         // Prioridad 500: IP pública (fallback)
-        return 500;
+                return 500;
+    }
+    
+    /**
+     * Verifica si el proceso se está ejecutando con permisos de administrador
+     */
+    private boolean isRunningAsAdmin() {
+        try {
+            // Intentar escribir en el registro de sistema (solo admin puede)
+            String testCommand = "reg query \"HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\" /v ProductName";
+            Process process = Runtime.getRuntime().exec(testCommand);
+            int exitCode = process.waitFor();
+            
+            if (exitCode == 0) {
+                log.debug("✅ Ejecutando con permisos de administrador");
+                return true;
+            } else {
+                log.debug("❌ NO ejecutando con permisos de administrador");
+                return false;
+            }
+        } catch (Exception e) {
+            log.debug("❌ Error verificando permisos de admin: {}", e.getMessage());
+            return false;
+        }
     }
 }

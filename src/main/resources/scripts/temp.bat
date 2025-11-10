@@ -334,23 +334,10 @@ set "VIEW_LOGS=%CONFIG_DIR%\ver-logs.bat"
 
 echo Creando scripts del cliente USB.
 
-REM Script para iniciar con ventana (modo manual/debug)
+REM Script para iniciar con ventana (modo manual/debug) - CON PERMISOS DE ADMINREM Script para iniciar con ventana (modo manual/debug)
 (
     echo @echo off
     echo title Cliente USB - !SELECTED_PRINTER!
-    echo.
-    echo REM ====================================================================
-    echo REM AUTO-ELEVACION A ADMINISTRADOR
-    echo REM ====================================================================
-    echo net session ^^>nul 2^^>^^&1
-    echo if %%errorLevel%% neq 0 (
-    echo     echo.
-    echo     echo Solicitando permisos de administrador...
-    echo     echo El cliente USB requiere permisos de admin para deshabilitar el dialogo de FAX
-    echo     echo.
-    echo     powershell -Command "Start-Process -FilePath '%%~f0' -Verb RunAs"
-    echo     exit /b
-    echo ^^)
     echo.
     echo REM Verificar Java
     echo java -version ^>nul 2^>^&1
@@ -367,15 +354,12 @@ REM Script para iniciar con ventana (modo manual/debug)
     echo echo   CLIENTE USB - COMPARTIR IMPRESORA
     echo echo ====================================================================
     echo echo.
-    echo echo [OK] Ejecutando como ADMINISTRADOR
-    echo echo.
     echo echo Impresora: !SELECTED_PRINTER!
     echo echo Servidor: %SERVER_IP%:%SERVER_PORT%
     echo echo Puerto: 631
     echo echo.
     echo echo Escuchando trabajos de impresion.
     echo echo [INFO] NO cierres esta ventana - minimizala
-    echo echo [INFO] El cliente deshabilitara automaticamente el dialogo de FAX
     echo echo.
     echo.
     echo java -jar usb-client.jar --spring.profiles.active=usb-client --app.server.ip=%SERVER_IP% --app.server.port=%SERVER_PORT% --app.mode=usb-client --server.port=631
@@ -385,28 +369,10 @@ REM Script para iniciar con ventana (modo manual/debug)
     echo pause
 ) > "%START_SCRIPT%"
 
-REM Script VBS para iniciar sin ventana (segundo plano) - CON PERMISOS DE ADMIN
+REM Script VBS para iniciar sin ventana (segundo plano)
 (
-    echo Set objShell = CreateObject^("Shell.Application"^)
     echo Set WshShell = CreateObject^("WScript.Shell"^)
-    echo.
-    echo ' Construir comando con argumentos
-    echo strAppData = WshShell.ExpandEnvironmentStrings^("%%APPDATA%%"^)
-    echo strJarPath = strAppData ^^& "\PrinterShare\usb-client.jar"
-    echo strArgs = "--spring.profiles.active=usb-client --app.server.ip=%SERVER_IP% --app.server.port=%SERVER_PORT% --app.mode=usb-client --server.port=631"
-    echo.
-    echo ' Verificar si ya esta ejecutandose
-    echo Set objWMIService = GetObject^("winmgmts:\\\.root\cimv2"^)
-    echo Set colProcesses = objWMIService.ExecQuery^("SELECT * FROM Win32_Process WHERE Name = 'javaw.exe' AND CommandLine LIKE '%%usb-client.jar%%'"^)
-    echo.
-    echo If colProcesses.Count ^^> 0 Then
-    echo     WScript.Quit
-    echo End If
-    echo.
-    echo ' Ejecutar javaw.exe como administrador con el JAR y argumentos
-    echo objShell.ShellExecute "javaw.exe", "-jar """ ^^& strJarPath ^^& """ " ^^& strArgs, "", "runas", 0
-    echo.
-    echo Set objShell = Nothing
+    echo WshShell.Run "javaw.exe -jar ""%%APPDATA%%\PrinterShare\usb-client.jar"" --spring.profiles.active=usb-client --app.server.ip=%SERVER_IP% --app.server.port=%SERVER_PORT% --app.mode=usb-client --server.port=631", 0, False
     echo Set WshShell = Nothing
 ) > "%START_HIDDEN%"
 
@@ -639,6 +605,4 @@ echo.
 echo Presiona cualquier tecla para cerrar esta ventana...
 pause >nul
 exit /b 0
-
-
 
