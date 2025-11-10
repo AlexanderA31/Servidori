@@ -147,13 +147,19 @@
 }
 
 .unassigned-card {
-    background: #fef3c7;
-    border-left-color: #f59e0b;
+     background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-left: 4px solid #0B283F;
 }
 
 .assigned-card {
-    background: #dbeafe;
-    border-left-color: #3b82f6;
+     background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-left: 4px solid #0B283F;
 }
 
 .computers-grid {
