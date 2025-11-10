@@ -396,7 +396,7 @@ REM Script VBS para iniciar sin ventana (segundo plano) - CON PERMISOS DE ADMIN
     echo strArgs = "--spring.profiles.active=usb-client --app.server.ip=%SERVER_IP% --app.server.port=%SERVER_PORT% --app.mode=usb-client --server.port=631"
     echo.
     echo ' Verificar si ya esta ejecutandose
-    echo Set objWMIService = GetObject^("winmgmts:\\\.root\cimv2"^)
+    echo Set objWMIService = GetObject^("winmgmts:\\\\.\root\cimv2"^)
     echo Set colProcesses = objWMIService.ExecQuery^("SELECT * FROM Win32_Process WHERE Name = 'javaw.exe' AND CommandLine LIKE '%%usb-client.jar%%'"^)
     echo.
     echo If colProcesses.Count ^> 0 Then
