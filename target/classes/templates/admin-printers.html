@@ -7,7 +7,7 @@
     <link rel="stylesheet" th:href="@{/css/admin-sidebar.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-modern.css}"/>
     <link rel="stylesheet" th:href="@{/css/admin-departments.css}"/>
-    <link rel="stylesheet" th:href="@{/css/admin-printers.css}"/>
+        <link rel="stylesheet" th:href="@{/css/admin-printers.css}"/>
         <style>
         .port-badge.port-usb {
             color: black;
@@ -42,6 +42,21 @@
             background: #e5e7eb;
             color: #9ca3af;
             font-size: 14px;
+        }
+        
+        /* Ajustar anchos de columnas para evitar que se corten los botones */
+        .data-table thead th:nth-child(8) {
+            width: 140px;
+            min-width: 140px;
+        }
+        
+        /* Asegurar que los botones de acción no se envuelvan */
+        .action-buttons {
+            display: flex;
+            gap: 0.25rem;
+            justify-content: flex-start;
+            flex-wrap: nowrap;
+            white-space: nowrap;
         }
     </style>
         <link rel="stylesheet" th:href="@{/css/admin-sidebar-override.css}"/>
