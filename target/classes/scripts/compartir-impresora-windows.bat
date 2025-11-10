@@ -385,25 +385,18 @@ REM Script para iniciar con ventana (modo manual/debug)
     echo pause
 ) > "%START_SCRIPT%"
 
-REM Script VBS para iniciar sin ventana (segundo plano) - CON PERMISOS DE ADMIN
+REM Script VBS para iniciar sin ventana (segundo plano) - VERSION SIMPLIFICADA SIN WMI
 (
     echo Set objShell = CreateObject^("Shell.Application"^)
     echo Set WshShell = CreateObject^("WScript.Shell"^)
     echo.
-        echo ' Construir comando con argumentos
+    echo ' Construir comando con argumentos
     echo strAppData = WshShell.ExpandEnvironmentStrings^("%%APPDATA%%"^)
     echo strJarPath = strAppData ^& "\PrinterShare\usb-client.jar"
     echo strArgs = "--spring.profiles.active=usb-client --app.server.ip=%SERVER_IP% --app.server.port=%SERVER_PORT% --app.mode=usb-client --server.port=631"
     echo.
-    echo ' Verificar si ya esta ejecutandose
-    echo Set objWMIService = GetObject^("winmgmts:\\\\.\root\cimv2"^)
-    echo Set colProcesses = objWMIService.ExecQuery^("SELECT * FROM Win32_Process WHERE Name = 'javaw.exe' AND CommandLine LIKE '%%usb-client.jar%%'"^)
-    echo.
-    echo If colProcesses.Count ^> 0 Then
-    echo     WScript.Quit
-    echo End If
-    echo.
     echo ' Ejecutar javaw.exe como administrador con el JAR y argumentos
+    echo ' Nota: Si el cliente ya esta ejecutandose, Spring Boot detectara que el puerto 631 esta en uso y no iniciara otra instancia
     echo objShell.ShellExecute "javaw.exe", "-jar """ ^& strJarPath ^& """ " ^& strArgs, "", "runas", 0
     echo.
     echo Set objShell = Nothing
