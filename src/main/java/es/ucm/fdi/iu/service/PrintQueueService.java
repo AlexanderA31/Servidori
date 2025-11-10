@@ -274,9 +274,11 @@ public class PrintQueueService {
                 log.error("════════════════════════════════");
                 log.error("   Impresora: {}", job.getPrinter().getAlias());
                 log.error("   Archivo: {}", job.getFileName());
-                log.error("   El trabajo permanece en la cola para revisión manual");
+                log.error("   ELIMINANDO TRABAJO FALLIDO PARA EVITAR BUCLE INFINITO");
                 log.error("════════════════════════════════");
-                // Mantener en cola o mover a cola de errores
+                
+                // CRÍTICO: Eliminar trabajo fallido para evitar bucle infinito
+                removeJob(job);
             }
             
         } catch (Exception e) {
