@@ -213,6 +213,21 @@
     line-height: 1.5;
 }
 
+/* Botones más pequeños en la fila de contador */
+.dept-count-row .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    min-width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dept-count-row .btn-sm i {
+    font-size: 0.75rem;
+}
+
 /* Fila expandida debajo del departamento */
 .dept-expanded-row {
     background: #f8fafc;
