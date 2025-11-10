@@ -390,21 +390,21 @@ REM Script VBS para iniciar sin ventana (segundo plano) - CON PERMISOS DE ADMIN
     echo Set objShell = CreateObject^("Shell.Application"^)
     echo Set WshShell = CreateObject^("WScript.Shell"^)
     echo.
-    echo ' Construir comando con argumentos
+        echo ' Construir comando con argumentos
     echo strAppData = WshShell.ExpandEnvironmentStrings^("%%APPDATA%%"^)
-    echo strJarPath = strAppData ^^& "\PrinterShare\usb-client.jar"
+    echo strJarPath = strAppData ^& "\PrinterShare\usb-client.jar"
     echo strArgs = "--spring.profiles.active=usb-client --app.server.ip=%SERVER_IP% --app.server.port=%SERVER_PORT% --app.mode=usb-client --server.port=631"
     echo.
     echo ' Verificar si ya esta ejecutandose
     echo Set objWMIService = GetObject^("winmgmts:\\\.root\cimv2"^)
     echo Set colProcesses = objWMIService.ExecQuery^("SELECT * FROM Win32_Process WHERE Name = 'javaw.exe' AND CommandLine LIKE '%%usb-client.jar%%'"^)
     echo.
-    echo If colProcesses.Count ^^> 0 Then
+    echo If colProcesses.Count ^> 0 Then
     echo     WScript.Quit
     echo End If
     echo.
     echo ' Ejecutar javaw.exe como administrador con el JAR y argumentos
-    echo objShell.ShellExecute "javaw.exe", "-jar """ ^^& strJarPath ^^& """ " ^^& strArgs, "", "runas", 0
+    echo objShell.ShellExecute "javaw.exe", "-jar """ ^& strJarPath ^& """ " ^& strArgs, "", "runas", 0
     echo.
     echo Set objShell = Nothing
     echo Set WshShell = Nothing
