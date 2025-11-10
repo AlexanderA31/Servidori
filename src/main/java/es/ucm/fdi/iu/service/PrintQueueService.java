@@ -490,7 +490,7 @@ public class PrintQueueService {
                     if (jobCount > 0) {
                         // Log solo cuando cambia el estado
                         if (lastJobCount <= 0) {
-                            log.debug("📋 Detectados {} trabajos en cola, iniciando procesamiento", jobCount);
+                            log.info("📋 Detectados {} trabajos en cola, iniciando procesamiento", jobCount);
                         }
                         lastJobCount = jobCount;
                         
@@ -513,13 +513,15 @@ public class PrintQueueService {
                     } else {
                         // Log solo cuando cambia el estado a vacío
                         if (lastJobCount > 0) {
-                            log.debug("✅ Cola vacía, esperando nuevos trabajos...");
+                            log.info("✅ Cola vacía, esperando nuevos trabajos...");
                         }
                         lastJobCount = 0;
                     }
                     
                     // Esperar antes del siguiente ciclo
-                    Thread.sleep(2000);
+                    // Si hay trabajos, revisar cada 2 segundos
+                    // Si NO hay trabajos, revisar cada 5 segundos para reducir carga
+                    Thread.sleep(jobCount > 0 ? 2000 : 5000);
                     
                 } catch (InterruptedException e) {
                     log.debug("Procesador de colas interrumpido");

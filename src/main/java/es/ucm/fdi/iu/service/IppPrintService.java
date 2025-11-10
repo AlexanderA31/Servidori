@@ -563,7 +563,7 @@ public class IppPrintService {
     public boolean sendToRawPort(String ip, Path file, int port) {
         log.info("📡 Iniciando envío a {}:{}", ip, port);
         
-        // Paso 1: Diagnóstico previo de conectividad
+        // Paso 1: Diagnóstico previo de conectividad (solo si está habilitado)
         NetworkDiagnostics diagnostics = performNetworkDiagnostics(ip, port);
         
         if (!diagnostics.isReachable) {
@@ -721,14 +721,14 @@ public class IppPrintService {
             // Diagnosticar tipo específico de error
             if (e instanceof ConnectException) {
                 if (e.getMessage().contains("Connection refused")) {
-                    log.warn("   ⚠️ Conexión rechazada - Puerto {} cerrado o servicio no escuchando", port);
+                    log.warn("   ⚠️ Conexión rechazada - Puerto cerrado o servicio no escuchando");
                 } else if (e.getMessage().contains("Connection timed out")) {
-                    log.warn("   ⚠️ Timeout de conexión - Puerto {} filtrado o host lento", port);
+                    log.warn("   ⚠️ Timeout de conexión - Puerto filtrado o host lento");
                 } else {
                     log.warn("   ⚠️ Error de conexión: {}", e.getMessage());
                 }
             } else if (e instanceof SocketTimeoutException) {
-                log.warn("   ⚠️ Timeout - Puerto {} no responde en {} ms", port, connectionTimeout);
+                log.warn("   ⚠️ Timeout - Puerto no responde en {} ms", connectionTimeout);
             } else {
                 log.warn("   ⚠️ Error verificando puerto: {}", e.getMessage());
             }
