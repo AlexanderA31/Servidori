@@ -353,12 +353,15 @@ public class UsbClientService {
         log.info("════════════════════════════════════════════════════════════");
     }
 
-    /**
+        /**
      * Envía un archivo a la impresora local usando comandos nativos de Windows
      */
     private boolean printToLocalPrinter(Path file) {
         try {
             log.info("   🖨️ Enviando a impresora: {}", localPrinterName);
+            
+            // IMPORTANTE: Deshabilitar diálogo de FAX ANTES de imprimir
+            suppressFaxDialogForCurrentJob();
             
             // Detectar tipo de archivo
             byte[] header = Files.readAllBytes(file);
@@ -389,6 +392,51 @@ public class UsbClientService {
         } catch (Exception e) {
             log.error("   ❌ Excepción al enviar a impresora local", e);
             return false;
+        }
+    }
+    
+    /**
+     * Suprime el diálogo de FAX para el trabajo actual
+     * Crea un proceso en segundo plano que busca y cierra automáticamente
+     * cualquier ventana de diálogo de FAX que aparezca
+     */
+    private void suppressFaxDialogForCurrentJob() {
+        try {
+            // Script de PowerShell que busca y cierra ventanas de FAX automáticamente
+            String script = 
+                "$ErrorActionPreference = 'SilentlyContinue'; " +
+                "$timeout = 30; " +  // Monitorear por 30 segundos
+                "$elapsed = 0; " +
+                "while ($elapsed -lt $timeout) { " +
+                "  $faxWindows = @(); " +
+                // Buscar ventanas de FAX por título (español e inglés)
+                "  $faxWindows += Get-Process | Where-Object {$_.MainWindowTitle -like '*Fax*' -or $_.MainWindowTitle -like '*Enviar fax*' -or $_.MainWindowTitle -like '*Send Fax*'}; " +
+                // Cerrar cada ventana encontrada
+                "  foreach ($window in $faxWindows) { " +
+                "    if ($window.MainWindowHandle -ne 0) { " +
+                "      Add-Type -AssemblyName 'System.Windows.Forms'; " +
+                "      $hwnd = $window.MainWindowHandle; " +
+                "      [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); " +  // Presionar ESC
+                "      Start-Sleep -Milliseconds 200; " +
+                "      $window.CloseMainWindow() | Out-Null; " +  // Intentar cerrar
+                "      Start-Sleep -Milliseconds 200; " +
+                "      if (!$window.HasExited) { $window.Kill(); } " +  // Forzar si es necesario
+                "    } " +
+                "  } " +
+                "  Start-Sleep -Milliseconds 500; " +
+                "  $elapsed++; " +
+                "}";
+            
+            // Ejecutar el script en segundo plano (sin bloquear)
+            String command = "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -Command \"" + script + "\"";
+            
+            Process suppressProcess = Runtime.getRuntime().exec(command);
+            
+            // NO esperar a que termine - dejar que corra en segundo plano
+            log.debug("   🛡️ Monitor anti-FAX activado (30s)");
+            
+        } catch (Exception e) {
+            log.debug("   ⚠️ No se pudo activar supresor de FAX: {}", e.getMessage());
         }
     }
     
@@ -771,43 +819,88 @@ public class UsbClientService {
         }
     }
     
-    /**
+        /**
      * Deshabilita el servicio de FAX de Windows
      */
     private void disableWindowsFaxService() {
         try {
             log.info("   🔄 Deshabilitando servicio de FAX de Windows...");
             
-            // Verificar si el servicio existe
-            String checkCommand = "sc query Fax";
-            Process checkProcess = Runtime.getRuntime().exec(checkCommand);
-            int checkResult = checkProcess.waitFor();
+            // Lista de servicios de FAX a deshabilitar
+            String[] faxServices = {"Fax", "FaxSvc"};
             
-            if (checkResult == 0) {
-                // El servicio existe, intentar detenerlo y deshabilitarlo
-                log.info("      Servicio FAX detectado, procediendo a deshabilitar...");
+            boolean anyServiceFound = false;
+            
+            for (String serviceName : faxServices) {
+                // Verificar si el servicio existe
+                String checkCommand = "sc query " + serviceName;
+                Process checkProcess = Runtime.getRuntime().exec(checkCommand);
                 
-                // Detener servicio
-                String stopCommand = "sc stop Fax";
-                Process stopProcess = Runtime.getRuntime().exec(stopCommand);
-                stopProcess.waitFor();
+                BufferedReader checkReader = new BufferedReader(new InputStreamReader(checkProcess.getInputStream()));
+                String checkOutput = checkReader.lines().reduce("", String::concat);
+                int checkResult = checkProcess.waitFor();
                 
-                // Deshabilitar servicio
-                String disableCommand = "sc config Fax start= disabled";
-                Process disableProcess = Runtime.getRuntime().exec(disableCommand);
-                int disableResult = disableProcess.waitFor();
-                
-                if (disableResult == 0) {
-                    log.info("      ✅ Servicio FAX deshabilitado correctamente");
-                } else {
-                    log.warn("      ⚠️  No se pudo deshabilitar el servicio FAX (requiere permisos admin)");
+                if (checkResult == 0 && checkOutput.contains("STATE")) {
+                    anyServiceFound = true;
+                    log.info("      Servicio {} detectado, procediendo a deshabilitar...", serviceName);
+                    
+                    // Detener servicio (ignorar errores si ya está detenido)
+                    String stopCommand = "sc stop " + serviceName;
+                    Process stopProcess = Runtime.getRuntime().exec(stopCommand);
+                    stopProcess.waitFor();
+                    Thread.sleep(500);
+                    
+                    // Deshabilitar servicio
+                    String disableCommand = "sc config " + serviceName + " start= disabled";
+                    Process disableProcess = Runtime.getRuntime().exec(disableCommand);
+                    int disableResult = disableProcess.waitFor();
+                    
+                    if (disableResult == 0) {
+                        log.info("      ✅ Servicio {} deshabilitado correctamente", serviceName);
+                    } else {
+                        log.warn("      ⚠️  No se pudo deshabilitar el servicio {} (código: {})", serviceName, disableResult);
+                    }
                 }
-            } else {
-                log.debug("      ℹ️  Servicio FAX no está instalado");
             }
+            
+            if (!anyServiceFound) {
+                log.debug("      ℹ️  Servicios FAX no están instalados");
+            }
+            
+            // ADICIONAL: Deshabilitar características de FAX en el registro
+            disableFaxInRegistry();
             
         } catch (Exception e) {
             log.debug("      ⚠️  Error deshabilitando servicio FAX: {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * Deshabilita características de FAX en el registro de Windows
+     */
+    private void disableFaxInRegistry() {
+        try {
+            // Deshabilitar el asistente de envío de fax
+            String[] regCommands = {
+                "reg add \"HKCU\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Windows\" /v DisableFaxDialog /t REG_DWORD /d 1 /f",
+                "reg add \"HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\" /v DisableFaxDialog /t REG_DWORD /d 1 /f",
+                "reg add \"HKCU\\Software\\Microsoft\\Fax\" /v ShowFaxDialog /t REG_DWORD /d 0 /f",
+                "reg add \"HKLM\\SOFTWARE\\Microsoft\\Fax\" /v ShowFaxDialog /t REG_DWORD /d 0 /f"
+            };
+            
+            for (String cmd : regCommands) {
+                try {
+                    Process process = Runtime.getRuntime().exec(cmd);
+                    process.waitFor(5, TimeUnit.SECONDS);
+                } catch (Exception e) {
+                    // Ignorar errores individuales
+                }
+            }
+            
+            log.debug("      ℹ️  Claves de registro FAX configuradas");
+            
+        } catch (Exception e) {
+            log.debug("      ⚠️  Error configurando registro FAX: {}", e.getMessage());
         }
     }
     
