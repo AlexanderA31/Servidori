@@ -1142,7 +1142,7 @@ public class AdminController {
         return printerDiscoveryService.getScanStatus();
     }
     
-    /**
+        /**
      * API para buscar impresoras por nombre (diagnóstico)
      */
     @GetMapping("/search-printer")
@@ -1175,6 +1175,114 @@ public class AdminController {
             log.info("🔍 Búsqueda de impresoras con '{}': {} resultados", query, printers.size());
         } catch (Exception e) {
             log.error("❌ Error buscando impresoras", e);
+            response.put("success", false);
+            response.put("error", e.getMessage());
+        }
+        return response;
+    }
+    
+    /**
+     * API para escanear una IP específica y ver si es impresora
+     */
+    @GetMapping("/scan-ip")
+    @ResponseBody
+    public Map<String, Object> scanSpecificIP(@RequestParam String ip) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            log.info("🔍 Escaneando IP específica: {}", ip);
+            
+            Map<String, Object> portStatus = new HashMap<>();
+            
+            // Verificar puerto 9100 (RAW)
+            portStatus.put("9100", isPortOpenDiagnostic(ip, 9100, 2000));
+            
+            // Verificar puerto 631 (IPP)
+            portStatus.put("631", isPortOpenDiagnostic(ip, 631, 2000));
+            
+            // Verificar puerto 515 (LPD)
+            portStatus.put("515", isPortOpenDiagnostic(ip, 515, 2000));
+            
+            // Verificar puerto 445 (SMB)
+            portStatus.put("445", isPortOpenDiagnostic(ip, 445, 2000));
+            
+            // Intentar DNS reverso
+            String hostname = "Desconocido";
+            try {
+                InetAddress addr = InetAddress.getByName(ip);
+                hostname = addr.getCanonicalHostName();
+            } catch (Exception e) {
+                log.debug("No se pudo resolver DNS reverso para {}", ip);
+            }
+            
+            response.put("success", true);
+            response.put("ip", ip);
+            response.put("hostname", hostname);
+            response.put("ports", portStatus);
+            
+            // Determinar si parece una impresora
+            boolean looksLikePrinter = (boolean)portStatus.get("9100") || 
+                                      (boolean)portStatus.get("631") || 
+                                      (boolean)portStatus.get("515");
+            response.put("looksLikePrinter", looksLikePrinter);
+            
+            log.info("✅ Escaneo completado para {}: {}", ip, 
+                looksLikePrinter ? "PARECE IMPRESORA" : "No parece impresora");
+            
+        } catch (Exception e) {
+            log.error("❌ Error escaneando IP {}", ip, e);
+            response.put("success", false);
+            response.put("error", e.getMessage());
+        }
+        return response;
+    }
+    
+    /**
+     * Método auxiliar para verificar puerto con timeout
+     */
+    private boolean isPortOpenDiagnostic(String ip, int port, int timeout) {
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(ip, port), timeout);
+            log.info("  ✅ Puerto {} abierto en {}", port, ip);
+            return true;
+        } catch (Exception e) {
+            log.debug("  ❌ Puerto {} cerrado en {}: {}", port, ip, e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * API para listar todas las impresoras en una red específica
+     */
+    @GetMapping("/printers-in-network")
+    @ResponseBody
+    @Transactional
+    public Map<String, Object> getPrintersInNetwork(@RequestParam String network) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            // Buscar impresoras cuya IP comience con el prefijo de red
+            // Ej: network="10.1.1" buscará 10.1.1.x
+            List<Printer> printers = entityManager.createQuery(
+                "SELECT p FROM Printer p WHERE p.ip LIKE :network ORDER BY p.ip", Printer.class)
+                .setParameter("network", network + "%")
+                .getResultList();
+            
+            response.put("success", true);
+            response.put("network", network);
+            response.put("found", printers.size());
+            response.put("printers", printers.stream().map(p -> {
+                Map<String, Object> info = new HashMap<>();
+                info.put("id", p.getId());
+                info.put("alias", p.getAlias());
+                info.put("model", p.getModel());
+                info.put("ip", p.getIp());
+                info.put("location", p.getLocation());
+                info.put("ippPort", p.getIppPort());
+                return info;
+            }).collect(java.util.stream.Collectors.toList()));
+            
+            log.info("🔍 Impresoras en red {}.x: {} encontradas", network, printers.size());
+        } catch (Exception e) {
+            log.error("❌ Error buscando impresoras en red", e);
             response.put("success", false);
             response.put("error", e.getMessage());
         }
