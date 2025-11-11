@@ -432,16 +432,22 @@ public class PrinterDiscoveryService {
                     }
                 }
                 
-                // Si no se pudo obtener info, crear impresora genérica
+                                // Si no se pudo obtener info detallada, crear impresora con datos básicos
+                // IMPORTANTE: Usar DNS reverso para obtener el nombre real si existe
                 DiscoveredPrinter printer = new DiscoveredPrinter();
                 printer.setIp(ip);
-                printer.setName(resolveDNSName(ip));
+                
+                // Intentar obtener nombre real vía DNS reverso (ej: "epsonsecreptor")
+                String printerName = resolveDNSName(ip);
+                printer.setName(printerName);
+                
                 printer.setType("Red - " + getPortProtocol(port));
                 printer.setModel("Impresora de Red");
                 printer.setStatus("En línea");
                 printer.setConnectionType("RED");
                 printer.setPort(port);
-                log.info("✅ Impresora detectada vía puerto {} en {}", port, ip);
+                
+                log.info("✅ Impresora detectada vía puerto {} en {} - Nombre: {}", port, ip, printerName);
                 return printer;
             }
         }
@@ -456,15 +462,16 @@ public class PrinterDiscoveryService {
         return null;
     }
     
-        /**
+            /**
      * Descubre impresoras usando protocolo IPP (Java puro, sin CUPS)
+     * MEJORADO: Intenta múltiples endpoints y obtiene nombre DNS si IPP falla
      */
     private DiscoveredPrinter scanViaIPP(String ip) {
         try {
             log.debug("🔍 Intentando IPP en {}", ip);
             
             // Intentar varios endpoints IPP comunes
-            String[] endpoints = {"/ipp/print", "/ipp", "/"};
+            String[] endpoints = {"/ipp/print", "/ipp", "/", "/ipp/printer"};
             
             for (String endpoint : endpoints) {
                 String ippUri = ippService.buildIppUri(ip, 631, endpoint);
@@ -495,7 +502,18 @@ public class PrinterDiscoveryService {
                 }
             }
             
-            log.debug("❌ Ningún endpoint IPP funcionó en {}", ip);
+            // Si IPP no funcionó, pero el puerto 631 está abierto, crear impresora con DNS reverso
+            log.debug("⚠️ Ningún endpoint IPP funcionó, pero puerto 631 está abierto en {}", ip);
+            DiscoveredPrinter printer = new DiscoveredPrinter();
+            printer.setIp(ip);
+            printer.setName(resolveDNSName(ip));  // Intentar obtener nombre vía DNS
+            printer.setModel("Impresora IPP");
+            printer.setType("Red - IPP");
+            printer.setStatus("En línea");
+            printer.setConnectionType("IPP");
+            printer.setPort(631);
+            return printer;
+            
         } catch (Exception e) {
             log.debug("❌ Error IPP en {}: {}", ip, e.getMessage());
         }
@@ -573,17 +591,33 @@ public class PrinterDiscoveryService {
                 String sysDescr = responsePDU.get(0).getVariable().toString().toLowerCase();
                 log.debug("Descripción SNMP: {}", sysDescr);
                 
-                // Buscar palabras clave de impresoras
+                                // Buscar palabras clave de impresoras
                 if (containsPrinterKeywords(sysDescr)) {
                     log.info("✅ Impresora detectada vía SNMP en {}: {}", ip, sysDescr);
                     DiscoveredPrinter printer = new DiscoveredPrinter();
                     printer.setIp(ip);
                     
-                    // Obtener nombre del sistema
-                    String sysName = responsePDU.size() > 1 ? 
-                        responsePDU.get(1).getVariable().toString() : 
-                        resolveDNSName(ip);
-                    printer.setName(sysName);
+                    // PRIORIDAD para obtener el nombre:
+                    // 1. sysName de SNMP (nombre del sistema configurado)
+                    // 2. DNS reverso (hostname de red)
+                    // 3. Nombre genérico basado en IP
+                    String sysName = null;
+                    if (responsePDU.size() > 1) {
+                        sysName = responsePDU.get(1).getVariable().toString();
+                        // Verificar que no sea vacío o "noSuchObject"
+                        if (sysName != null && !sysName.isEmpty() && 
+                            !sysName.toLowerCase().contains("nosuchobject") &&
+                            !sysName.toLowerCase().contains("nosuchinstance")) {
+                            log.info("✅ Nombre SNMP obtenido: {}", sysName);
+                            printer.setName(sysName);
+                        } else {
+                            // Fallback a DNS reverso
+                            printer.setName(resolveDNSName(ip));
+                        }
+                    } else {
+                        // Fallback a DNS reverso
+                        printer.setName(resolveDNSName(ip));
+                    }
                     
                     // Extraer modelo de la descripción
                     printer.setModel(extractModelFromDescription(sysDescr));
@@ -714,15 +748,29 @@ public class PrinterDiscoveryService {
         return ips;
     }
 
-    /**
-     * Intenta resolver el nombre DNS de una IP
+        /**
+     * Intenta resolver el nombre DNS de una IP mediante DNS reverso
+     * Si encuentra un hostname real (como "epsonsecreptor"), lo usa
+     * Si no, genera un nombre basado en la IP
      */
     private String resolveDNSName(String ip) {
         try {
+            log.debug("🔍 Intentando resolver DNS reverso para {}", ip);
             InetAddress addr = InetAddress.getByName(ip);
-            String hostname = addr.getHostName();
-            return hostname.equals(ip) ? "Impresora-" + ip.replace(".", "-") : hostname;
+            String hostname = addr.getCanonicalHostName();
+            
+            // Si el hostname es diferente de la IP, significa que se resolvió correctamente
+            if (!hostname.equals(ip)) {
+                // Limpiar el hostname (quitar dominio si existe)
+                String cleanHostname = hostname.split("\\.")[0];
+                log.info("✅ DNS reverso exitoso: {} -> {}", ip, cleanHostname);
+                return cleanHostname;
+            } else {
+                log.debug("⚠️ DNS reverso no disponible para {}, usando nombre genérico", ip);
+                return "Impresora-" + ip.replace(".", "-");
+            }
         } catch (Exception e) {
+            log.debug("❌ Error en DNS reverso para {}: {}", ip, e.getMessage());
             return "Impresora-" + ip.replace(".", "-");
         }
     }
