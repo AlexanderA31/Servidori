@@ -1136,10 +1136,49 @@ public class AdminController {
         return "redirect:/admin/printers?scanning=true";
     }
     
-                        @GetMapping("/scan-status")
+                            @GetMapping("/scan-status")
     @ResponseBody
     public PrinterDiscoveryService.ScanStatus getScanStatus() {
         return printerDiscoveryService.getScanStatus();
+    }
+    
+    /**
+     * API para buscar impresoras por nombre (diagnóstico)
+     */
+    @GetMapping("/search-printer")
+    @ResponseBody
+    @Transactional
+    public Map<String, Object> searchPrinter(@RequestParam String query) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            // Buscar impresoras que coincidan con el nombre (case-insensitive)
+            List<Printer> printers = entityManager.createQuery(
+                "SELECT p FROM Printer p WHERE LOWER(p.alias) LIKE LOWER(:query) " +
+                "OR LOWER(p.model) LIKE LOWER(:query) " +
+                "OR LOWER(p.ip) LIKE LOWER(:query)", Printer.class)
+                .setParameter("query", "%" + query + "%")
+                .getResultList();
+            
+            response.put("success", true);
+            response.put("found", printers.size());
+            response.put("printers", printers.stream().map(p -> {
+                Map<String, Object> info = new HashMap<>();
+                info.put("id", p.getId());
+                info.put("alias", p.getAlias());
+                info.put("model", p.getModel());
+                info.put("ip", p.getIp());
+                info.put("location", p.getLocation());
+                info.put("ippPort", p.getIppPort());
+                return info;
+            }).collect(java.util.stream.Collectors.toList()));
+            
+            log.info("🔍 Búsqueda de impresoras con '{}': {} resultados", query, printers.size());
+        } catch (Exception e) {
+            log.error("❌ Error buscando impresoras", e);
+            response.put("success", false);
+            response.put("error", e.getMessage());
+        }
+        return response;
     }
     
         @PostMapping("/cancel-scan")
