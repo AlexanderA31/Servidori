@@ -432,23 +432,31 @@ public class PrinterDiscoveryService {
                     }
                 }
                 
-                                // Si no se pudo obtener info detallada, crear impresora con datos básicos
-                // IMPORTANTE: Usar DNS reverso para obtener el nombre real si existe
-                DiscoveredPrinter printer = new DiscoveredPrinter();
-                printer.setIp(ip);
-                
-                // Intentar obtener nombre real vía DNS reverso (ej: "epsonsecreptor")
-                String printerName = resolveDNSName(ip);
-                printer.setName(printerName);
-                
-                printer.setType("Red - " + getPortProtocol(port));
-                printer.setModel("Impresora de Red");
-                printer.setStatus("En línea");
-                printer.setConnectionType("RED");
-                printer.setPort(port);
-                
-                log.info("✅ Impresora detectada vía puerto {} en {} - Nombre: {}", port, ip, printerName);
-                return printer;
+                                                // Si no se pudo obtener info detallada por IPP/SMB,
+                // SOLO crear impresora si el puerto es 9100 (RAW - casi siempre es impresora)
+                // Puerto 631 sin IPP válido = probablemente es una PC con CUPS
+                if (port == 9100) {
+                    log.info("✅ Puerto RAW (9100) detectado en {} - Creando impresora", ip);
+                    
+                    DiscoveredPrinter printer = new DiscoveredPrinter();
+                    printer.setIp(ip);
+                    
+                    // Intentar obtener nombre real vía DNS reverso (ej: "epsonsecreptor")
+                    String printerName = resolveDNSName(ip);
+                    printer.setName(printerName);
+                    
+                    printer.setType("Red - RAW");
+                    printer.setModel("Impresora de Red");
+                    printer.setStatus("En línea");
+                    printer.setConnectionType("RED");
+                    printer.setPort(port);
+                    
+                    log.info("✅ Impresora detectada vía puerto {} en {} - Nombre: {}", port, ip, printerName);
+                    return printer;
+                } else {
+                    log.debug("⚠️ Puerto {} abierto en {} pero no se pudo confirmar que es impresora - IGNORANDO", port, ip);
+                    // NO crear impresora genérica para puerto 631/515 sin confirmación
+                }
             }
         }
         
@@ -462,9 +470,9 @@ public class PrinterDiscoveryService {
         return null;
     }
     
-            /**
+                /**
      * Descubre impresoras usando protocolo IPP (Java puro, sin CUPS)
-     * MEJORADO: Intenta múltiples endpoints y obtiene nombre DNS si IPP falla
+     * MEJORADO: Intenta múltiples endpoints y usa nombre personalizado si está disponible
      */
     private DiscoveredPrinter scanViaIPP(String ip) {
         try {
@@ -487,7 +495,21 @@ public class PrinterDiscoveryService {
                         
                         DiscoveredPrinter printer = new DiscoveredPrinter();
                         printer.setIp(ip);
-                        printer.setName(info.getName());
+                        
+                        // PRIORIDAD para el nombre:
+                        // 1. Nombre personalizado de DNS reverso (ej: "EPSONSECRETOR")
+                        // 2. printer-info de IPP (ej: "EPSON WF-6590 Series")
+                        String dnsName = resolveDNSName(ip);
+                        if (!dnsName.startsWith("Impresora-")) {
+                            // Si DNS reverso encontró un nombre real (no genérico), usarlo
+                            printer.setName(dnsName);
+                            log.info("📌 Usando nombre DNS/estático: {}", dnsName);
+                        } else {
+                            // Si no hay DNS, usar el nombre de IPP
+                            printer.setName(info.getName());
+                            log.info("🏷️ Usando nombre IPP: {}", info.getName());
+                        }
+                        
                         printer.setModel(info.getMakeModel() != null ? info.getMakeModel() : "IPP Printer");
                         printer.setType("Red - IPP");
                         printer.setStatus(info.isAccepting() ? "En línea" : "No acepta trabajos");
@@ -502,17 +524,9 @@ public class PrinterDiscoveryService {
                 }
             }
             
-            // Si IPP no funcionó, pero el puerto 631 está abierto, crear impresora con DNS reverso
-            log.debug("⚠️ Ningún endpoint IPP funcionó, pero puerto 631 está abierto en {}", ip);
-            DiscoveredPrinter printer = new DiscoveredPrinter();
-            printer.setIp(ip);
-            printer.setName(resolveDNSName(ip));  // Intentar obtener nombre vía DNS
-            printer.setModel("Impresora IPP");
-            printer.setType("Red - IPP");
-            printer.setStatus("En línea");
-            printer.setConnectionType("IPP");
-            printer.setPort(631);
-            return printer;
+            // Si IPP no funcionó, puede ser una computadora con CUPS, no una impresora
+            log.debug("⚠️ Ningún endpoint IPP funcionó en {} (probablemente no es una impresora)", ip);
+            return null;  // NO crear impresora genérica si IPP falla
             
         } catch (Exception e) {
             log.debug("❌ Error IPP en {}: {}", ip, e.getMessage());
@@ -647,21 +661,44 @@ public class PrinterDiscoveryService {
         return null;
     }
     
-    /**
+        /**
      * Verifica si la descripción contiene palabras clave de impresoras
+     * MEJORADO: Excluye computadoras con CUPS
      */
     private boolean containsPrinterKeywords(String description) {
-        String[] keywords = {
-            "printer", "impresora", "hp", "canon", "epson", "brother", 
-            "xerox", "ricoh", "samsung", "kyocera", "lexmark", "dell",
-            "print server", "jetdirect", "laserjet", "deskjet", "officejet"
+        String descLower = description.toLowerCase();
+        
+        // Palabras clave que indican que NO es una impresora (es una PC)
+        String[] computerKeywords = {
+            "ubuntu", "debian", "linux", "windows", "macos", "darwin",
+            "pc", "workstation", "laptop", "desktop", "computer",
+            "server", "cups/", "operating system"
         };
         
-        for (String keyword : keywords) {
-            if (description.contains(keyword)) {
+        // Si contiene palabras de computadora, NO es una impresora
+        for (String keyword : computerKeywords) {
+            if (descLower.contains(keyword)) {
+                log.debug("❌ {} NO es impresora (contiene '{}')", description, keyword);
+                return false;
+            }
+        }
+        
+        // Palabras clave que indican que SÍ es una impresora
+        String[] printerKeywords = {
+            "printer", "impresora", "hp", "canon", "epson", "brother", 
+            "xerox", "ricoh", "samsung", "kyocera", "lexmark", "dell",
+            "print server", "jetdirect", "laserjet", "deskjet", "officejet",
+            "colorqube", "phaser", "workforce", "laserwriter"
+        };
+        
+        for (String keyword : printerKeywords) {
+            if (descLower.contains(keyword)) {
+                log.debug("✅ {} ES impresora (contiene '{}')", description, keyword);
                 return true;
             }
         }
+        
+        log.debug("⚠️ {} no coincide con ningún criterio", description);
         return false;
     }
     
@@ -748,12 +785,27 @@ public class PrinterDiscoveryService {
         return ips;
     }
 
-        /**
+            /**
      * Intenta resolver el nombre DNS de una IP mediante DNS reverso
      * Si encuentra un hostname real (como "epsonsecreptor"), lo usa
-     * Si no, genera un nombre basado en la IP
+     * Si no, busca en mapeo estático, si no genera nombre basado en la IP
      */
     private String resolveDNSName(String ip) {
+        // PASO 1: Mapeo estático para impresoras conocidas sin DNS reverso
+        // TODO: Mover esto a base de datos o archivo de configuración
+        Map<String, String> knownPrinters = new HashMap<>();
+        knownPrinters.put("10.1.1.45", "EPSONSECRETOR");
+        // Agregar más impresoras si es necesario:
+        // knownPrinters.put("10.1.1.50", "HP_OFICINA_2");
+        // knownPrinters.put("10.1.1.60", "CANON_CONTABILIDAD");
+        
+        if (knownPrinters.containsKey(ip)) {
+            String knownName = knownPrinters.get(ip);
+            log.info("📌 Nombre estático configurado para {}: {}", ip, knownName);
+            return knownName;
+        }
+        
+        // PASO 2: Intentar DNS reverso
         try {
             log.debug("🔍 Intentando resolver DNS reverso para {}", ip);
             InetAddress addr = InetAddress.getByName(ip);
@@ -1024,3 +1076,4 @@ public class PrinterDiscoveryService {
         public void setEstimatedRemaining(long estimatedRemaining) { this.estimatedRemaining = estimatedRemaining; }
     }
 }
+
