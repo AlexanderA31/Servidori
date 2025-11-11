@@ -238,6 +238,7 @@ public class IppPrintService {
     
     /**
      * Parsea la salida de ipptool para extraer información de la impresora
+     * PRIORIDAD: printer-info (nombre personalizado) > printer-name (nombre técnico)
      */
     private IppPrinterInfo parseIpptoolOutput(String output, String printerUri) {
         try {
@@ -246,29 +247,33 @@ public class IppPrintService {
             
             log.debug("Parseando salida ipptool ({} caracteres)", output.length());
             
-            // Buscar printer-info (formato: printer-info (textWithoutLanguage) = HP OfficeJet...)
+            // 1. PRIORIDAD ALTA: Buscar printer-info (NOMBRE PERSONALIZADO de la impresora)
+            // Este es el campo que contiene el nombre que el usuario le puso a la impresora
+            // Ejemplo: "HP OfficeJet Oficina 2" en lugar de "HP_OfficeJet_Pro_8720"
             String printerInfo = extractValue(output, "printer-info\\s*\\([^)]+\\)\\s*=\\s*(.+)");
             if (printerInfo != null && !printerInfo.isEmpty()) {
                 // Limpiar escapes de ipptool (\[ -> [)
                 printerInfo = printerInfo.replaceAll("\\\\\\[", "[").replaceAll("\\\\\\]", "]").trim();
                 info.setName(printerInfo);
-                log.debug("  Nombre encontrado: {}", info.getName());
+                log.info("  ✅ NOMBRE PERSONALIZADO detectado (printer-info): '{}'", info.getName());
             }
             
-            // Si no hay printer-info, buscar printer-name
-            if (info.getName() == null) {
+            // 2. FALLBACK: Si no hay printer-info, usar printer-name (nombre técnico del sistema)
+            // NOTA: Este es el nombre técnico/interno, NO el nombre personalizado
+            if (info.getName() == null || info.getName().isEmpty()) {
                 String printerName = extractValue(output, "printer-name\\s*\\([^)]+\\)\\s*=\\s*(.+)");
                 if (printerName != null && !printerName.isEmpty()) {
                     info.setName(printerName.trim());
-                    log.debug("  Nombre (fallback) encontrado: {}", info.getName());
+                    log.warn("  ⚠️ Usando nombre técnico (printer-name): '{}' - No se encontró nombre personalizado", info.getName());
                 }
             }
             
-            // Buscar printer-make-and-model
+            // 3. Buscar printer-make-and-model (marca y modelo del fabricante)
+            // Este campo contiene información del fabricante, ej: "HP OfficeJet Pro 8720 series"
             String makeModel = extractValue(output, "printer-make-and-model\\s*\\([^)]+\\)\\s*=\\s*(.+)");
             if (makeModel != null && !makeModel.isEmpty()) {
                 info.setMakeModel(makeModel.trim());
-                log.debug("  Modelo encontrado: {}", info.getMakeModel());
+                log.debug("  📋 Marca/Modelo: '{}'", info.getMakeModel());
             }
             
             // Buscar printer-state
@@ -300,7 +305,7 @@ public class IppPrintService {
                 info.setState("idle");
             }
             
-            log.debug("  Parseado exitoso: {} - {}", info.getName(), info.getMakeModel());
+            log.info("  ✅ Parseado exitoso - Nombre: '{}' | Modelo: '{}'", info.getName(), info.getMakeModel());
             return info;
             
         } catch (Exception e) {
