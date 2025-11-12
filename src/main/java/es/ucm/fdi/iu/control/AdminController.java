@@ -2704,6 +2704,78 @@ public class AdminController {
             
         } catch (Exception e) {
             log.error("❌ Error en captura masiva", e);
+                        response.put("success", false);
+            response.put("error", e.getMessage());
+        }
+        
+        return response;
+    }
+    
+    /**
+     * Endpoint para capturar MAC Address de UNA impresora específica
+     * Útil para impresoras individuales que no tienen MAC
+     */
+    @GetMapping("/capture-printer-mac")
+    @ResponseBody
+    @Transactional
+    public Map<String, Object> capturePrinterMac(@RequestParam Long id) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            Printer printer = entityManager.find(Printer.class, id);
+            
+            if (printer == null) {
+                response.put("success", false);
+                response.put("error", "Impresora no encontrada");
+                return response;
+            }
+            
+            log.info("🔑 Intentando capturar MAC Address para: {} ({})", printer.getAlias(), printer.getIp());
+            
+            // Verificar si ya tiene MAC
+            if (printer.getMacAddress() != null && !printer.getMacAddress().isEmpty()) {
+                log.info("✅ Ya tiene MAC: {}", printer.getMacAddress());
+                response.put("success", true);
+                response.put("message", "Impresora ya tiene MAC Address registrada");
+                response.put("macAddress", printer.getMacAddress());
+                return response;
+            }
+            
+            // Intentar obtener MAC con múltiples métodos (ARP + SNMP)
+            String mac = networkIdService.getMacAddressMultiMethod(printer.getIp());
+            
+            if (mac != null && !mac.isEmpty()) {
+                log.info("✅ MAC capturada: {}", mac);
+                
+                // Guardar en base de datos
+                printer.setMacAddress(mac);
+                entityManager.merge(printer);
+                entityManager.flush();
+                
+                response.put("success", true);
+                response.put("message", "MAC Address capturada exitosamente");
+                response.put("macAddress", mac);
+                
+                log.info("💾 MAC guardada en BD para {}: {}", printer.getAlias(), mac);
+            } else {
+                log.warn("⚠️ No se pudo obtener MAC para {} ({})", printer.getAlias(), printer.getIp());
+                log.warn("   Posibles causas:");
+                log.warn("   1. Impresora apagada o no responde");
+                log.warn("   2. SNMP no habilitado o bloqueado por firewall");
+                log.warn("   3. Community SNMP no es 'public' ni 'private'");
+                
+                response.put("success", false);
+                response.put("error", "No se pudo obtener MAC Address");
+                response.put("suggestions", new String[]{
+                    "Verifica que la impresora esté encendida",
+                    "Verifica que SNMP esté habilitado en la impresora",
+                    "Verifica que el firewall permita puerto 161 (SNMP)",
+                    "Haz ping a la impresora: ping " + printer.getIp()
+                });
+            }
+            
+        } catch (Exception e) {
+            log.error("❌ Error capturando MAC Address", e);
             response.put("success", false);
             response.put("error", e.getMessage());
         }
