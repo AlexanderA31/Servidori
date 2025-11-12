@@ -156,12 +156,13 @@
                         
                         <div th:unless="${allPrinters == null || (allPrinters.content != null && #lists.isEmpty(allPrinters.content)) || (allPrinters.content == null && #lists.isEmpty(allPrinters))}">
                             <table class="data-table">
-                                                                <thead>
+                                                                                                <thead>
                                     <tr>
                                         <th>Impresora</th>
                                         <th>Modelo</th>
                                         <th>Ubicación</th>
                                         <th>Dirección IP</th>
+                                        <th>MAC Address</th>
                                         <th>Puerto IPP</th>
                                         <th>Asignada</th>
                                         <th>Creada por</th>
@@ -180,8 +181,20 @@
                                         </td>
                                         <td th:text="${printer.model}">Modelo</td>
                                         <td th:text="${printer.location}">Ubicación</td>
-                                        <td>
+                                                                                <td>
                                             <span class="ip-badge" th:text="${printer.ip}">IP</span>
+                                        </td>
+                                        <td>
+                                            <span th:if="${printer.macAddress != null and printer.macAddress != ''}" 
+                                                  class="mac-badge"
+                                                  th:text="${printer.macAddress}"
+                                                  style="background: #d4edda; color: #155724; padding: 0.25rem 0.5rem; border-radius: 4px; font-family: monospace; font-size: 0.85rem;">
+                                                00:00:00:00:00:00
+                                            </span>
+                                            <span th:unless="${printer.macAddress != null and printer.macAddress != ''}" 
+                                                  style="color: #999; font-style: italic;">
+                                                Sin capturar
+                                            </span>
                                         </td>
                                         <td>
                                             <!-- Para impresoras USB compartidas, mostrar puerto 631 del cliente -->
@@ -233,6 +246,24 @@
                                                         onclick="testNetworkPrinter(this.dataset)"
                                                         title="Test de Conexión (Red)">
                                                     <i class="fas fa-vial"></i>
+                                                </button>
+                                                
+                                                                                                <!-- Botón Capturar MAC (solo si no tiene MAC) -->
+                                                <button th:if="${printer.macAddress == null or printer.macAddress == ''}"
+                                                        class="btn btn-sm btn-info" 
+                                                        th:attr="data-id=${printer.id}, data-alias=${printer.alias}, data-ip=${printer.ip}"
+                                                        onclick="captureSingleMac(this.dataset)"
+                                                        title="Capturar MAC Address">
+                                                    <i class="fas fa-fingerprint"></i>
+                                                </button>
+                                                
+                                                <!-- Botón Ver MAC (si ya tiene MAC) -->
+                                                <button th:unless="${printer.macAddress == null or printer.macAddress == ''}"
+                                                        class="btn btn-sm btn-success" 
+                                                        th:attr="data-mac=${printer.macAddress}, data-alias=${printer.alias}"
+                                                        onclick="showMacInfo(this.dataset)"
+                                                        title="Ver MAC Address">
+                                                    <i class="fas fa-fingerprint"></i>
                                                 </button>
                                                 
                                                 <button class="btn btn-sm btn-primary" 

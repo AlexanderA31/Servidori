@@ -147,6 +147,387 @@
             }
         }
         
+        // Función para buscar impresora perdida
+        async function findLostPrinter() {
+            const printerName = prompt(
+                '🔍 Buscar Impresora Perdida\n\n' +
+                'Ingresa el nombre de la impresora que deseas buscar:\n' +
+                '(Ejemplo: EPSONSECRETOR)'
+            );
+            
+            if (!printerName || printerName.trim() === '') {
+                return;
+            }
+            
+            // Crear modal de progreso
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.id = 'findPrinterModal';
+            modal.style.display = 'block';
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 700px;">
+                    <div class="modal-header">
+                        <h2><i class="fas fa-search-location"></i> Buscando: ${printerName}</h2>
+                    </div>
+                    <div class="modal-body" style="padding: 2rem;">
+                        <div style="text-align: center; margin-bottom: 1rem;">
+                            <i class="fas fa-spinner fa-spin" style="font-size: 3rem; color: #667eea;"></i>
+                        </div>
+                        <p id="findMessage" style="text-align: center; font-size: 1.1rem; margin-bottom: 1rem;">
+                            🔍 Buscando impresora en base de datos...
+                        </p>
+                        <div id="findProgress" style="background: #f5f5f5; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                            <div id="findSteps"></div>
+                        </div>
+                        <div id="findResults" style="margin-top: 1rem; display: none;"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeFindModal(); location.reload();" id="closeFindBtn" disabled>
+                            Cerrar y Recargar
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            const stepsDiv = document.getElementById('findSteps');
+            
+            function addStep(message, icon, color) {
+                const step = document.createElement('div');
+                step.style.padding = '0.5rem 0';
+                step.style.color = color || '#333';
+                step.innerHTML = `<i class="${icon}" style="margin-right: 0.5rem;"></i> ${message}`;
+                stepsDiv.appendChild(step);
+            }
+            
+            try {
+                const response = await fetch(`/admin/find-printer-by-name?name=${encodeURIComponent(printerName)}`);
+                const data = await response.json();
+                
+                const messageEl = document.getElementById('findMessage');
+                const resultsEl = document.getElementById('findResults');
+                const closeBtn = document.getElementById('closeFindBtn');
+                
+                closeBtn.disabled = false;
+                resultsEl.style.display = 'block';
+                
+                if (data.success) {
+                    if (data.newIp) {
+                        // Impresora encontrada en nueva IP
+                        messageEl.innerHTML = `
+                            <i class="fas fa-check-circle" style="color: #28a745; font-size: 3rem;"></i><br>
+                            <strong style="color: #28a745;">✅ Impresora Encontrada!</strong>
+                        `;
+                        
+                        addStep(`Impresora encontrada en BD: ${data.printer.alias}`, 'fas fa-database', '#28a745');
+                        addStep(`IP antigua: ${data.oldIp}`, 'fas fa-network-wired', '#666');
+                        addStep(`Método de búsqueda: ${data.printer.foundBy}`, 'fas fa-search', '#0ea5e9');
+                        addStep(`Nueva IP: ${data.newIp}`, 'fas fa-check-circle', '#28a745');
+                        addStep('IP actualizada automáticamente en la base de datos', 'fas fa-sync', '#28a745');
+                        
+                        resultsEl.innerHTML = `
+                            <div style="padding: 1.5rem; background: #d4edda; border: 2px solid #c3e6cb; border-radius: 8px; text-align: center;">
+                                <h3 style="color: #155724; margin-bottom: 1rem;">✅ Solución Aplicada</h3>
+                                <p style="margin: 0; font-size: 1.1rem;">
+                                    La impresora <strong>${data.printer.alias}</strong> se encontró en<br>
+                                    <strong style="font-size: 1.3rem; color: #28a745;">${data.newIp}</strong>
+                                </p>
+                                <p style="margin-top: 1rem; color: #666;">
+                                    La IP ha sido actualizada automáticamente.<br>
+                                    <small>IP anterior: ${data.oldIp}</small>
+                                </p>
+                            </div>
+                        `;
+                    } else {
+                        // Impresora funciona con IP actual
+                        messageEl.innerHTML = `
+                            <i class="fas fa-check-circle" style="color: #28a745; font-size: 3rem;"></i><br>
+                            <strong style="color: #28a745;">✅ Impresora Funcionando</strong>
+                        `;
+                        
+                        addStep(`Impresora encontrada: ${data.printer.alias}`, 'fas fa-database', '#28a745');
+                        addStep(`IP actual: ${data.printer.registeredIp}`, 'fas fa-network-wired', '#28a745');
+                        addStep('La impresora responde correctamente', 'fas fa-check', '#28a745');
+                        
+                        resultsEl.innerHTML = `
+                            <div style="padding: 1.5rem; background: #d4edda; border: 2px solid #c3e6cb; border-radius: 8px; text-align: center;">
+                                <h3 style="color: #155724;">✅ No Hay Problemas</h3>
+                                <p style="margin: 0.5rem 0;">La impresora está funcionando correctamente en:</p>
+                                <p style="font-size: 1.3rem; color: #28a745; margin: 0;">
+                                    <strong>${data.printer.registeredIp}</strong>
+                                </p>
+                            </div>
+                        `;
+                    }
+                } else {
+                    messageEl.innerHTML = `
+                        <i class="fas fa-times-circle" style="color: #dc3545; font-size: 3rem;"></i><br>
+                        <strong style="color: #dc3545;">❌ No Encontrada</strong>
+                    `;
+                    
+                    addStep(data.message || data.error || 'No se pudo encontrar la impresora', 'fas fa-exclamation-triangle', '#dc3545');
+                    
+                    resultsEl.innerHTML = `
+                        <div style="padding: 1.5rem; background: #f8d7da; border: 2px solid #f5c6cb; border-radius: 8px;">
+                            <h3 style="color: #721c24; margin-bottom: 1rem;">❌ Impresora No Encontrada</h3>
+                            <p style="margin-bottom: 1rem;">${data.message || data.error}</p>
+                            <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">🔧 Sugerencias:</h4>
+                            <ul style="margin-left: 1.5rem; text-align: left;">
+                                <li>Verifica que el nombre sea correcto</li>
+                                <li>Verifica que la impresora esté encendida</li>
+                                <li>Verifica la conexión de red</li>
+                                <li>Prueba con un escaneo completo de red</li>
+                            </ul>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                const messageEl = document.getElementById('findMessage');
+                const resultsEl = document.getElementById('findResults');
+                const closeBtn = document.getElementById('closeFindBtn');
+                
+                closeBtn.disabled = false;
+                resultsEl.style.display = 'block';
+                
+                messageEl.innerHTML = `
+                    <i class="fas fa-exclamation-triangle" style="color: #ffc107; font-size: 3rem;"></i><br>
+                    <strong style="color: #ffc107;">⚠️ Error de Red</strong>
+                `;
+                
+                resultsEl.innerHTML = `
+                    <div style="padding: 1rem; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
+                        <strong>Error:</strong> ${error.message || 'Error de conexión'}
+                    </div>
+                `;
+            }
+        }
+        
+        function closeFindModal() {
+            const modal = document.getElementById('findPrinterModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+        
+        // Función para capturar MAC de una impresora específica
+        async function captureSingleMac(data) {
+            const printerId = data.id;
+            const printerName = data.alias;
+            const printerIp = data.ip;
+            
+            const confirmed = await showConfirm({
+                title: '🔑 Capturar MAC Address',
+                message: `Impresora: ${printerName}\nIP: ${printerIp}\n\nEsto intentará obtener la MAC Address usando:\n1. ARP (si está en la misma red)\n2. SNMP (si está habilitado)\n\n¿Continuar?`,
+                confirmText: 'Sí, Capturar',
+                cancelText: 'Cancelar',
+                type: 'info'
+            });
+            
+            if (!confirmed) {
+                return;
+            }
+            
+            // Crear modal de progreso
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.id = 'captureSingleMacModal';
+            modal.style.display = 'block';
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 600px;">
+                    <div class="modal-header">
+                        <h2><i class="fas fa-fingerprint"></i> Capturando MAC: ${printerName}</h2>
+                    </div>
+                    <div class="modal-body" style="padding: 2rem;">
+                        <div style="text-align: center; margin-bottom: 1rem;">
+                            <i class="fas fa-spinner fa-spin" style="font-size: 3rem; color: #667eea;"></i>
+                        </div>
+                        <p id="captureSingleMessage" style="text-align: center; font-size: 1.1rem; margin-bottom: 1rem;">
+                            🔍 Intentando capturar MAC Address...<br>
+                            <small style="color: #666;">IP: ${printerIp}</small>
+                        </p>
+                        <div id="captureSingleProgress" style="background: #f5f5f5; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                            <div id="captureSingleSteps"></div>
+                        </div>
+                        <div id="captureSingleResults" style="margin-top: 1rem; display: none;"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeCaptureSingleModal(); location.reload();" id="closeCaptureSingleBtn" disabled>
+                            Cerrar y Recargar
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            const stepsDiv = document.getElementById('captureSingleSteps');
+            
+            function addStep(message, icon, color) {
+                const step = document.createElement('div');
+                step.style.padding = '0.5rem 0';
+                step.style.color = color || '#333';
+                step.innerHTML = `<i class="${icon}" style="margin-right: 0.5rem;"></i> ${message}`;
+                stepsDiv.appendChild(step);
+            }
+            
+            try {
+                addStep('Iniciando captura de MAC Address...', 'fas fa-play-circle', '#0ea5e9');
+                addStep(`IP de destino: ${printerIp}`, 'fas fa-network-wired', '#666');
+                
+                const response = await fetch(`/admin/capture-printer-mac?id=${printerId}`);
+                const data = await response.json();
+                
+                const messageEl = document.getElementById('captureSingleMessage');
+                const resultsEl = document.getElementById('captureSingleResults');
+                const closeBtn = document.getElementById('closeCaptureSingleBtn');
+                
+                closeBtn.disabled = false;
+                resultsEl.style.display = 'block';
+                
+                if (data.success) {
+                    messageEl.innerHTML = `
+                        <i class="fas fa-check-circle" style="color: #28a745; font-size: 3rem;"></i><br>
+                        <strong style="color: #28a745;">✅ MAC Capturada!</strong>
+                    `;
+                    
+                    addStep('Intentando ARP...', 'fas fa-search', '#0ea5e9');
+                    addStep('Intentando SNMP...', 'fas fa-search', '#0ea5e9');
+                    addStep(`MAC capturada exitosamente: ${data.macAddress}`, 'fas fa-check-circle', '#28a745');
+                    addStep('MAC guardada en base de datos', 'fas fa-database', '#28a745');
+                    
+                    resultsEl.innerHTML = `
+                        <div style="padding: 1.5rem; background: #d4edda; border: 2px solid #c3e6cb; border-radius: 8px; text-align: center;">
+                            <h3 style="color: #155724; margin-bottom: 1rem;">✅ MAC Address Obtenida</h3>
+                            <div style="background: white; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+                                <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">MAC Address:</div>
+                                <div style="font-size: 1.5rem; font-weight: bold; color: #28a745; font-family: monospace;">
+                                    ${data.macAddress}
+                                </div>
+                            </div>
+                            <p style="margin: 0; color: #155724;">
+                                <i class="fas fa-info-circle"></i> 
+                                La impresora ahora puede ser identificada aunque cambie de IP
+                            </p>
+                        </div>
+                    `;
+                } else {
+                    messageEl.innerHTML = `
+                        <i class="fas fa-times-circle" style="color: #dc3545; font-size: 3rem;"></i><br>
+                        <strong style="color: #dc3545;">❌ No se Pudo Capturar</strong>
+                    `;
+                    
+                    addStep('Intentando ARP...', 'fas fa-times', '#dc3545');
+                    addStep('Intentando SNMP...', 'fas fa-times', '#dc3545');
+                    addStep('No se pudo obtener MAC', 'fas fa-exclamation-triangle', '#dc3545');
+                    
+                    let suggestionsHtml = '';
+                    if (data.suggestions && Array.isArray(data.suggestions)) {
+                        suggestionsHtml = `
+                            <h4 style="margin-top: 1rem; margin-bottom: 0.5rem; color: #721c24;">🔧 Sugerencias:</h4>
+                            <ul style="margin-left: 1.5rem; text-align: left; color: #721c24;">
+                                ${data.suggestions.map(s => `<li>${s}</li>`).join('')}
+                            </ul>
+                        `;
+                    }
+                    
+                    resultsEl.innerHTML = `
+                        <div style="padding: 1.5rem; background: #f8d7da; border: 2px solid #f5c6cb; border-radius: 8px;">
+                            <h3 style="color: #721c24; margin-bottom: 1rem;">❌ No se Pudo Obtener MAC</h3>
+                            <p style="margin-bottom: 1rem; color: #721c24;">${data.error || 'Error desconocido'}</p>
+                            ${suggestionsHtml}
+                            <div style="margin-top: 1.5rem; padding: 1rem; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
+                                <strong>💡 Posibles Causas:</strong>
+                                <ul style="margin: 0.5rem 0 0 1.5rem; text-align: left;">
+                                    <li>Impresora está en una VLAN diferente (enrutada)</li>
+                                    <li>SNMP no está habilitado en la impresora</li>
+                                    <li>Firewall bloqueando puerto 161 (SNMP)</li>
+                                    <li>Community SNMP diferente a 'public' o 'private'</li>
+                                    <li>Impresora apagada o desconectada</li>
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                const messageEl = document.getElementById('captureSingleMessage');
+                const resultsEl = document.getElementById('captureSingleResults');
+                const closeBtn = document.getElementById('closeCaptureSingleBtn');
+                
+                closeBtn.disabled = false;
+                resultsEl.style.display = 'block';
+                
+                messageEl.innerHTML = `
+                    <i class="fas fa-exclamation-triangle" style="color: #ffc107; font-size: 3rem;"></i><br>
+                    <strong style="color: #ffc107;">⚠️ Error de Red</strong>
+                `;
+                
+                resultsEl.innerHTML = `
+                    <div style="padding: 1rem; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
+                        <strong>Error:</strong> ${error.message || 'Error de conexión con el servidor'}
+                    </div>
+                `;
+            }
+        }
+        
+        function closeCaptureSingleModal() {
+            const modal = document.getElementById('captureSingleMacModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+        
+        // Función para mostrar información de MAC existente
+        function showMacInfo(data) {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.id = 'showMacModal';
+            modal.style.display = 'block';
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 500px;">
+                    <div class="modal-header">
+                        <h2><i class="fas fa-fingerprint"></i> MAC Address</h2>
+                        <button class="close-modal" onclick="closeShowMacModal()">×</button>
+                    </div>
+                    <div class="modal-body" style="padding: 2rem;">
+                        <div style="text-align: center;">
+                            <div style="margin-bottom: 1rem;">
+                                <i class="fas fa-fingerprint" style="font-size: 3rem; color: #28a745;"></i>
+                            </div>
+                            <h3 style="margin-bottom: 1rem; color: #333;">${data.alias}</h3>
+                            <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border: 2px solid #28a745;">
+                                <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">MAC Address:</div>
+                                <div style="font-size: 1.8rem; font-weight: bold; color: #28a745; font-family: monospace; letter-spacing: 2px;">
+                                    ${data.mac}
+                                </div>
+                            </div>
+                            <div style="margin-top: 1.5rem; padding: 1rem; background: #d4edda; border-radius: 4px; text-align: left;">
+                                <strong style="color: #155724;"><i class="fas fa-info-circle"></i> Información:</strong>
+                                <ul style="margin: 0.5rem 0 0 1.5rem; color: #155724;">
+                                    <li>Identificador único de hardware</li>
+                                    <li>Permite rastrear la impresora si cambia de IP</li>
+                                    <li>No cambia aunque se mueva de ubicación</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeShowMacModal()">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        
+        function closeShowMacModal() {
+            const modal = document.getElementById('showMacModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+        
         // Función para capturar MAC de todas las impresoras
         async function captureAllMacAddresses() {
             const confirmed = await showConfirm({
