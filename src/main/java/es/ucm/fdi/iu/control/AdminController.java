@@ -2404,39 +2404,14 @@ public class AdminController {
             
             printerInfo.put("currentIpWorks", currentIpWorks);
             
-            // ⚠️ IMPORTANTE: Solo escanear red si forceRescan=true
-            // Por defecto, solo se retorna información de BD sin escanear
-            if (forceRescan) {
-                log.info("⚠️ FORCE RESCAN activado - iniciando búsqueda en red...");
-                
-                if (currentIpWorks) {
-                    log.info("   (IP actual funciona, pero se buscará de todos modos)");
+            // LÓGICA: Siempre buscar en red si la IP no responde
+            // forceRescan permite buscar AUNQUE la IP funcione
+            if (!currentIpWorks || forceRescan) {
+                if (forceRescan && currentIpWorks) {
+                    log.info("⚠️ FORCE RESCAN activado - buscando aunque IP funcione");
+                } else {
+                    log.info("🔍 IP no responde, iniciando búsqueda automática en red...");
                 }
-            } else if (!currentIpWorks) {
-                log.warn("❌ IP no responde pero forceRescan=false");
-                log.warn("   💡 Usa forceRescan=true para buscar en la red");
-                log.warn("   💡 O actualiza la IP manualmente desde la interfaz");
-                log.info("========================================");
-                
-                response.put("success", false);
-                response.put("message", "Impresora no responde - Usa 'Buscar en Red' para localizarla");
-                response.put("printer", printerInfo);
-                response.put("suggestion", "Presiona 'Buscar en Red' para escanear la red y encontrar la impresora");
-                return response;
-            } else {
-                // IP funciona y no se pidió rescan
-                log.info("✅ IP actual funciona correctamente");
-                log.info("========================================");
-                
-                response.put("success", true);
-                response.put("message", "La impresora está funcionando correctamente");
-                response.put("printer", printerInfo);
-                return response;
-            }
-            
-            // Si llegamos aquí, forceRescan=true
-            if (forceRescan) {
-                log.info("🔍 Iniciando búsqueda en red...");
                 
                 String newIp = null;
                 
@@ -2538,6 +2513,15 @@ public class AdminController {
                     response.put("message", "Impresora no responde y no se pudo encontrar en la red");
                     response.put("suggestion", "Verifica que esté encendida y conectada, o puede haber cambiado de subred");
                 }
+            } else {
+                // IP funciona y no se pidió force rescan
+                log.info("✅ IP actual funciona correctamente");
+                log.info("========================================");
+                
+                response.put("success", true);
+                response.put("message", "La impresora está funcionando correctamente");
+                response.put("printer", printerInfo);
+                return response;
             }
             
             response.put("printer", printerInfo);
