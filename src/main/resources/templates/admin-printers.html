@@ -248,7 +248,7 @@
                                                     <i class="fas fa-vial"></i>
                                                 </button>
                                                 
-                                                                                                <!-- Botón Capturar MAC (solo si no tiene MAC) -->
+                                                                                                                                                <!-- Botón Capturar MAC (si NO tiene MAC) -->
                                                 <button th:if="${printer.macAddress == null or printer.macAddress == ''}"
                                                         class="btn btn-sm btn-info" 
                                                         th:attr="data-id=${printer.id}, data-alias=${printer.alias}, data-ip=${printer.ip}"
@@ -257,13 +257,13 @@
                                                     <i class="fas fa-fingerprint"></i>
                                                 </button>
                                                 
-                                                <!-- Botón Ver MAC (si ya tiene MAC) -->
+                                                <!-- Botón Recapturar MAC (si YA tiene MAC) - SIEMPRE escanea de nuevo -->
                                                 <button th:unless="${printer.macAddress == null or printer.macAddress == ''}"
-                                                        class="btn btn-sm btn-success" 
-                                                        th:attr="data-mac=${printer.macAddress}, data-alias=${printer.alias}"
-                                                        onclick="showMacInfo(this.dataset)"
-                                                        title="Ver MAC Address">
-                                                    <i class="fas fa-fingerprint"></i>
+                                                        class="btn btn-sm btn-warning" 
+                                                        th:attr="data-id=${printer.id}, data-alias=${printer.alias}, data-ip=${printer.ip}, data-mac=${printer.macAddress}"
+                                                        onclick="captureSingleMac(this.dataset)"
+                                                        title="Recapturar MAC Address">
+                                                    <i class="fas fa-sync"></i>
                                                 </button>
                                                 
                                                 <button class="btn btn-sm btn-primary" 
