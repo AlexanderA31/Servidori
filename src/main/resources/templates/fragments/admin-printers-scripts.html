@@ -1070,6 +1070,71 @@
             openModal('editNetworkModal');
         }
 
+        // Función para eliminar impresora via AJAX (sin refrescar)
+        async function deletePrinterAjax(data) {
+            const confirmed = await showConfirm({
+                title: '⚠️ ¿Eliminar Impresora?',
+                message: `Impresora: ${data.name}\n\nEsta acción no se puede deshacer.`,
+                confirmText: 'Sí, Eliminar',
+                cancelText: 'Cancelar',
+                type: 'danger'
+            });
+            
+            if (!confirmed) {
+                return;
+            }
+            
+            try {
+                // Preparar FormData con CSRF token
+                const formData = new FormData();
+                formData.append('id', data.id);
+                if (typeof config !== 'undefined' && config.csrf && config.csrf.name) {
+                    formData.append(config.csrf.name, config.csrf.value);
+                }
+                
+                const response = await fetch('/admin/delete-printer', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    // Encontrar la fila de la impresora y eliminarla con animación
+                    const row = document.querySelector(`button[data-id="${data.id}"]`).closest('tr');
+                    if (row) {
+                        row.style.transition = 'opacity 0.3s, transform 0.3s';
+                        row.style.opacity = '0';
+                        row.style.transform = 'translateX(-20px)';
+                        
+                        setTimeout(() => {
+                            row.remove();
+                            
+                            // Verificar si quedan filas en la tabla
+                            const tbody = document.querySelector('.data-table tbody');
+                            if (tbody && tbody.querySelectorAll('tr').length === 0) {
+                                // Si no quedan impresoras, recargar para mostrar estado vacío
+                                location.reload();
+                            } else {
+                                // Mostrar mensaje de éxito
+                                showAlert({
+                                    title: '✅ Impresora Eliminada',
+                                    message: `"${data.name}" ha sido eliminada exitosamente.`,
+                                    type: 'success'
+                                });
+                            }
+                        }, 300);
+                    }
+                } else {
+                    throw new Error('Error al eliminar impresora');
+                }
+            } catch (error) {
+                showAlert({
+                    title: '❌ Error',
+                    message: error.message || 'No se pudo eliminar la impresora',
+                    type: 'error'
+                });
+            }
+        }
+        
         // Auto-cerrar alertas
         document.addEventListener('DOMContentLoaded', function() {
             const alerts = document.querySelectorAll('.alert');
@@ -1085,7 +1150,78 @@
             if (urlParams.get('scanning') === 'true') {
                 startScanMonitoring();
             }
+            
+            // Inicializar búsqueda mejorada para paginación
+            initAdvancedSearch();
         });
+        
+        // Búsqueda mejorada que funciona con paginación
+        function initAdvancedSearch() {
+            const searchInput = document.getElementById('searchPrinters');
+            if (!searchInput) return;
+            
+            // Guardar el valor de búsqueda en sessionStorage
+            const savedSearch = sessionStorage.getItem('printersSearch');
+            if (savedSearch) {
+                searchInput.value = savedSearch;
+                performSearch(savedSearch);
+            }
+            
+            searchInput.addEventListener('input', function() {
+                const query = this.value.toLowerCase();
+                sessionStorage.setItem('printersSearch', query);
+                performSearch(query);
+            });
+        }
+        
+        function performSearch(query) {
+            const rows = document.querySelectorAll('.data-table tbody tr');
+            let visibleCount = 0;
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                if (text.includes(query)) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Ocultar paginación si hay búsqueda activa
+            const pagination = document.querySelector('.pagination-container');
+            if (pagination) {
+                if (query && query.trim() !== '') {
+                    pagination.style.display = 'none';
+                } else {
+                    pagination.style.display = '';
+                }
+            }
+            
+            // Mostrar mensaje si no hay resultados
+            const tbody = document.querySelector('.data-table tbody');
+            const noResults = document.getElementById('noSearchResults');
+            
+            if (visibleCount === 0 && query && query.trim() !== '') {
+                if (!noResults) {
+                    const tr = document.createElement('tr');
+                    tr.id = 'noSearchResults';
+                    tr.innerHTML = '<td colspan="9" style="text-align: center; padding: 2rem; color: #666;"><i class="fas fa-search" style="font-size: 2rem; margin-bottom: 1rem; display: block; opacity: 0.3;"></i>No se encontraron impresoras que coincidan con "' + query + '"</td>';
+                    tbody.appendChild(tr);
+                }
+            } else if (noResults) {
+                noResults.remove();
+            }
+        }
+        
+        function clearSearch(inputId, tableSelector) {
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.value = '';
+                sessionStorage.removeItem('printersSearch');
+                performSearch('');
+            }
+        }
         
         let scanInterval = null;
         let lastProgress = 0;

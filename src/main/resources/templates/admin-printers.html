@@ -44,10 +44,37 @@
             font-size: 14px;
         }
         
-                        /* Ajustar anchos de columnas para evitar que se corten los botones */
-        .data-table thead th:nth-child(8) {
-            width: 160px;
-            min-width: 160px;
+                                /* Hacer la tabla responsive con scroll horizontal */
+        .card-body {
+            overflow-x: auto;
+        }
+        
+        /* Ajustar anchos de columnas */
+        .data-table {
+            min-width: 100%;
+            white-space: nowrap;
+        }
+        
+        .data-table thead th:nth-child(1) { min-width: 180px; } /* Impresora */
+        .data-table thead th:nth-child(2) { min-width: 150px; } /* Modelo */
+        .data-table thead th:nth-child(3) { min-width: 150px; } /* Ubicación */
+        .data-table thead th:nth-child(4) { min-width: 120px; } /* IP */
+        .data-table thead th:nth-child(5) { min-width: 140px; } /* MAC */
+        .data-table thead th:nth-child(6) { min-width: 100px; } /* Puerto IPP */
+        .data-table thead th:nth-child(7) { min-width: 80px; }  /* Asignada */
+        .data-table thead th:nth-child(8) { min-width: 120px; } /* Creada por */
+        .data-table thead th:nth-child(9) { min-width: 240px; } /* Acciones */
+        
+        /* Hacer que las celdas de texto se ajusten */
+        .data-table td {
+            white-space: normal;
+            word-wrap: break-word;
+        }
+        
+        /* Excepto las celdas de acciones e IP */
+        .data-table td:nth-child(4),
+        .data-table td:nth-child(9) {
+            white-space: nowrap;
         }
     </style>
         <link rel="stylesheet" th:href="@{/css/admin-sidebar-override.css}"/>
@@ -272,14 +299,12 @@
                                                         title="Editar">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
-                                                <form method="post" th:action="@{/admin/delete-printer(id=${printer.id})}" 
-                                                      class="d-inline" 
-                                                      onsubmit="return confirm('⚠️ ¿Eliminar impresora: ' + this.dataset.name + '?')" 
-                                                      th:attr="data-name=${printer.alias}">
-                                                    <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </form>
+                                                                                                <button class="btn btn-sm btn-danger" 
+                                                        th:attr="data-id=${printer.id}, data-name=${printer.alias}"
+                                                        onclick="deletePrinterAjax(this.dataset)"
+                                                        title="Eliminar">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
