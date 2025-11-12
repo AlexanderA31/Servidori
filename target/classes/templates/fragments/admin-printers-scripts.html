@@ -192,11 +192,15 @@
             
             // Ejecutar captura
             try {
+                // Preparar FormData con CSRF token
+                const formData = new FormData();
+                if (typeof config !== 'undefined' && config.csrf && config.csrf.name) {
+                    formData.append(config.csrf.name, config.csrf.value);
+                }
+                
                 const response = await fetch('/admin/capture-all-printer-macs', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
+                    body: formData
                 });
                 
                 const data = await response.json();
