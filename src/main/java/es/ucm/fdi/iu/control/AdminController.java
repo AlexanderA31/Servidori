@@ -2592,20 +2592,24 @@ public class AdminController {
                             // PASO 3: Verificar si es la impresora que buscamos
                             boolean isMatch = false;
                             String matchReason = "";
+                            int confidenceLevel = 0; // 0=bajo, 1=medio, 2=alto
                             
-                            // Criterio 1: MAC Address (más confiable)
-                            if (printer.getMacAddress() != null && !printer.getMacAddress().isEmpty() && foundMac != null) {
-                                if (foundMac.equalsIgnoreCase(printer.getMacAddress())) {
+                            // Criterio 1: MAC Address (más confiable) - SOLO si la impresora YA TIENE MAC
+                            if (printer.getMacAddress() != null && !printer.getMacAddress().isEmpty()) {
+                                if (foundMac != null && foundMac.equalsIgnoreCase(printer.getMacAddress())) {
                                     isMatch = true;
                                     matchReason = "MAC coincide";
-                                } else {
+                                    confidenceLevel = 2; // Alta confianza
+                                } else if (foundMac != null) {
                                     log.debug("      ❌ MAC no coincide (buscada: {}, encontrada: {})", 
                                         printer.getMacAddress(), foundMac);
-                                    continue; // No es esta impresora
+                                    continue; // No es esta impresora (MAC diferente es definitivo)
                                 }
+                                // Si foundMac es null, seguir con otros criterios
                             }
+                            
                             // Criterio 2: Nombre/Modelo via SNMP
-                            else if (foundName != null) {
+                            if (!isMatch && foundName != null) {
                                 // Normalizar nombres para comparación (minúsculas, sin espacios extra)
                                 String normalizedFoundName = foundName.toLowerCase().replaceAll("\\s+", " ").trim();
                                 String normalizedSearchName = printer.getAlias().toLowerCase().replaceAll("\\s+", " ").trim();
@@ -2623,6 +2627,7 @@ public class AdminController {
                                     
                                     isMatch = true;
                                     matchReason = "Nombre SNMP coincide";
+                                    confidenceLevel = 2; // Alta confianza
                                     
                                     // Guardar MAC si la obtuvimos
                                     if (foundMac != null) {
@@ -2649,9 +2654,77 @@ public class AdminController {
                                     continue; // No es esta impresora
                                 }
                             }
-                            // Criterio 3: Sin MAC ni nombre - SOLO si no hay otras impresoras posibles
-                            else if (foundMac != null) {
-                                // Tenemos MAC pero no nombre - verificar que sea única
+                            // Criterio 3: Última IP conocida (confianza baja)
+                            if (!isMatch) {
+                                // Verificar si es la ÚNICA impresora sin ubicar en esta subred
+                                List<Printer> printersInSubnet = entityManager.createQuery(
+                                    "SELECT p FROM Printer p WHERE p.ip LIKE :subnet", Printer.class)
+                                    .setParameter("subnet", subnet + ".%")
+                                    .getResultList();
+                                
+                                // Contar cuántas están "perdidas" (IP no responde)
+                                long lostPrintersCount = printersInSubnet.stream()
+                                    .filter(p -> {
+                                        try {
+                                            InetAddress addr = InetAddress.getByName(p.getIp());
+                                            return !addr.isReachable(200);
+                                        } catch (Exception e) {
+                                            return true;
+                                        }
+                                    })
+                                    .count();
+                                
+                                // Si solo hay UNA impresora perdida (la que estamos buscando)
+                                // y encontramos UNA impresora sin identificar
+                                if (lostPrintersCount == 1) {
+                                    // Verificar que no tengamos información contradictoria
+                                    boolean hasContradiction = false;
+                                    
+                                    // Si tenemos nombre SNMP pero no coincide, es contradicción
+                                    if (foundName != null) {
+                                        String normalizedFoundName = foundName.toLowerCase().replaceAll("\\s+", " ").trim();
+                                        String normalizedSearchName = printer.getAlias().toLowerCase().replaceAll("\\s+", " ").trim();
+                                        String normalizedSearchModel = printer.getModel() != null ? 
+                                            printer.getModel().toLowerCase().replaceAll("\\s+", " ").trim() : "";
+                                        
+                                        if (!normalizedFoundName.contains(normalizedSearchName) && 
+                                            !normalizedSearchName.contains(normalizedFoundName) &&
+                                            (normalizedSearchModel.isEmpty() || !normalizedFoundName.contains(normalizedSearchModel))) {
+                                            hasContradiction = true;
+                                            log.debug("      ⚠️ Nombre SNMP no coincide - posible impresora diferente");
+                                        }
+                                    }
+                                    
+                                    if (!hasContradiction) {
+                                        log.info("      🤔 Es la ÚNICA impresora perdida en esta subred");
+                                        log.info("      📍 Asumiendo que es la correcta por exclusión");
+                                        isMatch = true;
+                                        matchReason = "Única impresora perdida en subred (por exclusión)";
+                                        confidenceLevel = 1; // Confianza media
+                                        
+                                        // Guardar MAC si la obtuvimos
+                                        if (foundMac != null) {
+                                            // Verificar que la MAC no esté en uso
+                                            List<Printer> printersWithSameMac = entityManager.createQuery(
+                                                "SELECT p FROM Printer p WHERE p.macAddress = :mac AND p.id != :id", Printer.class)
+                                                .setParameter("mac", foundMac)
+                                                .setParameter("id", printer.getId())
+                                                .getResultList();
+                                            
+                                            if (printersWithSameMac.isEmpty()) {
+                                                log.info("      📝 Guardando MAC {} para futuras búsquedas", foundMac);
+                                                printer.setMacAddress(foundMac);
+                                                entityManager.merge(printer);
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    log.debug("      ⚠️ Hay {} impresoras perdidas en esta subred - no se puede asumir", lostPrintersCount);
+                                }
+                            }
+                            
+                            // Criterio 4: Si tenemos MAC capturada pero no nombre, verificar que sea única
+                            if (!isMatch && foundMac != null) {
                                 List<Printer> printersWithSameMac = entityManager.createQuery(
                                     "SELECT p FROM Printer p WHERE p.macAddress = :mac AND p.id != :id", Printer.class)
                                     .setParameter("mac", foundMac)
@@ -2659,10 +2732,11 @@ public class AdminController {
                                     .getResultList();
                                 
                                 if (printersWithSameMac.isEmpty()) {
-                                    log.info("      🤔 Impresora encontrada pero sin poder verificar nombre");
-                                    log.info("      📝 MAC única - ASUMIENDO que es la correcta");
+                                    log.info("      🤔 MAC única sin nombre SNMP");
+                                    log.info("      📝 Asumiendo que es la correcta (MAC única)");
                                     isMatch = true;
-                                    matchReason = "MAC única (sin verificación de nombre)";
+                                    matchReason = "MAC única (sin verificación SNMP)";
+                                    confidenceLevel = 1; // Confianza media
                                     
                                     printer.setMacAddress(foundMac);
                                     entityManager.merge(printer);
@@ -2671,16 +2745,28 @@ public class AdminController {
                                         foundMac, printersWithSameMac.get(0).getAlias());
                                     continue;
                                 }
-                            } else {
-                                // No tenemos MAC ni nombre - MUY ARRIESGADO
-                                log.warn("      ⚠️ No se pudo obtener MAC ni nombre de {}", testIp);
-                                log.warn("      ⚠️ OMITIENDO por seguridad (no se puede verificar identidad)");
+                            }
+                            
+                            // Si no pudimos identificarla de ninguna manera
+                            if (!isMatch) {
+                                log.debug("      ⚠️ No se pudo identificar con certeza - omitiendo");
                                 continue;
                             }
                             
                             if (isMatch) {
-                                log.info("      ✅✅✅ IMPRESORA ENCONTRADA en {}", testIp);
+                                String confidenceEmoji = confidenceLevel == 2 ? "✅✅✅" : 
+                                                        confidenceLevel == 1 ? "✅✅" : "✅";
+                                String confidenceText = confidenceLevel == 2 ? "ALTA CONFIANZA" : 
+                                                       confidenceLevel == 1 ? "CONFIANZA MEDIA" : "BAJA CONFIANZA";
+                                
+                                log.info("      {} IMPRESORA ENCONTRADA en {} ({})", confidenceEmoji, testIp, confidenceText);
                                 log.info("      🎯 Razón: {}", matchReason);
+                                
+                                // Si es baja confianza, advertir al usuario
+                                if (confidenceLevel == 0) {
+                                    log.warn("      ⚠️ ADVERTENCIA: Identificación con baja confianza");
+                                    log.warn("      ⚠️ Recomendación: Verificar manualmente que sea la impresora correcta");
+                                }
                                 
                                 // Verificar NUEVAMENTE si hay conflicto antes de retornar
                                 if (!otherPrintersWithIp.isEmpty()) {
