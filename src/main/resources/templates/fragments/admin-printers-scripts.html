@@ -569,6 +569,9 @@
                         </div>
                     `;
                 } else {
+                    const macWasCleared = data.macCleared === true;
+                    const hadOldMac = data.hadExisting === true;
+                    
                     messageEl.innerHTML = `
                         <i class="fas fa-times-circle" style="color: #dc3545; font-size: 3rem;"></i><br>
                         <strong style="color: #dc3545;">❌ No se Pudo Capturar</strong>
@@ -576,7 +579,12 @@
                     
                     addStep('Intentando ARP...', 'fas fa-times', '#dc3545');
                     addStep('Intentando SNMP...', 'fas fa-times', '#dc3545');
-                    addStep('No se pudo obtener MAC', 'fas fa-exclamation-triangle', '#dc3545');
+                    addStep('No se pudo obtener MAC con ningún método', 'fas fa-exclamation-triangle', '#dc3545');
+                    
+                    if (macWasCleared && hadOldMac) {
+                        addStep(`MAC anterior (${data.oldMac}) fue BORRADA automáticamente`, 'fas fa-eraser', '#ffc107');
+                        addStep('La impresora ahora NO tiene MAC registrada', 'fas fa-info-circle', '#666');
+                    }
                     
                     let suggestionsHtml = '';
                     if (data.suggestions && Array.isArray(data.suggestions)) {
@@ -588,10 +596,23 @@
                         `;
                     }
                     
+                    let macClearedHtml = '';
+                    if (macWasCleared && hadOldMac) {
+                        macClearedHtml = `
+                            <div style="margin-top: 1rem; padding: 1rem; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px;">
+                                <strong>⚠️ MAC Anterior Borrada:</strong><br>
+                                La MAC <code style="background: #f8d7da; padding: 0.2rem 0.4rem; border-radius: 3px;">${data.oldMac}</code> 
+                                fue eliminada automáticamente porque no se pudo verificar.<br><br>
+                                <strong>💡 Razón:</strong> Evita mantener MACs incorrectas que causen conflictos al buscar impresoras.
+                            </div>
+                        `;
+                    }
+                    
                     resultsEl.innerHTML = `
                         <div style="padding: 1.5rem; background: #f8d7da; border: 2px solid #f5c6cb; border-radius: 8px;">
                             <h3 style="color: #721c24; margin-bottom: 1rem;">❌ No se Pudo Obtener MAC</h3>
                             <p style="margin-bottom: 1rem; color: #721c24;">${data.error || 'Error desconocido'}</p>
+                            ${macClearedHtml}
                             ${suggestionsHtml}
                             <div style="margin-top: 1.5rem; padding: 1rem; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
                                 <strong>💡 Posibles Causas:</strong>

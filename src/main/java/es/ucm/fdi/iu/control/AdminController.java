@@ -2827,9 +2827,19 @@ public class AdminController {
                 log.error("   3. Community SNMP no es 'public' ni 'private'");
                 log.error("   4. Impresora no está en la misma subred (cross-VLAN sin enrutamiento)");
                 
+                // Si tenía MAC anterior y no se pudo recapturar, BORRARLA
+                if (oldMac != null && !oldMac.isEmpty()) {
+                    log.warn("⚠️ Borrando MAC anterior {} porque no se pudo recapturar", oldMac);
+                    printer.setMacAddress(null);
+                    entityManager.merge(printer);
+                    entityManager.flush();
+                    log.info("✅ MAC anterior borrada - impresora sin MAC ahora");
+                }
+                
                 response.put("success", false);
                 response.put("error", "No se pudo obtener MAC Address");
                 response.put("oldMac", oldMac);
+                response.put("macCleared", oldMac != null && !oldMac.isEmpty());
                 response.put("hadExisting", oldMac != null && !oldMac.isEmpty());
                 response.put("suggestions", new String[]{
                     "Verifica que la impresora esté encendida",
