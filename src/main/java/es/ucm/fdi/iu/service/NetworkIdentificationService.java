@@ -314,4 +314,126 @@ public class NetworkIdentificationService {
         Pattern pattern = Pattern.compile("^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$");
         return pattern.matcher(mac).matches();
     }
+    
+    /**
+     * Obtiene el nombre/descripción de una impresora via SNMP
+     * OIDs estándar para impresoras:
+     * - 1.3.6.1.2.1.1.5.0 = sysName (nombre del sistema)
+     * - 1.3.6.1.2.1.1.1.0 = sysDescr (descripción del sistema)
+     * - 1.3.6.1.2.1.25.3.2.1.3.1 = hrDeviceDescr (descripción del dispositivo)
+     * 
+     * @param ip Dirección IP de la impresora
+     * @param community Community string SNMP
+     * @return Nombre de la impresora o null
+     */
+    public String getPrinterNameViaSNMP(String ip, String community) {
+        if (community == null || community.isEmpty()) {
+            community = "public";
+        }
+        
+        Snmp snmp = null;
+        try {
+            // Crear transporte UDP
+            DefaultUdpTransportMapping transport = new DefaultUdpTransportMapping();
+            transport.listen();
+            
+            // Crear objeto SNMP
+            snmp = new Snmp(transport);
+            
+            // Configurar target
+            Address targetAddress = GenericAddress.parse("udp:" + ip + "/161");
+            CommunityTarget target = new CommunityTarget();
+            target.setCommunity(new OctetString(community));
+            target.setAddress(targetAddress);
+            target.setRetries(2);
+            target.setTimeout(3000);
+            target.setVersion(SnmpConstants.version2c);
+            
+            // Intentar varios OIDs en orden de preferencia
+            String[] oids = {
+                "1.3.6.1.2.1.1.5.0",      // sysName
+                "1.3.6.1.2.1.25.3.2.1.3.1", // hrDeviceDescr
+                "1.3.6.1.2.1.1.1.0"       // sysDescr
+            };
+            
+            for (String oidStr : oids) {
+                OID oid = new OID(oidStr);
+                PDU pdu = new PDU();
+                pdu.add(new VariableBinding(oid));
+                pdu.setType(PDU.GET);
+                
+                ResponseEvent response = snmp.send(pdu, target);
+                
+                if (response != null && response.getResponse() != null) {
+                    PDU responsePDU = response.getResponse();
+                    
+                    if (responsePDU.getErrorStatus() == PDU.noError) {
+                        VariableBinding vb = responsePDU.get(0);
+                        
+                        if (vb != null && vb.getVariable() != null) {
+                            String value = vb.getVariable().toString();
+                            if (value != null && !value.isEmpty()) {
+                                log.debug("✅ Nombre SNMP obtenido de {} (OID {}): {}", ip, oidStr, value);
+                                return value;
+                            }
+                        }
+                    }
+                }
+            }
+            
+        } catch (Exception e) {
+            log.debug("Error obteniendo nombre SNMP de {}: {}", ip, e.getMessage());
+        } finally {
+            if (snmp != null) {
+                try {
+                    snmp.close();
+                } catch (Exception e) {
+                    log.debug("Error cerrando SNMP: {}", e.getMessage());
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Obtiene información completa de una impresora:
+     * - Nombre
+     * - Modelo
+     * - MAC Address
+     * 
+     * @param ip Dirección IP
+     * @return Map con la información o null si no se puede obtener
+     */
+    public java.util.Map<String, String> getPrinterInfo(String ip) {
+        java.util.Map<String, String> info = new java.util.HashMap<>();
+        
+        // Obtener MAC
+        String mac = getMacAddressMultiMethod(ip);
+        if (mac != null) {
+            info.put("mac", mac);
+        }
+        
+        // Obtener nombre via SNMP
+        String name = getPrinterNameViaSNMP(ip, "public");
+        if (name == null) {
+            name = getPrinterNameViaSNMP(ip, "private");
+        }
+        
+        if (name != null) {
+            info.put("name", name);
+            
+            // El nombre puede contener modelo también (ej: "HP LaserJet 401dn")
+            // Intentar extraer modelo si está presente
+            if (name.toLowerCase().contains("hp") || 
+                name.toLowerCase().contains("epson") || 
+                name.toLowerCase().contains("canon") ||
+                name.toLowerCase().contains("brother") ||
+                name.toLowerCase().contains("ricoh")) {
+                info.put("model", name);
+            }
+        }
+        
+        return info.isEmpty() ? null : info;
+    }
 }
