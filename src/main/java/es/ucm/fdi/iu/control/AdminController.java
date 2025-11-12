@@ -2666,8 +2666,8 @@ public class AdminController {
                                 long lostPrintersCount = printersInSubnet.stream()
                                     .filter(p -> {
                                         try {
-                                            InetAddress addr = InetAddress.getByName(p.getIp());
-                                            return !addr.isReachable(200);
+                                            InetAddress address = InetAddress.getByName(p.getIp());
+                                            return !address.isReachable(200);
                                         } catch (Exception e) {
                                             return true;
                                         }
