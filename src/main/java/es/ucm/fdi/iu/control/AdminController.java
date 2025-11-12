@@ -2346,7 +2346,6 @@ public class AdminController {
                 return null;
     }
     
-     */
     @GetMapping("/find-printer-by-name")
     @ResponseBody
     @Transactional
