@@ -2365,7 +2365,7 @@ public class AdminController {
                 return response;
             }
             
-            log.info("🔑 Intentando capturar MAC Address para: {} ({})", printer.getAlias(), printer.getIp());
+                        log.info("🔑 Intentando capturar MAC Address para: {} ({})", printer.getAlias(), printer.getIp());
             
             // Verificar si ya tiene MAC
             if (printer.getMacAddress() != null && !printer.getMacAddress().isEmpty()) {
@@ -2376,8 +2376,8 @@ public class AdminController {
                 return response;
             }
             
-            // Intentar obtener MAC
-            String mac = networkIdService.getMacAddressFromIP(printer.getIp());
+            // Intentar obtener MAC con múltiples métodos (ARP + SNMP)
+            String mac = networkIdService.getMacAddressMultiMethod(printer.getIp());
             
             if (mac != null && !mac.isEmpty()) {
                 log.info("✅ MAC capturada: {}", mac);
@@ -2396,15 +2396,16 @@ public class AdminController {
                 log.warn("⚠️ No se pudo obtener MAC para {} ({})", printer.getAlias(), printer.getIp());
                 log.warn("   Posibles causas:");
                 log.warn("   1. Impresora apagada o no responde");
-                log.warn("   2. No está en la misma red (requiere enrutamiento)");
-                log.warn("   3. No está en tabla ARP del servidor");
+                log.warn("   2. SNMP no habilitado o bloqueado por firewall");
+                log.warn("   3. Community SNMP no es 'public' ni 'private'");
                 
                 response.put("success", false);
                 response.put("error", "No se pudo obtener MAC Address");
                 response.put("suggestions", new String[]{
                     "Verifica que la impresora esté encendida",
-                    "Haz ping a la impresora primero: ping " + printer.getIp(),
-                    "Verifica que esté en la misma red"
+                    "Verifica que SNMP esté habilitado en la impresora",
+                    "Verifica que el firewall permita puerto 161 (SNMP)",
+                    "Haz ping a la impresora: ping " + printer.getIp()
                 });
             }
             
@@ -2444,28 +2445,12 @@ public class AdminController {
             int failed = 0;
             List<Map<String, String>> results = new ArrayList<>();
             
-            for (Printer printer : printersWithoutMac) {
+                        for (Printer printer : printersWithoutMac) {
                 log.info("🔍 Procesando: {} ({})", printer.getAlias(), printer.getIp());
                 
                 try {
-                    // Hacer ping primero para asegurar que esté en ARP
-                    InetAddress addr = InetAddress.getByName(printer.getIp());
-                    boolean reachable = addr.isReachable(2000);
-                    
-                    if (!reachable) {
-                        log.warn("   ⚠️ No alcanzable - saltando");
-                        failed++;
-                        
-                        Map<String, String> result = new HashMap<>();
-                        result.put("printer", printer.getAlias());
-                        result.put("ip", printer.getIp());
-                        result.put("status", "No alcanzable");
-                        results.add(result);
-                        continue;
-                    }
-                    
-                    // Intentar obtener MAC
-                    String mac = networkIdService.getMacAddressFromIP(printer.getIp());
+                    // Intentar obtener MAC con múltiples métodos (ARP + SNMP)
+                    String mac = networkIdService.getMacAddressMultiMethod(printer.getIp());
                     
                     if (mac != null && !mac.isEmpty()) {
                         printer.setMacAddress(mac);
@@ -2482,17 +2467,17 @@ public class AdminController {
                         results.add(result);
                     } else {
                         failed++;
-                        log.warn("   ❌ No se pudo obtener MAC");
+                        log.warn("   ❌ No se pudo obtener MAC con ningún método");
                         
                         Map<String, String> result = new HashMap<>();
                         result.put("printer", printer.getAlias());
                         result.put("ip", printer.getIp());
-                        result.put("status", "Fallo al obtener MAC");
+                        result.put("status", "No disponible (verifica SNMP)");
                         results.add(result);
                     }
                     
                     // Pequeña pausa entre impresoras
-                    Thread.sleep(100);
+                    Thread.sleep(200);
                     
                 } catch (Exception e) {
                     failed++;

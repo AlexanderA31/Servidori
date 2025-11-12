@@ -2,6 +2,17 @@ package es.ucm.fdi.iu.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.snmp4j.CommunityTarget;
+import org.snmp4j.PDU;
+import org.snmp4j.Snmp;
+import org.snmp4j.event.ResponseEvent;
+import org.snmp4j.mp.SnmpConstants;
+import org.snmp4j.smi.Address;
+import org.snmp4j.smi.GenericAddress;
+import org.snmp4j.smi.OID;
+import org.snmp4j.smi.OctetString;
+import org.snmp4j.smi.VariableBinding;
+import org.snmp4j.transport.DefaultUdpTransportMapping;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -153,6 +164,137 @@ public class NetworkIdentificationService {
         }
         
         return matches;
+    }
+
+    /**
+     * Obtiene MAC Address de una impresora via SNMP
+     * Útil para impresoras en redes enrutadas (diferentes VLANs)
+     * 
+     * OIDs comunes para impresoras:
+     * - 1.3.6.1.2.1.2.2.1.6.1 = ifPhysAddress (MAC de la interfaz de red)
+     * - 1.3.6.1.2.1.43.5.1.1.17.1 = prtGeneralSerialNumber (puede contener MAC)
+     * 
+     * @param ip Dirección IP de la impresora
+     * @param community Community string SNMP (por defecto "public")
+     * @return MAC Address en formato AA:BB:CC:DD:EE:FF o null
+     */
+    public String getMacAddressViaSNMP(String ip, String community) {
+        if (community == null || community.isEmpty()) {
+            community = "public";
+        }
+        
+        Snmp snmp = null;
+        try {
+            log.debug("🔍 Intentando SNMP para {} con community '{}'", ip, community);
+            
+            // Crear transporte UDP
+            DefaultUdpTransportMapping transport = new DefaultUdpTransportMapping();
+            transport.listen();
+            
+            // Crear objeto SNMP
+            snmp = new Snmp(transport);
+            
+            // Configurar target (impresora)
+            Address targetAddress = GenericAddress.parse("udp:" + ip + "/161");
+            CommunityTarget target = new CommunityTarget();
+            target.setCommunity(new OctetString(community));
+            target.setAddress(targetAddress);
+            target.setRetries(2);
+            target.setTimeout(3000); // 3 segundos
+            target.setVersion(SnmpConstants.version2c);
+            
+            // OID para MAC address (ifPhysAddress de la primera interfaz)
+            OID oid = new OID("1.3.6.1.2.1.2.2.1.6.1");
+            
+            // Crear PDU (Protocol Data Unit)
+            PDU pdu = new PDU();
+            pdu.add(new VariableBinding(oid));
+            pdu.setType(PDU.GET);
+            
+            // Enviar request
+            ResponseEvent response = snmp.send(pdu, target);
+            
+            if (response != null && response.getResponse() != null) {
+                PDU responsePDU = response.getResponse();
+                
+                if (responsePDU.getErrorStatus() == PDU.noError) {
+                    VariableBinding vb = responsePDU.get(0);
+                    
+                    if (vb != null && vb.getVariable() != null) {
+                        // Convertir bytes a MAC address
+                        byte[] macBytes = vb.getVariable().toBytes();
+                        
+                        if (macBytes != null && macBytes.length == 6) {
+                            StringBuilder macAddress = new StringBuilder();
+                            for (int i = 0; i < macBytes.length; i++) {
+                                if (i > 0) macAddress.append(":");
+                                macAddress.append(String.format("%02X", macBytes[i] & 0xFF));
+                            }
+                            
+                            String mac = macAddress.toString();
+                            log.info("✅ MAC obtenida via SNMP para {}: {}", ip, mac);
+                            return mac;
+                        } else {
+                            log.warn("⚠️ Respuesta SNMP no contiene MAC válida para {}", ip);
+                        }
+                    }
+                } else {
+                    log.warn("⚠️ Error SNMP para {}: {}", ip, responsePDU.getErrorStatusText());
+                }
+            } else {
+                log.warn("⚠️ Sin respuesta SNMP de {} (timeout o puerto 161 cerrado)", ip);
+            }
+            
+        } catch (Exception e) {
+            log.debug("❌ Error SNMP para {}: {}", ip, e.getMessage());
+        } finally {
+            if (snmp != null) {
+                try {
+                    snmp.close();
+                } catch (Exception e) {
+                    log.debug("Error cerrando SNMP: {}", e.getMessage());
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Obtiene MAC Address intentando múltiples métodos:
+     * 1. ARP (para dispositivos en la misma red)
+     * 2. SNMP con community "public"
+     * 3. SNMP con community "private"
+     * 
+     * @param ip Dirección IP del dispositivo
+     * @return MAC Address o null si no se puede obtener
+     */
+    public String getMacAddressMultiMethod(String ip) {
+        log.debug("🔍 Iniciando captura de MAC para {} con múltiples métodos", ip);
+        
+        // Método 1: ARP (rápido, solo funciona en misma red)
+        String mac = getMacAddressFromIP(ip);
+        if (mac != null) {
+            log.info("✅ MAC obtenida via ARP: {}", mac);
+            return mac;
+        }
+        
+        // Método 2: SNMP con community "public"
+        mac = getMacAddressViaSNMP(ip, "public");
+        if (mac != null) {
+            log.info("✅ MAC obtenida via SNMP (public): {}", mac);
+            return mac;
+        }
+        
+        // Método 3: SNMP con community "private"
+        mac = getMacAddressViaSNMP(ip, "private");
+        if (mac != null) {
+            log.info("✅ MAC obtenida via SNMP (private): {}", mac);
+            return mac;
+        }
+        
+        log.warn("❌ No se pudo obtener MAC para {} con ningún método", ip);
+        return null;
     }
 
     /**
