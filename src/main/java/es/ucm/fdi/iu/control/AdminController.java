@@ -2349,11 +2349,15 @@ public class AdminController {
     /**
      * Endpoint para rastrear una impresora específica por nombre
      * Busca en toda la red si cambió de IP
+     * @param name Nombre de la impresora a buscar
+     * @param forceRescan Si es true, fuerza un nuevo escaneo aunque la IP actual funcione
      */
     @GetMapping("/find-printer-by-name")
     @ResponseBody
     @Transactional
-    public Map<String, Object> findPrinterByName(@RequestParam String name) {
+    public Map<String, Object> findPrinterByName(
+            @RequestParam String name,
+            @RequestParam(defaultValue = "false") boolean forceRescan) {
         Map<String, Object> response = new HashMap<>();
         
         try {
@@ -2400,7 +2404,12 @@ public class AdminController {
             
             printerInfo.put("currentIpWorks", currentIpWorks);
             
-            if (!currentIpWorks) {
+            // Si forceRescan está activado, buscar de todos modos
+            if (forceRescan) {
+                log.info("⚠️ FORCE RESCAN activado - buscando aunque IP funcione");
+            }
+            
+            if (!currentIpWorks || forceRescan) {
                 log.info("🔍 IP no responde, iniciando búsqueda en red...");
                 
                 String newIp = null;
@@ -2412,6 +2421,37 @@ public class AdminController {
                     
                     if (newIp != null) {
                         log.info("   ✅ Encontrada por MAC en: {}", newIp);
+                        
+                        // ADVERTENCIA: Verificar que no sea otra impresora con esa IP
+                        List<Printer> otherPrintersWithSameIp = entityManager.createQuery(
+                            "SELECT p FROM Printer p WHERE p.ip = :ip AND p.id != :id", Printer.class)
+                            .setParameter("ip", newIp)
+                            .setParameter("id", printer.getId())
+                            .getResultList();
+                        
+                        if (!otherPrintersWithSameIp.isEmpty()) {
+                            log.warn("⚠️⚠️⚠️ ADVERTENCIA CRÍTICA ⚠️⚠️⚠️");
+                            log.warn("La MAC {} fue encontrada en IP {}", printer.getMacAddress(), newIp);
+                            log.warn("PERO ya hay otra impresora registrada con esa IP: {}", 
+                                otherPrintersWithSameIp.get(0).getAlias());
+                            log.warn("POSIBLE CAUSA: La MAC guardada es INCORRECTA y pertenece a otra impresora");
+                            log.warn("SOLUCIÓN: Elimina la MAC incorrecta y vuelve a escanear");
+                            
+                            response.put("success", false);
+                            response.put("error", "Conflicto de MAC Address");
+                            response.put("message", String.format(
+                                "La MAC %s fue encontrada en %s, pero esa IP ya está asignada a '%s'. " +
+                                "La MAC guardada probablemente es incorrecta. Elimínala y vuelve a escanear.",
+                                printer.getMacAddress(), newIp, otherPrintersWithSameIp.get(0).getAlias()));
+                            response.put("conflictingPrinter", otherPrintersWithSameIp.get(0).getAlias());
+                            response.put("conflictingIp", newIp);
+                            response.put("incorrectMac", printer.getMacAddress());
+                            response.put("printer", printerInfo);
+                            
+                            log.info("========================================");
+                            return response;
+                        }
+                        
                         printerInfo.put("foundBy", "MAC Address");
                         printerInfo.put("newIp", newIp);
                     }
@@ -2430,26 +2470,47 @@ public class AdminController {
                 }
                 
                 if (newIp != null) {
-                    // Actualizar IP en base de datos
-                    String oldIp = printer.getIp();
-                    printer.setIp(newIp);
-                    entityManager.merge(printer);
-                    entityManager.flush();
+                    // Verificar NUEVAMENTE que no haya conflictos antes de actualizar
+                    List<Printer> conflictCheck = entityManager.createQuery(
+                        "SELECT p FROM Printer p WHERE p.ip = :ip AND p.id != :id", Printer.class)
+                        .setParameter("ip", newIp)
+                        .setParameter("id", printer.getId())
+                        .getResultList();
                     
-                    log.info("✅ IP actualizada automáticamente: {} → {}", oldIp, newIp);
-                    
-                    response.put("success", true);
-                    response.put("message", "Impresora encontrada y actualizada");
-                    response.put("oldIp", oldIp);
-                    response.put("newIp", newIp);
+                    if (!conflictCheck.isEmpty()) {
+                        log.error("❌ CONFLICTO: No se puede actualizar IP a {} porque ya está en uso por: {}",
+                            newIp, conflictCheck.get(0).getAlias());
+                        response.put("success", false);
+                        response.put("message", String.format(
+                            "Impresora encontrada en %s, pero esa IP ya está asignada a '%s'",
+                            newIp, conflictCheck.get(0).getAlias()));
+                    } else {
+                        // Actualizar IP en base de datos
+                        String oldIp = printer.getIp();
+                        printer.setIp(newIp);
+                        entityManager.merge(printer);
+                        entityManager.flush();
+                        
+                        log.info("✅ IP actualizada automáticamente: {} → {}", oldIp, newIp);
+                        
+                        response.put("success", true);
+                        response.put("message", "Impresora encontrada y actualizada");
+                        response.put("oldIp", oldIp);
+                        response.put("newIp", newIp);
+                    }
                 } else {
                     log.warn("❌ No se pudo encontrar la impresora en la red");
                     response.put("success", false);
                     response.put("message", "Impresora no responde y no se pudo encontrar en la red");
                 }
             } else {
-                response.put("success", true);
-                response.put("message", "La impresora está funcionando correctamente");
+                if (forceRescan) {
+                    response.put("success", false);
+                    response.put("message", "No se encontró la impresora en la red (FORCE RESCAN activado)");
+                } else {
+                    response.put("success", true);
+                    response.put("message", "La impresora está funcionando correctamente");
+                }
             }
             
             response.put("printer", printerInfo);
@@ -2633,6 +2694,47 @@ public class AdminController {
         } catch (Exception e) {
             log.error("❌ Error en captura masiva", e);
                         response.put("success", false);
+            response.put("error", e.getMessage());
+        }
+        
+        return response;
+    }
+    
+    /**
+     * Endpoint para BORRAR MAC Address incorrecta de una impresora
+     * Útil cuando se capturó la MAC de otra impresora por error
+     */
+    @PostMapping("/clear-printer-mac")
+    @ResponseBody
+    @Transactional
+    public Map<String, Object> clearPrinterMac(@RequestParam Long id) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            Printer printer = entityManager.find(Printer.class, id);
+            
+            if (printer == null) {
+                response.put("success", false);
+                response.put("error", "Impresora no encontrada");
+                return response;
+            }
+            
+            String oldMac = printer.getMacAddress();
+            log.info("🧹 Borrando MAC incorrecta de: {} ({})", printer.getAlias(), oldMac);
+            
+            printer.setMacAddress(null);
+            entityManager.merge(printer);
+            entityManager.flush();
+            
+            log.info("✅ MAC borrada exitosamente");
+            
+            response.put("success", true);
+            response.put("message", "MAC Address eliminada exitosamente");
+            response.put("oldMac", oldMac);
+            
+        } catch (Exception e) {
+            log.error("❌ Error borrando MAC Address", e);
+            response.put("success", false);
             response.put("error", e.getMessage());
         }
         

@@ -148,12 +148,14 @@
         }
         
         // Función para buscar impresora perdida
-        async function findLostPrinter() {
-            const printerName = prompt(
-                '🔍 Buscar Impresora Perdida\n\n' +
-                'Ingresa el nombre de la impresora que deseas buscar:\n' +
-                '(Ejemplo: EPSONSECRETOR)'
-            );
+        async function findLostPrinter(forceRescan = false) {
+            const printerName = forceRescan ? 
+                forceRescan : 
+                prompt(
+                    '🔍 Buscar Impresora Perdida\n\n' +
+                    'Ingresa el nombre de la impresora que deseas buscar:\n' +
+                    '(Ejemplo: EPSONSECRETOR)'
+                );
             
             if (!printerName || printerName.trim() === '') {
                 return;
@@ -201,7 +203,8 @@
             }
             
             try {
-                const response = await fetch(`/admin/find-printer-by-name?name=${encodeURIComponent(printerName)}`);
+                const forceParam = (typeof forceRescan === 'boolean' && forceRescan) ? '&forceRescan=true' : '';
+                const response = await fetch(`/admin/find-printer-by-name?name=${encodeURIComponent(printerName)}${forceParam}`);
                 const data = await response.json();
                 
                 const messageEl = document.getElementById('findMessage');
@@ -210,6 +213,57 @@
                 
                 closeBtn.disabled = false;
                 resultsEl.style.display = 'block';
+                
+                // DETECTAR CONFLICTO DE MAC
+                if (!data.success && data.error === 'Conflicto de MAC Address') {
+                    messageEl.innerHTML = `
+                        <i class="fas fa-exclamation-triangle" style="color: #dc3545; font-size: 3rem;"></i><br>
+                        <strong style="color: #dc3545;">⚠️ Conflicto de MAC Address</strong>
+                    `;
+                    
+                    addStep('Impresora encontrada en BD', 'fas fa-database', '#28a745');
+                    addStep(`MAC registrada: ${data.incorrectMac}`, 'fas fa-fingerprint', '#666');
+                    addStep(`MAC encontrada en IP: ${data.conflictingIp}`, 'fas fa-search', '#0ea5e9');
+                    addStep(`PERO esa IP ya está asignada a: ${data.conflictingPrinter}`, 'fas fa-exclamation-triangle', '#dc3545');
+                    addStep('La MAC guardada es INCORRECTA', 'fas fa-times-circle', '#dc3545');
+                    
+                    resultsEl.innerHTML = `
+                        <div style="padding: 1.5rem; background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px;">
+                            <h3 style="color: #856404; margin-bottom: 1rem;">⚠️ Problema Detectado</h3>
+                            <p style="margin-bottom: 1rem; color: #856404;">
+                                <strong>La MAC Address guardada es INCORRECTA</strong><br><br>
+                                La MAC <code>${data.incorrectMac}</code> fue encontrada en <code>${data.conflictingIp}</code>,<br>
+                                pero esa IP ya está asignada a la impresora <strong>"${data.conflictingPrinter}"</strong>.
+                            </p>
+                            <div style="background: #f8d7da; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; border-left: 4px solid #dc3545;">
+                                <strong>💡 Explicación:</strong><br>
+                                Cuando capturaste la MAC de <strong>${data.printer.alias}</strong>, 
+                                probablemente capturaste la MAC de <strong>${data.conflictingPrinter}</strong> por error.
+                            </div>
+                            <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: #856404;">🔧 Solución:</h4>
+                            <ol style="margin-left: 1.5rem; color: #856404;">
+                                <li style="margin-bottom: 1rem;">
+                                    <strong>BORRAR la MAC incorrecta</strong><br>
+                                    <button onclick="clearIncorrectMac(${data.printer.id}, '${printerName}')" 
+                                        class="btn btn-warning" style="margin-top: 0.5rem;">
+                                        <i class="fas fa-eraser"></i> Borrar MAC Incorrecta
+                                    </button>
+                                </li>
+                                <li style="margin-bottom: 1rem;">
+                                    <strong>VOLVER A ESCANEAR</strong> sin usar la MAC<br>
+                                    <button onclick="closeFindModal(); setTimeout(() => findLostPrinter('${printerName}'), 500);" 
+                                        class="btn btn-primary" style="margin-top: 0.5rem;">
+                                        <i class="fas fa-redo"></i> Volver a Escanear (Force Rescan)
+                                    </button>
+                                </li>
+                                <li>
+                                    <strong>Capturar la MAC CORRECTA</strong> una vez encontrada la impresora
+                                </li>
+                            </ol>
+                        </div>
+                    `;
+                    return;
+                }
                 
                 if (data.success) {
                     if (data.newIp) {
@@ -307,6 +361,61 @@
             const modal = document.getElementById('findPrinterModal');
             if (modal) {
                 modal.remove();
+            }
+        }
+        
+        // Función para borrar MAC incorrecta
+        async function clearIncorrectMac(printerId, printerName) {
+            const confirmed = await showConfirm({
+                title: '🧹 Borrar MAC Incorrecta',
+                message: `¿Estás seguro de borrar la MAC Address de "${printerName}"?\n\nEsto permitirá volver a escanear la red sin conflictos.`,
+                confirmText: 'Sí, Borrar',
+                cancelText: 'Cancelar',
+                type: 'warning'
+            });
+            
+            if (!confirmed) {
+                return;
+            }
+            
+            try {
+                // Preparar FormData con CSRF token
+                const formData = new FormData();
+                formData.append('id', printerId);
+                if (typeof config !== 'undefined' && config.csrf && config.csrf.name) {
+                    formData.append(config.csrf.name, config.csrf.value);
+                }
+                
+                const response = await fetch('/admin/clear-printer-mac', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    await showAlert({
+                        title: '✅ MAC Borrada',
+                        message: `MAC Address eliminada exitosamente de "${printerName}".\n\nAhora puedes volver a escanear.`,
+                        type: 'success'
+                    });
+                    
+                    // Cerrar modal y recargar
+                    closeFindModal();
+                    location.reload();
+                } else {
+                    await showAlert({
+                        title: '❌ Error',
+                        message: data.error || 'No se pudo borrar la MAC',
+                        type: 'error'
+                    });
+                }
+            } catch (error) {
+                await showAlert({
+                    title: '❌ Error de Red',
+                    message: error.message || 'Error al conectar con el servidor',
+                    type: 'error'
+                });
             }
         }
         
