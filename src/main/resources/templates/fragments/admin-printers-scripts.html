@@ -424,13 +424,22 @@
             const printerId = data.id;
             const printerName = data.alias;
             const printerIp = data.ip;
+            const hasMac = data.mac && data.mac.trim() !== '';
+            
+            let confirmMsg = `Impresora: ${printerName}\nIP: ${printerIp}\n\n`;
+            if (hasMac) {
+                confirmMsg += `MAC actual: ${data.mac}\n\n⚠️ Esto RECAPTURARÁ la MAC Address.\n\nSi la MAC actual es incorrecta, se reemplazará con la correcta.\n\n`;
+            } else {
+                confirmMsg += `Esta impresora NO tiene MAC Address registrada.\n\n`;
+            }
+            confirmMsg += `Métodos de captura:\n1. ARP (si está en la misma red)\n2. SNMP (si está habilitado)\n\n¿Continuar?`;
             
             const confirmed = await showConfirm({
-                title: '🔑 Capturar MAC Address',
-                message: `Impresora: ${printerName}\nIP: ${printerIp}\n\nEsto intentará obtener la MAC Address usando:\n1. ARP (si está en la misma red)\n2. SNMP (si está habilitado)\n\n¿Continuar?`,
-                confirmText: 'Sí, Capturar',
+                title: hasMac ? '🔄 Recapturar MAC Address' : '🔑 Capturar MAC Address',
+                message: confirmMsg,
+                confirmText: hasMac ? 'Sí, Recapturar' : 'Sí, Capturar',
                 cancelText: 'Cancelar',
-                type: 'info'
+                type: hasMac ? 'warning' : 'info'
             });
             
             if (!confirmed) {
@@ -483,7 +492,8 @@
                 addStep('Iniciando captura de MAC Address...', 'fas fa-play-circle', '#0ea5e9');
                 addStep(`IP de destino: ${printerIp}`, 'fas fa-network-wired', '#666');
                 
-                const response = await fetch(`/admin/capture-printer-mac?id=${printerId}`);
+                // Siempre usar force=true para recapturar
+                const response = await fetch(`/admin/capture-printer-mac?id=${printerId}&force=true`);
                 const data = await response.json();
                 
                 const messageEl = document.getElementById('captureSingleMessage');
@@ -494,28 +504,67 @@
                 resultsEl.style.display = 'block';
                 
                 if (data.success) {
+                    const isChanged = data.changed === true;
+                    const isNew = !data.oldMac || data.oldMac.trim() === '';
+                    
                     messageEl.innerHTML = `
                         <i class="fas fa-check-circle" style="color: #28a745; font-size: 3rem;"></i><br>
-                        <strong style="color: #28a745;">✅ MAC Capturada!</strong>
+                        <strong style="color: #28a745;">✅ ${isChanged ? 'MAC Actualizada' : (isNew ? 'MAC Capturada' : 'MAC Recapturada')}</strong>
                     `;
                     
                     addStep('Intentando ARP...', 'fas fa-search', '#0ea5e9');
                     addStep('Intentando SNMP...', 'fas fa-search', '#0ea5e9');
-                    addStep(`MAC capturada exitosamente: ${data.macAddress}`, 'fas fa-check-circle', '#28a745');
+                    
+                    if (isChanged) {
+                        addStep(`MAC anterior: ${data.oldMac}`, 'fas fa-history', '#666');
+                        addStep(`MAC nueva: ${data.macAddress}`, 'fas fa-check-circle', '#28a745');
+                        addStep('⚠️ La MAC cambió - esto puede indicar que la impresora fue reemplazada', 'fas fa-exclamation-triangle', '#ffc107');
+                    } else if (isNew) {
+                        addStep(`MAC capturada: ${data.macAddress}`, 'fas fa-check-circle', '#28a745');
+                    } else {
+                        addStep(`MAC confirmada: ${data.macAddress}`, 'fas fa-check-circle', '#28a745');
+                        addStep('La MAC no cambió (esto es normal)', 'fas fa-info-circle', '#0ea5e9');
+                    }
+                    
                     addStep('MAC guardada en base de datos', 'fas fa-database', '#28a745');
                     
+                    let statusBg = '#d4edda';
+                    let statusBorder = '#c3e6cb';
+                    let statusText = '#155724';
+                    let statusTitle = '✅ MAC Address Obtenida';
+                    let statusInfo = 'La impresora ahora puede ser identificada aunque cambie de IP';
+                    
+                    if (isChanged) {
+                        statusBg = '#fff3cd';
+                        statusBorder = '#ffc107';
+                        statusText = '#856404';
+                        statusTitle = '⚠️ MAC Address Actualizada';
+                        statusInfo = 'La MAC cambió. Esto puede indicar que la impresora fue reemplazada o reparada.';
+                    } else if (!isNew) {
+                        statusTitle = '✅ MAC Address Confirmada';
+                        statusInfo = 'La MAC no ha cambiado. La impresora está correctamente identificada.';
+                    }
+                    
                     resultsEl.innerHTML = `
-                        <div style="padding: 1.5rem; background: #d4edda; border: 2px solid #c3e6cb; border-radius: 8px; text-align: center;">
-                            <h3 style="color: #155724; margin-bottom: 1rem;">✅ MAC Address Obtenida</h3>
-                            <div style="background: white; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
-                                <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">MAC Address:</div>
+                        <div style="padding: 1.5rem; background: ${statusBg}; border: 2px solid ${statusBorder}; border-radius: 8px; text-align: center;">
+                            <h3 style="color: ${statusText}; margin-bottom: 1rem;">${statusTitle}</h3>
+                            ${isChanged ? `
+                            <div style="background: white; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; border: 2px solid #dc3545;">
+                                <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">MAC Anterior (INCORRECTA):</div>
+                                <div style="font-size: 1.2rem; font-weight: bold; color: #dc3545; font-family: monospace; text-decoration: line-through;">
+                                    ${data.oldMac}
+                                </div>
+                            </div>
+                            ` : ''}
+                            <div style="background: white; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; border: 2px solid #28a745;">
+                                <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">${isChanged ? 'MAC Nueva (CORRECTA)' : 'MAC Address'}:</div>
                                 <div style="font-size: 1.5rem; font-weight: bold; color: #28a745; font-family: monospace;">
                                     ${data.macAddress}
                                 </div>
                             </div>
-                            <p style="margin: 0; color: #155724;">
+                            <p style="margin: 0; color: ${statusText};">
                                 <i class="fas fa-info-circle"></i> 
-                                La impresora ahora puede ser identificada aunque cambie de IP
+                                ${statusInfo}
                             </p>
                         </div>
                     `;

@@ -2744,11 +2744,15 @@ public class AdminController {
     /**
      * Endpoint para capturar MAC Address de UNA impresora específica
      * Útil para impresoras individuales que no tienen MAC
+     * @param id ID de la impresora
+     * @param force Si es true, fuerza recaptura incluso si ya tiene MAC
      */
     @GetMapping("/capture-printer-mac")
     @ResponseBody
     @Transactional
-    public Map<String, Object> capturePrinterMac(@RequestParam Long id) {
+    public Map<String, Object> capturePrinterMac(
+            @RequestParam Long id,
+            @RequestParam(defaultValue = "false") boolean force) {
         Map<String, Object> response = new HashMap<>();
         
         try {
@@ -2760,22 +2764,40 @@ public class AdminController {
                 return response;
             }
             
-            log.info("🔑 Intentando capturar MAC Address para: {} ({})", printer.getAlias(), printer.getIp());
+            String oldMac = printer.getMacAddress();
             
-            // Verificar si ya tiene MAC
-            if (printer.getMacAddress() != null && !printer.getMacAddress().isEmpty()) {
-                log.info("✅ Ya tiene MAC: {}", printer.getMacAddress());
+            log.info("🔑 Capturando MAC Address para: {} ({})", printer.getAlias(), printer.getIp());
+            if (oldMac != null && !oldMac.isEmpty()) {
+                log.info("   MAC actual: {} (force={}, se {} sobrescribirá)", 
+                    oldMac, force, force ? "SÍ" : "NO");
+            }
+            
+            // Si ya tiene MAC y NO es force, solo mostrarla
+            if (!force && oldMac != null && !oldMac.isEmpty()) {
+                log.info("✅ Ya tiene MAC: {} (usa force=true para recapturar)", oldMac);
                 response.put("success", true);
                 response.put("message", "Impresora ya tiene MAC Address registrada");
-                response.put("macAddress", printer.getMacAddress());
+                response.put("macAddress", oldMac);
+                response.put("hasExisting", true);
                 return response;
             }
             
             // Intentar obtener MAC con múltiples métodos (ARP + SNMP)
+            log.info("🔍 Escaneando dispositivo en {} ...", printer.getIp());
             String mac = networkIdService.getMacAddressMultiMethod(printer.getIp());
             
             if (mac != null && !mac.isEmpty()) {
-                log.info("✅ MAC capturada: {}", mac);
+                // Verificar si es diferente a la anterior
+                boolean isNew = (oldMac == null || oldMac.isEmpty());
+                boolean isDifferent = !isNew && !mac.equalsIgnoreCase(oldMac);
+                
+                if (isDifferent) {
+                    log.warn("⚠️ MAC CAMBIÓ: {} → {}", oldMac, mac);
+                } else if (isNew) {
+                    log.info("✅ MAC capturada (NUEVA): {}", mac);
+                } else {
+                    log.info("✅ MAC capturada (misma que antes): {}", mac);
+                }
                 
                 // Guardar en base de datos
                 printer.setMacAddress(mac);
@@ -2783,24 +2805,38 @@ public class AdminController {
                 entityManager.flush();
                 
                 response.put("success", true);
-                response.put("message", "MAC Address capturada exitosamente");
                 response.put("macAddress", mac);
+                response.put("oldMac", oldMac);
+                response.put("changed", isDifferent);
+                
+                if (isDifferent) {
+                    response.put("message", String.format(
+                        "MAC Address actualizada: %s → %s", oldMac, mac));
+                } else if (isNew) {
+                    response.put("message", "MAC Address capturada exitosamente");
+                } else {
+                    response.put("message", "MAC Address recapturada (sin cambios)");
+                }
                 
                 log.info("💾 MAC guardada en BD para {}: {}", printer.getAlias(), mac);
             } else {
-                log.warn("⚠️ No se pudo obtener MAC para {} ({})", printer.getAlias(), printer.getIp());
-                log.warn("   Posibles causas:");
-                log.warn("   1. Impresora apagada o no responde");
-                log.warn("   2. SNMP no habilitado o bloqueado por firewall");
-                log.warn("   3. Community SNMP no es 'public' ni 'private'");
+                log.error("❌ No se pudo obtener MAC para {} ({})", printer.getAlias(), printer.getIp());
+                log.error("   Posibles causas:");
+                log.error("   1. Impresora apagada o no responde");
+                log.error("   2. SNMP no habilitado o bloqueado por firewall");
+                log.error("   3. Community SNMP no es 'public' ni 'private'");
+                log.error("   4. Impresora no está en la misma subred (cross-VLAN sin enrutamiento)");
                 
                 response.put("success", false);
                 response.put("error", "No se pudo obtener MAC Address");
+                response.put("oldMac", oldMac);
+                response.put("hadExisting", oldMac != null && !oldMac.isEmpty());
                 response.put("suggestions", new String[]{
                     "Verifica que la impresora esté encendida",
+                    "Haz ping a la impresora: ping " + printer.getIp(),
                     "Verifica que SNMP esté habilitado en la impresora",
                     "Verifica que el firewall permita puerto 161 (SNMP)",
-                    "Haz ping a la impresora: ping " + printer.getIp()
+                    "Si está en otra VLAN, verifica que haya enrutamiento"
                 });
             }
             
