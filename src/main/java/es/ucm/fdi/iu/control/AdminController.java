@@ -2346,6 +2346,10 @@ public class AdminController {
                 return null;
     }
     
+    /**
+     * Endpoint para rastrear una impresora específica por nombre
+     * Busca en toda la red si cambió de IP
+     */
     @GetMapping("/find-printer-by-name")
     @ResponseBody
     @Transactional

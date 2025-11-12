@@ -391,51 +391,64 @@ public class PrinterDiscoveryService {
      * MEJORADO: Ahora intenta múltiples protocolos (SNMP, IPP, SMB)
      * CON LOGGING DETALLADO para diagnóstico
      */
-    private DiscoveredPrinter scanIPForPrinter(String ip) {
+        private DiscoveredPrinter scanIPForPrinter(String ip) {
         // Log detallado cada 50 IPs escaneadas
         if (scannedHosts % 50 == 0) {
             log.info("Progreso: {}/{} hosts escaneados, {} impresoras encontradas", 
                 scannedHosts, totalHosts, foundPrinters);
         }
         
-                // ESTRATEGIA 1: Verificar puertos TCP PRIMERO (más rápido que SNMP)
+        log.debug("🔍 Escaneando IP: {}", ip);
+        
+        // ESTRATEGIA 1: Verificar puertos TCP PRIMERO (más rápido que SNMP)
         for (int port : new int[]{9100, 631, 515, 445}) { // RAW, IPP, LPD, SMB
             if (isPortOpen(ip, port, portTimeout)) {
                 log.info("🔍 Puerto {} abierto en {}", port, ip);
                 
                 // Intentar obtener info por protocolo específico
-                if (port == 631) {
+                                if (port == 631) {
                     DiscoveredPrinter ippPrinter = scanViaIPP(ip);
                     if (ippPrinter != null) {
-                        log.info("✅ Impresora IPP descubierta en {}", ip);
+                        log.info("✅ Impresora IPP descubierta en {} - IP seteada: {}", ip, ippPrinter.getIp());
+                        if (!ip.equals(ippPrinter.getIp())) {
+                            log.error("❌ ERROR: IP incorrecta! Esperada: {}, Encontrada: {}", ip, ippPrinter.getIp());
+                        }
                         return ippPrinter;
                     }
                 }
                 
-                if (port == 445) {
+                                if (port == 445) {
                     DiscoveredPrinter smbPrinter = scanViaSMB(ip);
                     if (smbPrinter != null) {
-                        log.info("✅ Impresora SMB descubierta en {}", ip);
+                        log.info("✅ Impresora SMB descubierta en {} - IP seteada: {}", ip, smbPrinter.getIp());
+                        if (!ip.equals(smbPrinter.getIp())) {
+                            log.error("❌ ERROR: IP incorrecta! Esperada: {}, Encontrada: {}", ip, smbPrinter.getIp());
+                        }
                         return smbPrinter;
                     }
                 }
                 
-                // Si encontramos puerto 9100, SIEMPRE intentar IPP también
+                                // Si encontramos puerto 9100, SIEMPRE intentar IPP también
                 if (port == 9100) {
-                    log.info("🔍 Puerto 9100 encontrado, verificando si también tiene IPP (631)...", ip);
+                    log.info("🔍 Puerto 9100 encontrado en {}, verificando si también tiene IPP (631)...", ip);
                     if (isPortOpen(ip, 631, portTimeout)) {
-                        log.info("✅ Puerto 631 también abierto, obteniendo info IPP...", ip);
+                        log.info("✅ Puerto 631 también abierto en {}, obteniendo info IPP...", ip);
                         DiscoveredPrinter ippPrinter = scanViaIPP(ip);
                         if (ippPrinter != null) {
-                            log.info("✅ Info IPP obtenida: {} - {}", ippPrinter.getName(), ippPrinter.getModel());
+                            log.info("✅ Info IPP obtenida de {}: {} - {} (IP en objeto: {})", 
+                                ip, ippPrinter.getName(), ippPrinter.getModel(), ippPrinter.getIp());
+                            if (!ip.equals(ippPrinter.getIp())) {
+                                log.error("❌ ERROR: IP incorrecta en objeto IPP! Esperada: {}, Encontrada: {}", ip, ippPrinter.getIp());
+                                ippPrinter.setIp(ip); // Forzar IP correcta
+                            }
                             return ippPrinter;
                         } else {
-                            log.warn("⚠️ Puerto 631 abierto pero no se pudo obtener info IPP");
+                            log.warn("⚠️ Puerto 631 abierto en {} pero no se pudo obtener info IPP", ip);
                         }
                     }
                 }
                 
-                                                // Si no se pudo obtener info detallada por IPP/SMB,
+                                                                // Si no se pudo obtener info detallada por IPP/SMB,
                 // SOLO crear impresora si el puerto es 9100 (RAW - casi siempre es impresora)
                 // Puerto 631 sin IPP válido = probablemente es una PC con CUPS
                 if (port == 9100) {
@@ -443,6 +456,7 @@ public class PrinterDiscoveryService {
                     
                     DiscoveredPrinter printer = new DiscoveredPrinter();
                     printer.setIp(ip);
+                    log.debug("   → IP seteada en objeto: {}", printer.getIp());
                     
                     // Intentar obtener nombre real vía DNS reverso (ej: "epsonsecreptor")
                     String printerName = resolveDNSName(ip);
@@ -454,7 +468,14 @@ public class PrinterDiscoveryService {
                     printer.setConnectionType("RED");
                     printer.setPort(port);
                     
-                    log.info("✅ Impresora detectada vía puerto {} en {} - Nombre: {}", port, ip, printerName);
+                    log.info("✅ Impresora RAW creada - IP: {}, Nombre: {}, Puerto: {}", ip, printerName, port);
+                    
+                    // Verificación final de IP
+                    if (!ip.equals(printer.getIp())) {
+                        log.error("❌ ERROR CRÍTICO: IP fue modificada! Original: {}, En objeto: {}", ip, printer.getIp());
+                        printer.setIp(ip); // Forzar IP correcta
+                    }
+                    
                     return printer;
                 } else {
                     log.debug("⚠️ Puerto {} abierto en {} pero no se pudo confirmar que es impresora - IGNORANDO", port, ip);
@@ -463,13 +484,18 @@ public class PrinterDiscoveryService {
             }
         }
         
-        // ESTRATEGIA 2: Intentar SNMP (solo si puertos TCP fallaron)
+                // ESTRATEGIA 2: Intentar SNMP (solo si puertos TCP fallaron)
         DiscoveredPrinter snmpPrinter = scanViaSNMP(ip);
         if (snmpPrinter != null) {
-            log.info("✅ Impresora SNMP descubierta en {}", ip);
+            log.info("✅ Impresora SNMP descubierta en {} - IP en objeto: {}", ip, snmpPrinter.getIp());
+            if (!ip.equals(snmpPrinter.getIp())) {
+                log.error("❌ ERROR: IP incorrecta en SNMP! Esperada: {}, Encontrada: {}", ip, snmpPrinter.getIp());
+                snmpPrinter.setIp(ip); // Forzar IP correcta
+            }
             return snmpPrinter;
         }
         
+        log.debug("❌ No se detectó impresora en {}", ip);
         return null;
     }
     
@@ -922,13 +948,16 @@ public class PrinterDiscoveryService {
      * Si ya existe, NO la sobrescribe y mantiene el puerto IPP asignado
      * @return Printer si se registró exitosamente, null si ya existía
      */
-    @Transactional
+        @Transactional
     public Printer registerDiscoveredPrinter(DiscoveredPrinter discovered, es.ucm.fdi.iu.model.User user) {
         try {
+            log.info("📝 Registrando impresora descubierta: {} - IP: {}", discovered.getName(), discovered.getIp());
+            
             // Generar IP para impresoras locales sin IP
             String printerIp = discovered.getIp();
             if (printerIp == null || printerIp.isEmpty()) {
                 printerIp = "LOCAL-" + Math.abs(discovered.getName().hashCode());
+                log.warn("⚠️ Impresora sin IP, generando IP local: {}", printerIp);
             }
             
             // Verificar si ya existe por IP
@@ -957,12 +986,13 @@ public class PrinterDiscoveryService {
                 return null;
             }
             
-            // Crear nueva impresora
+                        // Crear nueva impresora
             Printer printer = new Printer();
             printer.setAlias(discovered.getName());
             printer.setModel(discovered.getModel());
             printer.setLocation(discovered.getConnectionType() + " - " + discovered.getType());
             printer.setIp(printerIp);
+            log.info("   → IP asignada a entidad Printer: {}", printer.getIp());
             printer.setInstance(user);
             printer.setInk(100);
             printer.setPaper(100);
@@ -988,10 +1018,16 @@ public class PrinterDiscoveryService {
             printer.setIppPort(nextPort);
             log.info("Puerto IPP {} asignado a impresora descubierta {}", nextPort, discovered.getName());
             
-            em.persist(printer);
+                        em.persist(printer);
             em.flush(); // Asegurar que se persiste inmediatamente
-            log.info("✅ Impresora registrada: {} en {} ({})", 
-                printer.getAlias(), printer.getIp(), printer.getModel());
+            
+            // Verificación post-persistencia
+            if (!printerIp.equals(printer.getIp())) {
+                log.error("❌ ERROR CRÍTICO: IP cambió después de persist! Esperada: {}, En BD: {}", printerIp, printer.getIp());
+            }
+            
+            log.info("✅ Impresora registrada exitosamente: {} en {} ({}) - ID: {}", 
+                printer.getAlias(), printer.getIp(), printer.getModel(), printer.getId());
             return printer;
             
         } catch (Exception e) {
