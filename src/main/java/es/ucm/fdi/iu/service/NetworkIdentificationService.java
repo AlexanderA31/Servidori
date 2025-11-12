@@ -221,21 +221,26 @@ public class NetworkIdentificationService {
                     VariableBinding vb = responsePDU.get(0);
                     
                     if (vb != null && vb.getVariable() != null) {
-                        // Convertir bytes a MAC address
-                        byte[] macBytes = vb.getVariable().toBytes();
-                        
-                        if (macBytes != null && macBytes.length == 6) {
-                            StringBuilder macAddress = new StringBuilder();
-                            for (int i = 0; i < macBytes.length; i++) {
-                                if (i > 0) macAddress.append(":");
-                                macAddress.append(String.format("%02X", macBytes[i] & 0xFF));
-                            }
+                        // Convertir Variable a OctetString para obtener bytes
+                        if (vb.getVariable() instanceof OctetString) {
+                            OctetString octetString = (OctetString) vb.getVariable();
+                            byte[] macBytes = octetString.toByteArray();
                             
-                            String mac = macAddress.toString();
-                            log.info("✅ MAC obtenida via SNMP para {}: {}", ip, mac);
-                            return mac;
+                            if (macBytes != null && macBytes.length == 6) {
+                                StringBuilder macAddress = new StringBuilder();
+                                for (int i = 0; i < macBytes.length; i++) {
+                                    if (i > 0) macAddress.append(":");
+                                    macAddress.append(String.format("%02X", macBytes[i] & 0xFF));
+                                }
+                                
+                                String mac = macAddress.toString();
+                                log.info("✅ MAC obtenida via SNMP para {}: {}", ip, mac);
+                                return mac;
+                            } else {
+                                log.warn("⚠️ Respuesta SNMP no contiene MAC válida para {} (longitud: {})", ip, macBytes != null ? macBytes.length : 0);
+                            }
                         } else {
-                            log.warn("⚠️ Respuesta SNMP no contiene MAC válida para {}", ip);
+                            log.warn("⚠️ Respuesta SNMP no es OctetString para {}: {}", ip, vb.getVariable().getClass().getSimpleName());
                         }
                     }
                 } else {
