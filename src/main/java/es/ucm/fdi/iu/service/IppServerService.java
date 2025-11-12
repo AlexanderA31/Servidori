@@ -23,7 +23,7 @@ import java.util.concurrent.*;
  * Y la aplicación redirigirá el trabajo a la impresora real
  */
 // Deshabilitado: Usa MultiPortIppServerService para identificar impresoras
-// @Service
+@Service
 @Slf4j
 public class IppServerService {
 
