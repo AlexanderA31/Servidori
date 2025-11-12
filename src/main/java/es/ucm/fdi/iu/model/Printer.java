@@ -34,10 +34,16 @@ public class Printer implements Transferable<Printer.Transfer> {
         @ManyToMany(mappedBy = "printers")
     private List<PGroup> groups = new ArrayList<>();
 
-        private String alias;
+                private String alias;
     private String model;
     private String location;
     private String ip;
+    
+    // MAC Address de la impresora (identificador ÚNICO e inmutable)
+    // Formato: AA:BB:CC:DD:EE:FF o aa-bb-cc-dd-ee-ff
+    // Permite identificar la impresora aunque cambie de IP
+    // Se obtiene via SNMP (OID 1.3.6.1.2.1.2.2.1.6) o ARP
+    private String macAddress;
     
     // URI del dispositivo (opcional, manual override)
     // Ej: ipp://192.168.1.100/ipp/print, socket://192.168.1.100:9100
@@ -96,11 +102,12 @@ public class Printer implements Transferable<Printer.Transfer> {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class Transfer {
-        private long id;
+                private long id;
         private String alias;
         private String model;
         private String location;
         private String ip;
+        private String macAddress;
         private String deviceUri;
         private String driver;
         private Integer port;
@@ -120,8 +127,8 @@ public class Printer implements Transferable<Printer.Transfer> {
                 .collect(Collectors.toList());
         List<Long> qs = queue.stream().map(Job::getId)
                 .collect(Collectors.toList());
-        return new Transfer(
-                id, alias, model, location, ip, deviceUri, driver, port, ippPort, protocol,
+                return new Transfer(
+                id, alias, model, location, ip, macAddress, deviceUri, driver, port, ippPort, protocol,
                 sharedViaSamba, addedToCups, sambaShareName, gs, qs, currentStatus());
     }
 }

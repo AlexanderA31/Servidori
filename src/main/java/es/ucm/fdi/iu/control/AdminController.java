@@ -74,8 +74,11 @@ public class AdminController {
         @Autowired
     private es.ucm.fdi.iu.service.NetworkDiagnosticService networkDiagnosticService;
     
-    @Autowired
+        @Autowired
     private es.ucm.fdi.iu.service.MultiPortIppServerService multiPortIppServerService;
+    
+    @Autowired
+    private es.ucm.fdi.iu.service.NetworkIdentificationService networkIdService;
 
                                                                     // ========== DASHBOARD PRINCIPAL ==========
     
@@ -2145,6 +2148,386 @@ public class AdminController {
             log.error("❌ Error en test de cliente USB", e);
             response.put("success", false);
             response.put("message", "Error interno: " + e.getMessage());
+        }
+        
+                return response;
+    }
+    
+    /**
+     * Endpoint para testear conectividad con impresora de RED
+     * CON AUTO-REDESCUBRIMIENTO si cambió de IP
+     */
+    @GetMapping("/test-network-printer")
+    @ResponseBody
+    @Transactional
+    public Map<String, Object> testNetworkPrinter(@RequestParam Long id) {
+        Map<String, Object> response = new HashMap<>();
+        Map<String, Object> diagnostic = new HashMap<>();
+        
+        try {
+            Printer printer = entityManager.find(Printer.class, id);
+            
+            if (printer == null) {
+                response.put("success", false);
+                response.put("message", "Impresora no encontrada");
+                return response;
+            }
+            
+            String printerIp = printer.getIp();
+            Integer printerPort = printer.getPort() != null ? printer.getPort() : 9100;
+            String protocol = printer.getProtocol() != null ? printer.getProtocol() : "RAW";
+            
+            diagnostic.put("host", printerIp);
+            diagnostic.put("port", printerPort);
+            diagnostic.put("protocol", protocol);
+            
+            log.info("🧪 Testeando impresora de RED: {}:{} ({})", printerIp, printerPort, protocol);
+            
+            // Test 1: Verificar alcance (ping)
+            long startPing = System.currentTimeMillis();
+            boolean reachable = false;
+            try {
+                InetAddress address = InetAddress.getByName(printerIp);
+                reachable = address.isReachable(3000);
+                long pingTime = System.currentTimeMillis() - startPing;
+                diagnostic.put("latency", pingTime);
+                
+                if (reachable) {
+                    log.info("  ✅ Host {} alcanzable ({}ms)", printerIp, pingTime);
+                } else {
+                    log.warn("  ⚠️ Host {} no responde a ping", printerIp);
+                }
+            } catch (Exception e) {
+                log.warn("  ⚠️ Error en ping: {}", e.getMessage());
+            }
+            
+            // Test 2: Verificar puerto de impresión abierto
+            long startConnect = System.currentTimeMillis();
+            boolean portOpen = false;
+            
+            try (Socket socket = new Socket()) {
+                socket.connect(new InetSocketAddress(printerIp, printerPort), 5000);
+                long connectTime = System.currentTimeMillis() - startConnect;
+                portOpen = true;
+                
+                log.info("  ✅ Puerto {} abierto (conexión en {}ms)", printerPort, connectTime);
+                diagnostic.put("status", "En línea");
+                diagnostic.put("connectionTime", connectTime);
+                
+                response.put("success", true);
+                response.put("message", "Impresora accesible y lista para imprimir");
+                response.put("diagnostic", diagnostic);
+                
+            } catch (ConnectException | SocketTimeoutException e) {
+                log.error("  ❌ Puerto {} no accesible: {}", printerPort, e.getMessage());
+                diagnostic.put("status", "No accesible");
+                diagnostic.put("error", e.getMessage());
+                
+                // AUTO-REDESCUBRIMIENTO: Intentar encontrar nueva IP
+                log.info("🔍 Iniciando auto-redescubrimiento de impresora...");
+                
+                String newIp = attemptPrinterRediscovery(printer);
+                
+                if (newIp != null && !newIp.equals(printerIp)) {
+                    log.info("✅ Impresora re-descubierta en nueva IP: {}", newIp);
+                    
+                    // Actualizar IP en base de datos
+                    printer.setIp(newIp);
+                    entityManager.merge(printer);
+                    entityManager.flush();
+                    
+                    // Verificar nueva IP
+                    try (Socket socketNew = new Socket()) {
+                        socketNew.connect(new InetSocketAddress(newIp, printerPort), 5000);
+                        long newConnectTime = System.currentTimeMillis() - startConnect;
+                        
+                        log.info("  ✅ Nueva IP verificada: {}:{}", newIp, printerPort);
+                        
+                        diagnostic.put("status", "Re-descubierta");
+                        diagnostic.put("connectionTime", newConnectTime);
+                        
+                        response.put("success", true);
+                        response.put("message", "Impresora cambió de IP - IP actualizada automáticamente");
+                        response.put("diagnostic", diagnostic);
+                        response.put("rediscovered", true);
+                        response.put("oldIp", printerIp);
+                        response.put("newIp", newIp);
+                        
+                    } catch (Exception ex) {
+                        log.error("  ❌ Nueva IP {} tampoco accesible", newIp);
+                        response.put("success", false);
+                        response.put("message", "Impresora re-descubierta pero sigue sin responder");
+                        response.put("diagnostic", diagnostic);
+                        response.put("rediscovered", true);
+                        response.put("oldIp", printerIp);
+                        response.put("newIp", newIp);
+                    }
+                } else {
+                    log.warn("❌ No se pudo re-descubrir la impresora");
+                    response.put("success", false);
+                    response.put("message", "Impresora no accesible - Verifica que esté encendida");
+                    response.put("diagnostic", diagnostic);
+                    response.put("rediscovered", false);
+                }
+            }
+            
+        } catch (Exception e) {
+            log.error("❌ Error en test de impresora de red", e);
+            response.put("success", false);
+            response.put("message", "Error interno: " + e.getMessage());
+        }
+        
+        return response;
+    }
+    
+    /**
+     * Método auxiliar para re-descubrir impresora (simplificado para test)
+     */
+    private String attemptPrinterRediscovery(Printer printer) {
+        try {
+            // PASO 1: Intentar DNS si tiene hostname
+            String hostname = printer.getAlias();
+            if (hostname != null && !hostname.contains(" ")) {
+                try {
+                    InetAddress addr = InetAddress.getByName(hostname);
+                    String resolvedIp = addr.getHostAddress();
+                    if (!resolvedIp.equals(printer.getIp())) {
+                        log.info("  DNS resolvió: {} → {}", hostname, resolvedIp);
+                        return resolvedIp;
+                    }
+                } catch (Exception e) {
+                    log.debug("  DNS no disponible");
+                }
+            }
+            
+            // PASO 2: Escaneo rápido de subred (primeras 50 IPs)
+            String subnet = getSubnetFromIp(printer.getIp());
+            if (subnet != null) {
+                log.info("  Escaneando subred {} ...", subnet);
+                int targetPort = printer.getPort() != null ? printer.getPort() : 9100;
+                
+                // Generar primeras 50 IPs
+                String[] parts = subnet.split("\\.");
+                if (parts.length >= 3) {
+                    for (int i = 1; i <= 50; i++) {
+                        String testIp = parts[0] + "." + parts[1] + "." + parts[2] + "." + i;
+                        
+                        try (Socket socket = new Socket()) {
+                            socket.connect(new InetSocketAddress(testIp, targetPort), 500);
+                            log.info("  ✅ Encontrada en: {}", testIp);
+                            return testIp;
+                        } catch (Exception e) {
+                            // Continuar con siguiente IP
+                        }
+                    }
+                }
+            }
+            
+        } catch (Exception e) {
+            log.error("Error en re-descubrimiento: {}", e.getMessage());
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Obtiene subred desde IP
+     */
+    private String getSubnetFromIp(String ip) {
+        try {
+            String[] parts = ip.split("\\.");
+            if (parts.length == 4) {
+                return parts[0] + "." + parts[1] + "." + parts[2];
+            }
+        } catch (Exception e) {
+            log.error("Error obteniendo subred: {}", e.getMessage());
+        }
+                return null;
+    }
+    
+    /**
+     * Endpoint para capturar MAC Address de impresoras existentes
+     * ÚTIL para impresoras que fueron agregadas ANTES de implementar MAC
+     */
+    @PostMapping("/capture-printer-mac")
+    @ResponseBody
+    @Transactional
+    public Map<String, Object> capturePrinterMac(@RequestParam Long id) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            Printer printer = entityManager.find(Printer.class, id);
+            
+            if (printer == null) {
+                response.put("success", false);
+                response.put("error", "Impresora no encontrada");
+                return response;
+            }
+            
+            log.info("🔑 Intentando capturar MAC Address para: {} ({})", printer.getAlias(), printer.getIp());
+            
+            // Verificar si ya tiene MAC
+            if (printer.getMacAddress() != null && !printer.getMacAddress().isEmpty()) {
+                log.info("✅ Ya tiene MAC: {}", printer.getMacAddress());
+                response.put("success", true);
+                response.put("message", "Impresora ya tiene MAC Address registrada");
+                response.put("macAddress", printer.getMacAddress());
+                return response;
+            }
+            
+            // Intentar obtener MAC
+            String mac = networkIdService.getMacAddressFromIP(printer.getIp());
+            
+            if (mac != null && !mac.isEmpty()) {
+                log.info("✅ MAC capturada: {}", mac);
+                
+                // Guardar en base de datos
+                printer.setMacAddress(mac);
+                entityManager.merge(printer);
+                entityManager.flush();
+                
+                response.put("success", true);
+                response.put("message", "MAC Address capturada exitosamente");
+                response.put("macAddress", mac);
+                
+                log.info("💾 MAC guardada en BD para {}: {}", printer.getAlias(), mac);
+            } else {
+                log.warn("⚠️ No se pudo obtener MAC para {} ({})", printer.getAlias(), printer.getIp());
+                log.warn("   Posibles causas:");
+                log.warn("   1. Impresora apagada o no responde");
+                log.warn("   2. No está en la misma red (requiere enrutamiento)");
+                log.warn("   3. No está en tabla ARP del servidor");
+                
+                response.put("success", false);
+                response.put("error", "No se pudo obtener MAC Address");
+                response.put("suggestions", new String[]{
+                    "Verifica que la impresora esté encendida",
+                    "Haz ping a la impresora primero: ping " + printer.getIp(),
+                    "Verifica que esté en la misma red"
+                });
+            }
+            
+        } catch (Exception e) {
+            log.error("❌ Error capturando MAC Address", e);
+            response.put("success", false);
+            response.put("error", e.getMessage());
+        }
+        
+        return response;
+    }
+    
+    /**
+     * Endpoint para capturar MAC de TODAS las impresoras sin MAC
+     * Útil para actualización masiva
+     */
+    @PostMapping("/capture-all-printer-macs")
+    @ResponseBody
+    @Transactional
+    public Map<String, Object> captureAllPrinterMacs() {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            log.info("========================================");
+            log.info("🔑 CAPTURA MASIVA DE MAC ADDRESSES");
+            log.info("========================================");
+            
+            // Obtener impresoras sin MAC
+            List<Printer> printersWithoutMac = entityManager.createQuery(
+                "SELECT p FROM Printer p WHERE p.macAddress IS NULL OR p.macAddress = ''", 
+                Printer.class)
+                .getResultList();
+            
+            log.info("📊 Impresoras sin MAC: {}", printersWithoutMac.size());
+            
+            int captured = 0;
+            int failed = 0;
+            List<Map<String, String>> results = new ArrayList<>();
+            
+            for (Printer printer : printersWithoutMac) {
+                log.info("🔍 Procesando: {} ({})", printer.getAlias(), printer.getIp());
+                
+                try {
+                    // Hacer ping primero para asegurar que esté en ARP
+                    InetAddress addr = InetAddress.getByName(printer.getIp());
+                    boolean reachable = addr.isReachable(2000);
+                    
+                    if (!reachable) {
+                        log.warn("   ⚠️ No alcanzable - saltando");
+                        failed++;
+                        
+                        Map<String, String> result = new HashMap<>();
+                        result.put("printer", printer.getAlias());
+                        result.put("ip", printer.getIp());
+                        result.put("status", "No alcanzable");
+                        results.add(result);
+                        continue;
+                    }
+                    
+                    // Intentar obtener MAC
+                    String mac = networkIdService.getMacAddressFromIP(printer.getIp());
+                    
+                    if (mac != null && !mac.isEmpty()) {
+                        printer.setMacAddress(mac);
+                        entityManager.merge(printer);
+                        captured++;
+                        
+                        log.info("   ✅ MAC capturada: {}", mac);
+                        
+                        Map<String, String> result = new HashMap<>();
+                        result.put("printer", printer.getAlias());
+                        result.put("ip", printer.getIp());
+                        result.put("mac", mac);
+                        result.put("status", "Capturada");
+                        results.add(result);
+                    } else {
+                        failed++;
+                        log.warn("   ❌ No se pudo obtener MAC");
+                        
+                        Map<String, String> result = new HashMap<>();
+                        result.put("printer", printer.getAlias());
+                        result.put("ip", printer.getIp());
+                        result.put("status", "Fallo al obtener MAC");
+                        results.add(result);
+                    }
+                    
+                    // Pequeña pausa entre impresoras
+                    Thread.sleep(100);
+                    
+                } catch (Exception e) {
+                    failed++;
+                    log.error("   ❌ Error: {}", e.getMessage());
+                    
+                    Map<String, String> result = new HashMap<>();
+                    result.put("printer", printer.getAlias());
+                    result.put("ip", printer.getIp());
+                    result.put("status", "Error: " + e.getMessage());
+                    results.add(result);
+                }
+            }
+            
+            entityManager.flush();
+            
+            log.info("========================================");
+            log.info("✅ CAPTURA COMPLETADA");
+            log.info("   Total procesadas: {}", printersWithoutMac.size());
+            log.info("   ✅ Capturadas: {}", captured);
+            log.info("   ❌ Fallidas: {}", failed);
+            log.info("========================================");
+            
+            response.put("success", true);
+            response.put("totalProcessed", printersWithoutMac.size());
+            response.put("captured", captured);
+            response.put("failed", failed);
+            response.put("results", results);
+            response.put("message", String.format(
+                "Capturadas: %d/%d - Fallidas: %d", 
+                captured, printersWithoutMac.size(), failed
+            ));
+            
+        } catch (Exception e) {
+            log.error("❌ Error en captura masiva", e);
+            response.put("success", false);
+            response.put("error", e.getMessage());
         }
         
         return response;

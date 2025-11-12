@@ -15,6 +15,9 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.File;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -44,6 +47,12 @@ public class PrintQueueService {
     
     @Autowired
     private IppPrintService ippPrintService;
+    
+    @Autowired
+    private PrinterDiscoveryService discoveryService;
+    
+    @Autowired
+    private NetworkIdentificationService networkIdService;
     
     @Autowired
     private PlatformTransactionManager transactionManager;
@@ -290,6 +299,7 @@ public class PrintQueueService {
     
     /**
      * Envía un archivo a una impresora
+     * CON AUTO-REDESCUBRIMIENTO: Si falla, intenta buscar la nueva IP
      */
     private boolean sendToPrinter(Printer printer, Path file) {
         try {
@@ -380,6 +390,76 @@ public class PrintQueueService {
                 }
             }
             
+            // ═══════════════════════════════════════════════════════════
+            // AUTO-REDESCUBRIMIENTO: Si todos los métodos fallaron,
+            // la impresora puede haber cambiado de IP
+            // ═══════════════════════════════════════════════════════════
+            if (!success && !isSharedUSB) {
+                log.warn("════════════════════════════════════════════════════════════");
+                log.warn("⚠️ IMPRESORA NO RESPONDE EN IP ACTUAL: {}", ip);
+                log.warn("════════════════════════════════════════════════════════════");
+                log.warn("Impresora: {}", printer.getAlias());
+                log.warn("IP registrada: {}", ip);
+                log.warn("");
+                log.warn("🔍 INICIANDO AUTO-REDESCUBRIMIENTO...");
+                log.warn("");
+                
+                String newIp = attemptPrinterRediscovery(printer);
+                
+                if (newIp != null && !newIp.equals(ip)) {
+                    log.warn("════════════════════════════════════════════════════════════");
+                    log.warn("✅ IMPRESORA RE-DESCUBIERTA EN NUEVA IP!");
+                    log.warn("════════════════════════════════════════════════════════════");
+                    log.warn("Impresora: {}", printer.getAlias());
+                    log.warn("IP anterior: {}", ip);
+                    log.warn("IP nueva: {}", newIp);
+                    log.warn("");
+                    log.warn("📝 Actualizando IP en base de datos...");
+                    
+                    // Actualizar IP en base de datos
+                    updatePrinterIp(printer, newIp);
+                    
+                    log.warn("✅ IP actualizada exitosamente");
+                    log.warn("");
+                    log.warn("🔄 Reintentando envío con nueva IP...");
+                    log.warn("════════════════════════════════════════════════════════════");
+                    
+                    // Reintentar envío con nueva IP
+                    int port = printer.getPort() != null ? printer.getPort() : 9100;
+                    success = ippPrintService.sendToRawPort(newIp, file, port);
+                    
+                    if (success) {
+                        log.info("════════════════════════════════════════════════════════════");
+                        log.info("✅✅✅ ÉXITO: TRABAJO ENVIADO CON NUEVA IP ✅✅✅");
+                        log.info("════════════════════════════════════════════════════════════");
+                        log.info("La impresora cambió de IP pero fue detectada automáticamente.");
+                        log.info("Los próximos trabajos usarán la nueva IP: {}", newIp);
+                        log.info("════════════════════════════════════════════════════════════");
+                        return true;
+                    } else {
+                        log.error("════════════════════════════════════════════════════════════");
+                        log.error("❌ FALLÓ INCLUSO CON NUEVA IP");
+                        log.error("════════════════════════════════════════════════════════════");
+                        log.error("Puede que la impresora esté apagada o desconectada.");
+                        log.error("════════════════════════════════════════════════════════════");
+                    }
+                } else {
+                    log.error("════════════════════════════════════════════════════════════");
+                    log.error("❌ NO SE PUDO RE-DESCUBRIR LA IMPRESORA");
+                    log.error("════════════════════════════════════════════════════════════");
+                    log.error("Posibles causas:");
+                    log.error("  1. La impresora está APAGADA o desconectada");
+                    log.error("  2. Cambió de red/subred completamente diferente");
+                    log.error("  3. Firewall bloqueando descubrimiento SNMP");
+                    log.error("");
+                    log.error("💡 SOLUCIÓN:");
+                    log.error("  - Verifica que la impresora esté encendida");
+                    log.error("  - Actualiza manualmente la IP en el panel de administración");
+                    log.error("  - O ejecuta un escaneo de red para re-descubrirla");
+                    log.error("════════════════════════════════════════════════════════════");
+                }
+            }
+            
             return success;
             
         } catch (Exception e) {
@@ -405,6 +485,347 @@ public class PrintQueueService {
             log.error("Error buscando archivo de spool", e);
         }
         return null;
+    }
+    
+    /**
+     * Intenta re-descubrir una impresora que no responde
+     * MEJORADO: Usa MAC Address para identificación única
+     */
+    private String attemptPrinterRediscovery(Printer printer) {
+        try {
+            log.info("🔍 Estrategia de re-descubrimiento:");
+            
+            // PASO 0: Si tiene MAC Address, buscar por MAC (MÁS CONFIABLE)
+            if (printer.getMacAddress() != null && !printer.getMacAddress().isEmpty()) {
+                log.info("   0. [PRIORITARIO] Buscar por MAC Address: {}", printer.getMacAddress());
+                
+                // Primero buscar en tabla ARP (rápido)
+                String ipByMac = networkIdService.findIPByMacAddress(printer.getMacAddress());
+                if (ipByMac != null) {
+                    log.info("   ✓ Encontrada en ARP cache: {} (IDENTIFICACIÓN 100% SEGURA)", ipByMac);
+                    int port = printer.getPort() != null ? printer.getPort() : 9100;
+                    if (isPortOpenQuick(ipByMac, port)) {
+                        log.info("   ✓ Puerto {} confirmado - Impresora verificada!", port);
+                        return ipByMac;
+                    }
+                }
+                
+                // Si no está en ARP, hacer escaneo RÁPIDO de subred con verificación MAC
+                log.info("   ⚠️ No en tabla ARP - escaneando subred con verificación MAC...");
+                String subnet = getSubnetFromIp(printer.getIp());
+                if (subnet != null) {
+                    int targetPort = printer.getPort() != null ? printer.getPort() : 9100;
+                    
+                    // Escaneo paralelo RÁPIDO (50 threads)
+                    log.info("   🔍 Escaneo paralelo rápido de subred {} puerto {}", subnet, targetPort);
+                    long startTime = System.currentTimeMillis();
+                    
+                    String foundIp = scanSubnetForMacParallel(subnet, targetPort, printer.getMacAddress());
+                    
+                    long duration = System.currentTimeMillis() - startTime;
+                    log.info("   ⏱️ Escaneo completado en {} ms", duration);
+                    
+                    if (foundIp != null) {
+                        log.info("   ✅ ENCONTRADA por escaneo+MAC: {} (tiempo: {} ms)", foundIp, duration);
+                        return foundIp;
+                    }
+                }
+                
+                log.debug("   ✗ No encontrada por MAC en subred");
+            } else {
+                log.warn("   ⚠️ Impresora sin MAC Address registrada - usando métodos menos confiables");
+            }
+            
+            log.info("   1. Verificar hostname DNS");
+            log.info("   2. Buscar por SNMP en subred actual");
+            log.info("   3. Escanear puerto {} en subred", printer.getPort() != null ? printer.getPort() : 9100);
+            log.info("");
+            
+            // PASO 1: Intentar resolver hostname si existe
+            String hostname = extractHostnameFromPrinter(printer);
+            if (hostname != null) {
+                log.info("   → Resolviendo hostname: {}", hostname);
+                try {
+                    InetAddress addr = InetAddress.getByName(hostname);
+                    String resolvedIp = addr.getHostAddress();
+                    if (!resolvedIp.equals(printer.getIp())) {
+                        log.info("   ✓ DNS resuelto: {} → {}", hostname, resolvedIp);
+                        // Verificar que realmente es la impresora
+                        int port = printer.getPort() != null ? printer.getPort() : 9100;
+                        if (isPortOpenQuick(resolvedIp, port)) {
+                            log.info("   ✓ Puerto {} abierto - Impresora confirmada!", port);
+                            return resolvedIp;
+                        }
+                    }
+                } catch (Exception e) {
+                    log.debug("   ✗ DNS no disponible: {}", e.getMessage());
+                }
+            }
+            
+            // PASO 2: Buscar por SNMP en subred (si tiene modelo conocido)
+            String subnet = getSubnetFromIp(printer.getIp());
+            if (subnet != null && printer.getModel() != null) {
+                log.info("   → Buscando por SNMP en subred {} con modelo: {}", subnet, printer.getModel());
+                String ipBySnmp = findPrinterBySnmpInSubnet(subnet, printer.getModel());
+                if (ipBySnmp != null) {
+                    log.info("   ✓ Encontrada por SNMP: {}", ipBySnmp);
+                    return ipBySnmp;
+                }
+                log.debug("   ✗ No encontrada por SNMP");
+            }
+            
+            // PASO 3: Escanear puerto en subred (último recurso)
+            if (subnet != null) {
+                int targetPort = printer.getPort() != null ? printer.getPort() : 9100;
+                log.info("   → Escaneando puerto {} en subred {}", targetPort, subnet);
+                
+                // Si tiene MAC, usar método con verificación de MAC
+                String ipByPort;
+                if (printer.getMacAddress() != null && !printer.getMacAddress().isEmpty()) {
+                    log.info("   → Verificando MAC {} en cada IP encontrada", printer.getMacAddress());
+                    ipByPort = findPrinterByPortAndMac(subnet, targetPort, printer.getMacAddress());
+                } else {
+                    log.warn("   ⚠️ Sin MAC - usando primera IP con puerto abierto (RIESGO)");
+                    ipByPort = findPrinterByPortInSubnet(subnet, targetPort);
+                }
+                
+                if (ipByPort != null) {
+                    log.info("   ✓ Encontrada escaneando puerto: {}", ipByPort);
+                    return ipByPort;
+                }
+                log.debug("   ✗ No encontrada escaneando puertos");
+            }
+            
+            log.warn("   ✗ Todos los métodos de re-descubrimiento fallaron");
+            return null;
+            
+        } catch (Exception e) {
+            log.error("Error durante re-descubrimiento: {}", e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Extrae hostname del nombre de la impresora o location
+     */
+    private String extractHostnameFromPrinter(Printer printer) {
+        // Si el alias parece ser un hostname válido (sin espacios)
+        if (printer.getAlias() != null && 
+            !printer.getAlias().contains(" ") && 
+            !printer.getAlias().startsWith("Impresora-")) {
+            return printer.getAlias();
+        }
+        return null;
+    }
+    
+    /**
+     * Obtiene la subred de una IP
+     */
+    private String getSubnetFromIp(String ip) {
+        try {
+            String[] parts = ip.split("\\.");
+            if (parts.length == 4) {
+                return parts[0] + "." + parts[1] + "." + parts[2] + ".0/24";
+            }
+        } catch (Exception e) {
+            log.error("Error obteniendo subred: {}", e.getMessage());
+        }
+        return null;
+    }
+    
+    /**
+     * Busca impresora por SNMP en subred
+     */
+    private String findPrinterBySnmpInSubnet(String subnet, String model) {
+        List<String> ips = generateIpsFromSubnet(subnet, 100);
+        
+        for (String ip : ips) {
+            try {
+                Map<String, String> snmpInfo = discoveryService.getPrinterInfoViaSNMP(ip);
+                if (snmpInfo.containsKey("description")) {
+                    String desc = snmpInfo.get("description").toLowerCase();
+                    if (desc.contains(model.toLowerCase())) {
+                        return ip;
+                    }
+                }
+            } catch (Exception e) {
+                // Ignorar errores
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Busca impresora por puerto en subred
+     * MEJORADO: Si la impresora tiene MAC, verifica que coincida
+     */
+    private String findPrinterByPortInSubnet(String subnet, int port) {
+        List<String> ips = generateIpsFromSubnet(subnet, 254);
+        
+        for (String ip : ips) {
+            if (isPortOpenQuick(ip, port)) {
+                log.debug("   Puerto {} abierto en {}", port, ip);
+                return ip;
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Escanea subred en PARALELO buscando MAC específica
+     * MUCHO MÁS RÁPIDO que escaneo serial
+     * 
+     * @return IP encontrada o null
+     */
+    private String scanSubnetForMacParallel(String subnet, int port, String macAddress) {
+        List<String> ips = generateIpsFromSubnet(subnet, 254);
+        
+        // Usar ExecutorService con 50 threads para escaneo paralelo
+        ExecutorService executor = Executors.newFixedThreadPool(50);
+        List<Future<String>> futures = new ArrayList<>();
+        
+        try {
+            for (String ip : ips) {
+                Future<String> future = executor.submit(() -> {
+                    try {
+                        // Verificar puerto primero (rápido)
+                        if (isPortOpenQuick(ip, port)) {
+                            // Puerto abierto, verificar MAC
+                            String foundMac = networkIdService.getMacAddressFromIP(ip);
+                            if (foundMac != null && foundMac.equalsIgnoreCase(macAddress.replace("-", ":"))) {
+                                log.info("      ✓ MATCH en {}: Puerto {} + MAC {}", ip, port, macAddress);
+                                return ip;
+                            }
+                        }
+                    } catch (Exception e) {
+                        // Ignorar errores individuales
+                    }
+                    return null;
+                });
+                futures.add(future);
+            }
+            
+            // Esperar resultados con timeout de 20 segundos total
+            for (Future<String> future : futures) {
+                try {
+                    String result = future.get(100, TimeUnit.MILLISECONDS);
+                    if (result != null) {
+                        // Encontrada! Cancelar el resto
+                        executor.shutdownNow();
+                        return result;
+                    }
+                } catch (TimeoutException e) {
+                    future.cancel(true);
+                } catch (Exception e) {
+                    // Ignorar
+                }
+            }
+            
+        } finally {
+            executor.shutdownNow();
+            try {
+                executor.awaitTermination(2, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Busca impresora por puerto Y verifica MAC (MÁS SEGURO)
+     */
+    private String findPrinterByPortAndMac(String subnet, int port, String macAddress) {
+        if (macAddress == null || macAddress.isEmpty()) {
+            return findPrinterByPortInSubnet(subnet, port);
+        }
+        
+        List<String> ips = generateIpsFromSubnet(subnet, 254);
+        
+        for (String ip : ips) {
+            if (isPortOpenQuick(ip, port)) {
+                log.debug("   Puerto {} abierto en {} - verificando MAC...", port, ip);
+                
+                // Verificar que la MAC coincida
+                if (networkIdService.verifyIPMatchesMAC(ip, macAddress)) {
+                    log.info("   ✓ IP {} CONFIRMADA por MAC {} - Impresora correcta!", ip, macAddress);
+                    return ip;
+                } else {
+                    log.debug("   ✗ IP {} tiene MAC diferente - no es esta impresora", ip);
+                }
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Verifica puerto abierto con timeout corto
+     */
+    private boolean isPortOpenQuick(String ip, int port) {
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(ip, port), 1500);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+    
+    /**
+     * Genera lista de IPs desde subred
+     */
+    private List<String> generateIpsFromSubnet(String cidr, int maxIps) {
+        List<String> ips = new ArrayList<>();
+        try {
+            String[] parts = cidr.split("/");
+            String baseIP = parts[0];
+            String[] octets = baseIP.split("\\.");
+            
+            int base = Integer.parseInt(octets[0]) << 24 |
+                      Integer.parseInt(octets[1]) << 16 |
+                      Integer.parseInt(octets[2]) << 8;
+            
+            for (int i = 1; i <= Math.min(254, maxIps); i++) {
+                int ip = base | i;
+                ips.add(String.format("%d.%d.%d.%d",
+                    (ip >> 24) & 0xFF,
+                    (ip >> 16) & 0xFF,
+                    (ip >> 8) & 0xFF,
+                    ip & 0xFF));
+            }
+        } catch (Exception e) {
+            log.error("Error generando IPs: {}", e.getMessage());
+        }
+        return ips;
+    }
+    
+    /**
+     * Actualiza la IP de una impresora en la base de datos
+     */
+    @Transactional
+    private void updatePrinterIp(Printer printer, String newIp) {
+        try {
+            Printer managedPrinter = entityManager.find(Printer.class, printer.getId());
+            if (managedPrinter != null) {
+                String oldIp = managedPrinter.getIp();
+                managedPrinter.setIp(newIp);
+                
+                // Actualizar deviceUri si contiene la IP antigua
+                if (managedPrinter.getDeviceUri() != null && 
+                    managedPrinter.getDeviceUri().contains(oldIp)) {
+                    String newDeviceUri = managedPrinter.getDeviceUri().replace(oldIp, newIp);
+                    managedPrinter.setDeviceUri(newDeviceUri);
+                    log.info("   DeviceURI actualizado: {} → {}", 
+                        managedPrinter.getDeviceUri(), newDeviceUri);
+                }
+                
+                entityManager.merge(managedPrinter);
+                entityManager.flush();
+                log.info("   ✅ IP actualizada en base de datos: {} → {}", oldIp, newIp);
+            }
+        } catch (Exception e) {
+            log.error("   ❌ Error actualizando IP en BD: {}", e.getMessage());
+        }
     }
     
     /**

@@ -30,6 +30,7 @@ es\ucm\fdi\iu\client\PrintClient.class
 es\ucm\fdi\iu\control\NetworkManagementController$ValidationResult.class
 es\ucm\fdi\iu\model\Printer$Status.class
 es\ucm\fdi\iu\SecurityConfig.class
+es\ucm\fdi\iu\service\NetworkIdentificationService.class
 es\ucm\fdi\iu\model\Department.class
 es\ucm\fdi\iu\service\SmbShareService.class
 es\ucm\fdi\iu\service\SambaService$SambaShare.class

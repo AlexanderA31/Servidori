@@ -14,7 +14,6 @@ import javax.print.PrintServiceLookup;
 import java.io.IOException;
 import java.net.*;
 import java.util.*;
-import java.util.Arrays;
 import java.util.concurrent.*;
 
 // SNMP imports para descubrimiento cross-VLAN
@@ -40,12 +39,16 @@ public class PrinterDiscoveryService {
     @PersistenceContext
     private EntityManager em;
     
-    private final IppPrintService ippService;
+        private final IppPrintService ippService;
     private final SmbShareService smbService;
+    private final NetworkIdentificationService networkIdService;
     
-    public PrinterDiscoveryService(IppPrintService ippService, SmbShareService smbService) {
+    public PrinterDiscoveryService(IppPrintService ippService, 
+                                     SmbShareService smbService,
+                                     NetworkIdentificationService networkIdService) {
         this.ippService = ippService;
         this.smbService = smbService;
+        this.networkIdService = networkIdService;
     }
     
     // Estado del escaneo

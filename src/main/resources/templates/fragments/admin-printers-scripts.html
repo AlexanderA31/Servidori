@@ -137,6 +137,340 @@
             if (modal) {
                 modal.remove();
             }
+            const networkModal = document.getElementById('testNetworkModal');
+            if (networkModal) {
+                networkModal.remove();
+            }
+            const macModal = document.getElementById('captureMacModal');
+            if (macModal) {
+                macModal.remove();
+            }
+        }
+        
+        // Función para capturar MAC de todas las impresoras
+        async function captureAllMacAddresses() {
+            const confirmed = await showConfirm({
+                title: '🔑 Capturar MAC Addresses',
+                message: 'Este proceso intentará obtener la MAC Address de todas las impresoras que no la tengan registrada.\n\nEsto mejorará la identificación única de impresoras cuando cambien de IP.\n\n¿Continuar?',
+                confirmText: 'Sí, Capturar',
+                cancelText: 'Cancelar',
+                type: 'info'
+            });
+            
+            if (!confirmed) {
+                return;
+            }
+            
+            // Crear modal de progreso
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.id = 'captureMacModal';
+            modal.style.display = 'block';
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 800px;">
+                    <div class="modal-header">
+                        <h2><i class="fas fa-fingerprint"></i> Capturando MAC Addresses</h2>
+                    </div>
+                    <div class="modal-body" style="padding: 2rem;">
+                        <div style="text-align: center; margin-bottom: 1rem;">
+                            <i class="fas fa-spinner fa-spin" style="font-size: 3rem; color: #667eea;"></i>
+                        </div>
+                        <p id="captureMacMessage" style="text-align: center; font-size: 1.1rem; margin-bottom: 1rem;">
+                            🔍 Escaneando impresoras sin MAC Address...
+                        </p>
+                        <div id="captureMacResults" style="background: #f5f5f5; padding: 1rem; border-radius: 8px; margin-top: 1rem; display: none;">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeTestModal(); location.reload();" id="closeMacBtn" disabled>
+                            Cerrar y Recargar
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // Ejecutar captura
+            try {
+                const response = await fetch('/admin/capture-all-printer-macs', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                const messageEl = document.getElementById('captureMacMessage');
+                const resultsEl = document.getElementById('captureMacResults');
+                const closeBtn = document.getElementById('closeMacBtn');
+                
+                resultsEl.style.display = 'block';
+                closeBtn.disabled = false;
+                
+                if (data.success) {
+                    messageEl.innerHTML = `
+                        <i class="fas fa-check-circle" style="color: #28a745; font-size: 3rem;"></i><br>
+                        <strong style="color: #28a745;">✅ Captura Completada</strong>
+                    `;
+                    
+                    let resultsHtml = `
+                        <h4 style="margin-bottom: 1rem;">📊 Resultados</h4>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem;">
+                            <div style="background: white; padding: 1rem; border-radius: 4px; text-align: center;">
+                                <div style="font-size: 2rem; font-weight: bold; color: #667eea;">${data.totalProcessed}</div>
+                                <div style="color: #666;">Total Procesadas</div>
+                            </div>
+                            <div style="background: white; padding: 1rem; border-radius: 4px; text-align: center;">
+                                <div style="font-size: 2rem; font-weight: bold; color: #28a745;">${data.captured}</div>
+                                <div style="color: #666;">✅ Capturadas</div>
+                            </div>
+                            <div style="background: white; padding: 1rem; border-radius: 4px; text-align: center;">
+                                <div style="font-size: 2rem; font-weight: bold; color: #dc3545;">${data.failed}</div>
+                                <div style="color: #666;">❌ Fallidas</div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    if (data.results && data.results.length > 0) {
+                        resultsHtml += `
+                            <h5 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Detalle por Impresora:</h5>
+                            <div style="max-height: 300px; overflow-y: auto; background: white; padding: 1rem; border-radius: 4px;">
+                                <table style="width: 100%; font-size: 0.9rem;">
+                                    <thead>
+                                        <tr style="border-bottom: 2px solid #ddd;">
+                                            <th style="padding: 0.5rem; text-align: left;">Impresora</th>
+                                            <th style="padding: 0.5rem; text-align: left;">IP</th>
+                                            <th style="padding: 0.5rem; text-align: left;">MAC Address</th>
+                                            <th style="padding: 0.5rem; text-align: left;">Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                        `;
+                        
+                        data.results.forEach(result => {
+                            const statusColor = result.status === 'Capturada' ? '#28a745' : 
+                                              result.status === 'No alcanzable' ? '#ffc107' : '#dc3545';
+                            const statusIcon = result.status === 'Capturada' ? '✅' : 
+                                             result.status === 'No alcanzable' ? '⚠️' : '❌';
+                            
+                            resultsHtml += `
+                                <tr style="border-bottom: 1px solid #eee;">
+                                    <td style="padding: 0.5rem;">${result.printer}</td>
+                                    <td style="padding: 0.5rem;"><code>${result.ip}</code></td>
+                                    <td style="padding: 0.5rem;">${result.mac || '--'}</td>
+                                    <td style="padding: 0.5rem; color: ${statusColor};">
+                                        ${statusIcon} ${result.status}
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                        
+                        resultsHtml += `
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+                    }
+                    
+                    if (data.failed > 0) {
+                        resultsHtml += `
+                            <div style="margin-top: 1rem; padding: 1rem; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
+                                <strong>⚠️ Nota:</strong> Algunas impresoras no pudieron ser procesadas. 
+                                Verifica que estén encendidas y accesibles en la red.
+                            </div>
+                        `;
+                    }
+                    
+                    resultsEl.innerHTML = resultsHtml;
+                    
+                } else {
+                    messageEl.innerHTML = `
+                        <i class="fas fa-times-circle" style="color: #dc3545; font-size: 3rem;"></i><br>
+                        <strong style="color: #dc3545;">❌ Error</strong>
+                    `;
+                    
+                    resultsEl.innerHTML = `
+                        <div style="padding: 1rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px;">
+                            <strong>Error:</strong> ${data.error || 'Error desconocido'}
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                const messageEl = document.getElementById('captureMacMessage');
+                const resultsEl = document.getElementById('captureMacResults');
+                const closeBtn = document.getElementById('closeMacBtn');
+                
+                closeBtn.disabled = false;
+                resultsEl.style.display = 'block';
+                
+                messageEl.innerHTML = `
+                    <i class="fas fa-exclamation-triangle" style="color: #ffc107; font-size: 3rem;"></i><br>
+                    <strong style="color: #ffc107;">⚠️ Error de Red</strong>
+                `;
+                
+                resultsEl.innerHTML = `
+                    <div style="padding: 1rem; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
+                        <strong>Error:</strong> ${error.message || 'Error de conexión'}
+                    </div>
+                `;
+            }
+        }
+        
+        // Función para testear impresora de red
+        function testNetworkPrinter(data) {
+            const printerId = data.id;
+            const printerAlias = data.alias;
+            const printerIp = data.ip;
+            const printerPort = data.port || '9100';
+            const printerProtocol = data.protocol || 'RAW';
+            
+            // Crear modal de progreso
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.id = 'testNetworkModal';
+            modal.style.display = 'block';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2><i class="fas fa-vial"></i> Test de Conexión - ${printerAlias}</h2>
+                    </div>
+                    <div class="modal-body" style="text-align: center; padding: 2rem;">
+                        <div style="margin-bottom: 1rem;">
+                            <i class="fas fa-spinner fa-spin" style="font-size: 3rem; color: #667eea;"></i>
+                        </div>
+                        <p id="testNetworkMessage" style="font-size: 1.1rem; margin-bottom: 1rem;">
+                            🔍 Probando conexión a impresora de red...<br>
+                            <small style="color: #666;">IP: ${printerIp}:${printerPort} (${printerProtocol})</small>
+                        </p>
+                        <div id="testNetworkResults" style="text-align: left; background: #f5f5f5; padding: 1rem; border-radius: 8px; margin-top: 1rem; display: none;">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeTestModal()" id="closeNetworkTestBtn" disabled>
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // Ejecutar test
+            fetch(`/admin/test-network-printer?id=${printerId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const messageEl = document.getElementById('testNetworkMessage');
+                    const resultsEl = document.getElementById('testNetworkResults');
+                    const closeBtn = document.getElementById('closeNetworkTestBtn');
+                    
+                    resultsEl.style.display = 'block';
+                    closeBtn.disabled = false;
+                    
+                    if (data.success) {
+                        messageEl.innerHTML = `
+                            <i class="fas fa-check-circle" style="color: #28a745; font-size: 3rem;"></i><br>
+                            <strong style="color: #28a745;">✅ Impresora Accesible</strong>
+                        `;
+                        
+                        resultsEl.innerHTML = `
+                            <h4 style="color: #28a745; margin-bottom: 1rem;">✅ Diagnóstico Exitoso</h4>
+                            <ul style="list-style: none; padding: 0;">
+                                <li style="padding: 0.5rem 0; border-bottom: 1px solid #ddd;">
+                                    <strong>Host:</strong> ${data.diagnostic.host || printerIp}
+                                </li>
+                                <li style="padding: 0.5rem 0; border-bottom: 1px solid #ddd;">
+                                    <strong>Puerto:</strong> ${data.diagnostic.port || printerPort}
+                                </li>
+                                <li style="padding: 0.5rem 0; border-bottom: 1px solid #ddd;">
+                                    <strong>Protocolo:</strong> ${data.diagnostic.protocol || printerProtocol}
+                                </li>
+                                <li style="padding: 0.5rem 0; border-bottom: 1px solid #ddd;">
+                                    <strong>Estado:</strong> <span style="color: #28a745;">✅ ${data.diagnostic.status || 'Conectada'}</span>
+                                </li>
+                                <li style="padding: 0.5rem 0; border-bottom: 1px solid #ddd;">
+                                    <strong>Latencia:</strong> ${data.diagnostic.latency || '--'} ms
+                                </li>
+                                <li style="padding: 0.5rem 0;">
+                                    <strong>Mensaje:</strong> ${data.message || 'La impresora está en línea y lista para imprimir'}
+                                </li>
+                            </ul>
+                            <div style="margin-top: 1rem; padding: 1rem; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px;">
+                                <i class="fas fa-info-circle"></i> <strong>Estado:</strong> La impresora está funcionando correctamente.
+                            </div>
+                        `;
+                    } else {
+                        messageEl.innerHTML = `
+                            <i class="fas fa-times-circle" style="color: #dc3545; font-size: 3rem;"></i><br>
+                            <strong style="color: #dc3545;">❌ Error de Conexión</strong>
+                        `;
+                        
+                        let solutionHtml = '';
+                        
+                        // Si cambió de IP, mostrar información especial
+                        if (data.rediscovered) {
+                            solutionHtml = `
+                                <div style="padding: 1rem; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; margin-bottom: 1rem;">
+                                    <h5 style="margin-top: 0; color: #856404;">🔍 Se detectó cambio de IP</h5>
+                                    <p style="margin-bottom: 0.5rem;"><strong>IP Antigua:</strong> ${data.oldIp}</p>
+                                    <p style="margin-bottom: 0.5rem;"><strong>IP Nueva:</strong> ${data.newIp || 'No encontrada'}</p>
+                                    ${data.newIp ? '<p style="margin: 0;"><i class="fas fa-check-circle" style="color: #28a745;"></i> La IP se actualizó automáticamente en la base de datos.</p>' : '<p style="margin: 0; color: #dc3545;"><i class="fas fa-times-circle"></i> No se pudo re-descubrir la impresora en la red.</p>'}
+                                </div>
+                            `;
+                        }
+                        
+                        resultsEl.innerHTML = `
+                            <h4 style="color: #dc3545; margin-bottom: 1rem;">❌ Diagnóstico Fallido</h4>
+                            <div style="padding: 1rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; margin-bottom: 1rem;">
+                                <strong>Error:</strong> ${data.message || 'No se pudo conectar a la impresora'}
+                            </div>
+                            ${solutionHtml}
+                            <h5 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">🔧 Guía de Solución:</h5>
+                            <ol style="margin-left: 1.5rem;">
+                                <li style="margin-bottom: 0.5rem;">
+                                    <strong>Verifica que la impresora esté encendida</strong><br>
+                                    <code>ping ${printerIp}</code>
+                                </li>
+                                <li style="margin-bottom: 0.5rem;">
+                                    <strong>Verifica la IP actual de la impresora:</strong><br>
+                                    Accede al menú de la impresora física o imprime página de configuración
+                                </li>
+                                <li style="margin-bottom: 0.5rem;">
+                                    <strong>Verifica el puerto:</strong><br>
+                                    Puerto actual: <code>${printerPort}</code><br>
+                                    Puertos comunes: 9100 (RAW), 631 (IPP), 515 (LPD)
+                                </li>
+                                <li style="margin-bottom: 0.5rem;">
+                                    <strong>Firewall/Red:</strong><br>
+                                    Verifica que no haya firewall bloqueando la conexión
+                                </li>
+                                <li style="margin-bottom: 0.5rem;">
+                                    <strong>Ejecutar escaneo de red:</strong><br>
+                                    Usa el botón "Escanear Red" en el panel para re-descubrir impresoras
+                                </li>
+                            </ol>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    const messageEl = document.getElementById('testNetworkMessage');
+                    const resultsEl = document.getElementById('testNetworkResults');
+                    const closeBtn = document.getElementById('closeNetworkTestBtn');
+                    
+                    closeBtn.disabled = false;
+                    resultsEl.style.display = 'block';
+                    
+                    messageEl.innerHTML = `
+                        <i class="fas fa-exclamation-triangle" style="color: #ffc107; font-size: 3rem;"></i><br>
+                        <strong style="color: #ffc107;">⚠️ Error en la Solicitud</strong>
+                    `;
+                    
+                    resultsEl.innerHTML = `
+                        <div style="padding: 1rem; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
+                            <strong>Error:</strong> ${error.message || 'Error de red al realizar el test'}
+                        </div>
+                    `;
+                });
         }
         
         function openEditPrinterModal(data) {

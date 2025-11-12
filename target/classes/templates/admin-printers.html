@@ -82,7 +82,7 @@
                     <p>Administra todas las impresoras del sistema</p>
                 </div>
                 
-                <!-- Acciones -->
+                                <!-- Acciones -->
                 <div class="departments-actions">
                     <button class="btn btn-primary" onclick="openModal('configureNetworksModal')">
                         <i class="fas fa-cog"></i> Configurar Redes
@@ -93,6 +93,10 @@
                             <i class="fas fa-sync"></i> Escanear Red
                         </button>
                     </form>
+                    <button class="btn btn-success" onclick="captureAllMacAddresses()" 
+                            title="Capturar MAC Address de todas las impresoras sin MAC">
+                        <i class="fas fa-fingerprint"></i> Capturar MACs
+                    </button>
                     <button class="btn btn-primary" onclick="openModal('addPrinterModal')">
                         <i class="fas fa-plus"></i> Agregar Impresora
                     </button>
@@ -207,7 +211,7 @@
                                             </div>
                                             <span th:unless="${printer.instance != null}" class="text-muted">--</span>
                                         </td>
-                                        <td>
+                                                                                <td>
                                             <div class="action-buttons">
                                                 <!-- Botón Test para impresoras USB compartidas -->
                                                 <button th:if="${printer.location != null and #strings.contains(printer.location, 'Compartida-USB')}"
@@ -215,6 +219,15 @@
                                                         th:attr="data-id=${printer.id}, data-alias=${printer.alias}, data-ip=${printer.ip}"
                                                         onclick="testUsbPrinter(this.dataset)"
                                                         title="Test de Conexión (Cliente USB)">
+                                                    <i class="fas fa-vial"></i>
+                                                </button>
+                                                
+                                                <!-- Botón Test para impresoras de RED -->
+                                                <button th:unless="${printer.location != null and #strings.contains(printer.location, 'Compartida-USB')}"
+                                                        class="btn btn-sm btn-success" 
+                                                        th:attr="data-id=${printer.id}, data-alias=${printer.alias}, data-ip=${printer.ip}, data-port=${printer.port}, data-protocol=${printer.protocol}"
+                                                        onclick="testNetworkPrinter(this.dataset)"
+                                                        title="Test de Conexión (Red)">
                                                     <i class="fas fa-vial"></i>
                                                 </button>
                                                 
