@@ -2404,13 +2404,39 @@ public class AdminController {
             
             printerInfo.put("currentIpWorks", currentIpWorks);
             
-            // Si forceRescan está activado, buscar de todos modos
+            // ⚠️ IMPORTANTE: Solo escanear red si forceRescan=true
+            // Por defecto, solo se retorna información de BD sin escanear
             if (forceRescan) {
-                log.info("⚠️ FORCE RESCAN activado - buscando aunque IP funcione");
+                log.info("⚠️ FORCE RESCAN activado - iniciando búsqueda en red...");
+                
+                if (currentIpWorks) {
+                    log.info("   (IP actual funciona, pero se buscará de todos modos)");
+                }
+            } else if (!currentIpWorks) {
+                log.warn("❌ IP no responde pero forceRescan=false");
+                log.warn("   💡 Usa forceRescan=true para buscar en la red");
+                log.warn("   💡 O actualiza la IP manualmente desde la interfaz");
+                log.info("========================================");
+                
+                response.put("success", false);
+                response.put("message", "Impresora no responde - Usa 'Buscar en Red' para localizarla");
+                response.put("printer", printerInfo);
+                response.put("suggestion", "Presiona 'Buscar en Red' para escanear la red y encontrar la impresora");
+                return response;
+            } else {
+                // IP funciona y no se pidió rescan
+                log.info("✅ IP actual funciona correctamente");
+                log.info("========================================");
+                
+                response.put("success", true);
+                response.put("message", "La impresora está funcionando correctamente");
+                response.put("printer", printerInfo);
+                return response;
             }
             
-            if (!currentIpWorks || forceRescan) {
-                log.info("🔍 IP no responde, iniciando búsqueda en red...");
+            // Si llegamos aquí, forceRescan=true
+            if (forceRescan) {
+                log.info("🔍 Iniciando búsqueda en red...");
                 
                 String newIp = null;
                 
@@ -2510,14 +2536,7 @@ public class AdminController {
                     log.warn("❌ No se pudo encontrar la impresora en la red");
                     response.put("success", false);
                     response.put("message", "Impresora no responde y no se pudo encontrar en la red");
-                }
-            } else {
-                if (forceRescan) {
-                    response.put("success", false);
-                    response.put("message", "No se encontró la impresora en la red (FORCE RESCAN activado)");
-                } else {
-                    response.put("success", true);
-                    response.put("message", "La impresora está funcionando correctamente");
+                    response.put("suggestion", "Verifica que esté encendida y conectada, o puede haber cambiado de subred");
                 }
             }
             
@@ -2543,8 +2562,16 @@ public class AdminController {
             log.info("   🔎 Escaneando subred: {}.0-254 (red de IP registrada {})", subnet, printer.getIp());
             log.info("   🎯 Buscando impresora: '{}' (Modelo: {})", printer.getAlias(), printer.getModel());
             log.info("   🔍 Identificación por: NOMBRE SNMP (prioridad) > MAC Address > Exclusión");
+            log.info("   ⏱️ Tiempo máximo: 60 segundos");
             
-            // Escanear rango 1-254
+            // Tiempo límite: 60 segundos
+            long startTime = System.currentTimeMillis();
+            long maxDuration = 60000; // 60 segundos
+            
+            // Escanear rango 1-254 (solo IPs que responden rápidamente)
+            int hostsScanned = 0;
+            int hostsWithPrinterPort = 0;
+            
             for (int i = 1; i <= 254; i++) {
                 String testIp = subnet + "." + i;
                 
@@ -2553,15 +2580,25 @@ public class AdminController {
                     continue;
                 }
                 
-                try {
-                    // Ping rápido
+                hostsScanned++;
+                
+                // Verificar timeout
+                if (System.currentTimeMillis() - startTime > maxDuration) {
+                    log.warn("   ⏱️ Tiempo máximo alcanzado (60s) - Deteniendo escaneo");
+                    log.info("   📊 Progreso: {}/254 IPs escaneadas, {} impresoras detectadas", hostsScanned, hostsWithPrinterPort);
+                    break;
+                }
+                
+                try;
+                    // Ping MUY rápido (solo 100ms)
                     InetAddress addr = InetAddress.getByName(testIp);
-                    if (addr.isReachable(200)) { // 200ms timeout
+                    if (addr.isReachable(100)) { // 100ms timeout (más rápido)
                         log.debug("      {} responde, verificando...", testIp);
                         
                         // Verificar si es una impresora (puerto 9100 o 631)
                         if (isPrinterPort(testIp, 9100) || isPrinterPort(testIp, 631)) {
-                            log.info("      🖨 Puerto de impresora detectado en {}", testIp);
+                            hostsWithPrinterPort++;
+                            log.info("      🖨 Puerto de impresora detectado en {} ({}/{})", testIp, hostsWithPrinterPort, hostsScanned);
                             
                             // NOTA: NO omitimos si la IP está en uso por otra impresora
                             // Lo importante es ENCONTRAR la impresora correcta, aunque haya conflicto
@@ -2789,13 +2826,15 @@ public class AdminController {
                     // Continuar con la siguiente IP
                 }
                 
-                // Pequeña pausa cada 20 IPs
-                if (i % 20 == 0) {
-                    Thread.sleep(100);
-                }
+                // Sin pausas - queremos velocidad
+                // (el timeout de 100ms ya limita la velocidad)
             }
             
             log.warn("❌ No se encontró '{}' en la red {}.x", printer.getAlias(), subnet);
+            log.info("   📊 Estadísticas del escaneo:");
+            log.info("      - IPs escaneadas: {}/254", hostsScanned);
+            log.info("      - Hosts que respondieron: {}", hostsScanned);
+            log.info("      - Impresoras detectadas: {}", hostsWithPrinterPort);
             log.warn("   💡 Posibles causas:");
             log.warn("      1. Está apagada o desconectada");
             log.warn("      2. Cambió a OTRA subred (ej: de 10.1.1.x a 10.1.2.x)");
@@ -2811,11 +2850,11 @@ public class AdminController {
     }
     
     /**
-     * Verifica si un puerto está abierto
+     * Verifica si un puerto está abierto (con timeout muy corto para velocidad)
      */
     private boolean isPrinterPort(String ip, int port) {
         try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress(ip, port), 500);
+            socket.connect(new InetSocketAddress(ip, port), 300); // 300ms timeout (más rápido)
             return true;
         } catch (Exception e) {
             return false;
