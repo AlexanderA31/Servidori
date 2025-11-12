@@ -2556,17 +2556,68 @@ public class AdminController {
                         
                         // Verificar si es una impresora (puerto 9100 o 631)
                         if (isPrinterPort(testIp, 9100) || isPrinterPort(testIp, 631)) {
-                            // Si tenemos MAC, verificar que coincida
+                            log.info("      ✅ Puerto de impresora detectado en {}", testIp);
+                            
+                            // PASO 1: Verificar si esta IP ya está asignada a OTRA impresora
+                            List<Printer> otherPrintersWithIp = entityManager.createQuery(
+                                "SELECT p FROM Printer p WHERE p.ip = :ip AND p.id != :id", Printer.class)
+                                .setParameter("ip", testIp)
+                                .setParameter("id", printer.getId())
+                                .getResultList();
+                            
+                            if (!otherPrintersWithIp.isEmpty()) {
+                                log.warn("      ❌ CONFLICTO: IP {} ya asignada a '{}'", 
+                                    testIp, otherPrintersWithIp.get(0).getAlias());
+                                continue; // Saltar esta IP, buscar otra
+                            }
+                            
+                            // PASO 2: Si tenemos MAC guardada, verificar que coincida
                             if (printer.getMacAddress() != null && !printer.getMacAddress().isEmpty()) {
                                 String mac = networkIdService.getMacAddressMultiMethod(testIp);
                                 if (mac != null && mac.equalsIgnoreCase(printer.getMacAddress())) {
                                     log.info("      ✅ MAC coincide! Impresora encontrada en {}", testIp);
                                     return testIp;
+                                } else {
+                                    log.debug("      ⚠️ MAC no coincide (buscada: {}, encontrada: {})", 
+                                        printer.getMacAddress(), mac);
+                                    continue; // No es esta impresora, seguir buscando
                                 }
                             } else {
-                                // Sin MAC, asumir que es la impresora si responde en puerto de impresión
-                                log.info("      ✅ Puerto de impresora detectado en {}", testIp);
-                                return testIp;
+                                // PASO 3: Sin MAC guardada, intentar obtenerla para verificar
+                                log.info("      🔍 Sin MAC guardada, intentando capturar...");
+                                String capturedMac = networkIdService.getMacAddressMultiMethod(testIp);
+                                
+                                if (capturedMac != null && !capturedMac.isEmpty()) {
+                                    log.info("      ✅ MAC capturada: {}", capturedMac);
+                                    
+                                    // Verificar que esta MAC no esté asignada a OTRA impresora
+                                    List<Printer> printersWithSameMac = entityManager.createQuery(
+                                        "SELECT p FROM Printer p WHERE p.macAddress = :mac AND p.id != :id", Printer.class)
+                                        .setParameter("mac", capturedMac)
+                                        .setParameter("id", printer.getId())
+                                        .getResultList();
+                                    
+                                    if (!printersWithSameMac.isEmpty()) {
+                                        log.warn("      ❌ MAC {} ya pertenece a '{}' - no es nuestra impresora",
+                                            capturedMac, printersWithSameMac.get(0).getAlias());
+                                        continue; // No es nuestra impresora
+                                    }
+                                    
+                                    // ✅ MAC única y disponible - probablemente es nuestra impresora
+                                    log.info("      ✅ Impresora encontrada con alta confianza en {}", testIp);
+                                    log.info("      📝 Guardando MAC {} en BD...", capturedMac);
+                                    
+                                    // Guardar MAC para futuras búsquedas
+                                    printer.setMacAddress(capturedMac);
+                                    entityManager.merge(printer);
+                                    
+                                    return testIp;
+                                } else {
+                                    // No se pudo capturar MAC - ADVERTENCIA
+                                    log.warn("      ⚠️ No se pudo capturar MAC de {} - ¿Es realmente una impresora?", testIp);
+                                    log.warn("      ⚠️ Saltando por seguridad (podría ser otra impresora sin poder verificar)");
+                                    continue; // Por seguridad, no retornar sin MAC
+                                }
                             }
                         }
                     }
@@ -2579,6 +2630,8 @@ public class AdminController {
                     Thread.sleep(100);
                 }
             }
+            
+            log.warn("❌ No se encontró la impresora '{}' en la subred {}.x", printer.getAlias(), subnet);
             
         } catch (Exception e) {
             log.error("Error escaneando red: {}", e.getMessage());
