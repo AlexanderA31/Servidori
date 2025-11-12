@@ -2589,7 +2589,7 @@ public class AdminController {
                     break;
                 }
                 
-                try;
+                try {
                     // Ping MUY rápido (solo 100ms)
                     InetAddress addr = InetAddress.getByName(testIp);
                     if (addr.isReachable(100)) { // 100ms timeout (más rápido)
