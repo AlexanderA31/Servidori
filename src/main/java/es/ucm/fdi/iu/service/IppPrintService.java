@@ -653,16 +653,49 @@ public class IppPrintService {
                 while ((bytesRead = fis.read(buffer)) != -1) {
                     out.write(buffer, 0, bytesRead);
                     totalBytes += bytesRead;
+                    
+                    // Flush periódicamente para evitar buffers llenos
+                    if (totalBytes % 8192 == 0) {
+                        out.flush();
+                    }
                 }
+                
+                // IMPORTANTE: Flush final y esperar a que los datos se envíen
                 out.flush();
                 
+                // Dar tiempo al socket para enviar todos los datos (especialmente importante en redes lentas)
+                // Sin esto, el socket se cierra antes de que el último buffer llegue al destino
+                try {
+                    Thread.sleep(100); // 100ms debería ser suficiente para redes locales
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                
                 long duration = System.currentTimeMillis() - startTime;
-                double speedKBps = (totalBytes / 1024.0) / (duration / 1000.0);
+                double speedKBps = duration > 0 ? (totalBytes / 1024.0) / (duration / 1000.0) : 0;
                 
                 log.info("   📊 Transferencia completa:");
                 log.info("      - Bytes enviados: {} ({} KB)", totalBytes, totalBytes / 1024);
                 log.info("      - Duración: {} ms", duration);
-                log.info("      - Velocidad: {:.2f} KB/s", speedKBps);
+                if (duration > 0) {
+                    log.info("      - Velocidad: {:.2f} KB/s", speedKBps);
+                } else {
+                    log.info("      - Velocidad: instantánea (buffered)");
+                }
+                
+                // Intentar leer respuesta del cliente (opcional pero ayuda a confirmar recepción)
+                try {
+                    socket.setSoTimeout(1000); // 1 segundo para respuesta
+                    InputStream in = socket.getInputStream();
+                    if (in.available() > 0) {
+                        byte[] response = new byte[256];
+                        int respLen = in.read(response);
+                        log.debug("   📨 Respuesta del cliente: {} bytes", respLen);
+                    }
+                } catch (Exception e) {
+                    // Es normal que no haya respuesta en sockets RAW
+                    log.trace("Sin respuesta del cliente (normal para RAW)");
+                }
                 
                 return true;
             }
