@@ -836,12 +836,14 @@ public class ApiController {
             entityManager.persist(printer);
             entityManager.flush();
             
-            response.put("success", true);
+                        response.put("success", true);
             response.put("message", "Impresora registrada exitosamente");
             response.put("printerId", printer.getId());
             response.put("printerName", printer.getAlias());
+            response.put("ippPort", nextPort);  // DEVOLVER EL PUERTO ASIGNADO
+            response.put("serverIp", es.ucm.fdi.iu.util.NetworkUtils.getServerIpAddress());
             
-            log.info("✅ Impresora compartida registrada automáticamente: {} (IP: {})", alias, ip);
+            log.info("✅ Impresora compartida registrada automáticamente: {} (IP: {}, Puerto IPP: {})", alias, ip, nextPort);
             
         } catch (Exception e) {
             log.error("❌ Error registrando impresora compartida", e);

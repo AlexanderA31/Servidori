@@ -208,14 +208,27 @@ REM Crear JSON
     echo }
 ) > "%TEMP_JSON%"
 
-REM Enviar POST al servidor
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$json = Get-Content '%TEMP_JSON%' -Raw; try { $response = Invoke-RestMethod -Uri 'http://%SERVER_IP%:%SERVER_PORT%/api/register-shared-printer' -Method Post -Body $json -ContentType 'application/json' -TimeoutSec 15; $response | ConvertTo-Json | Out-File '%TEMP_RESPONSE%'; if ($response.success -eq $true) { Write-Host '[OK] Impresora registrada exitosamente'; exit 0 } elseif ($response.error -like '*Ya existe*') { Write-Host '[INFO] Impresora ya estaba registrada'; exit 2 } else { Write-Host '[ERROR]' $response.error; exit 1 } } catch { Write-Host '[ERROR]' $_.Exception.Message; exit 1 }"
+REM Enviar POST al servidor y capturar respuesta con puerto asignado
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$json = Get-Content '%TEMP_JSON%' -Raw; try { $response = Invoke-RestMethod -Uri 'http://%SERVER_IP%:%SERVER_PORT%/api/register-shared-printer' -Method Post -Body $json -ContentType 'application/json' -TimeoutSec 15; $response | ConvertTo-Json | Out-File '%TEMP_RESPONSE%'; if ($response.success -eq $true) { Write-Host '[OK] Impresora registrada exitosamente'; Write-Host ''; Write-Host 'PUERTO IPP ASIGNADO:' $response.ippPort -ForegroundColor Cyan; Write-Host 'Este es el puerto FIJO para esta impresora' -ForegroundColor Yellow; Write-Host ''; exit 0 } elseif ($response.error -like '*Ya existe*') { Write-Host '[INFO] Impresora ya estaba registrada'; exit 2 } else { Write-Host '[ERROR]' $response.error; exit 1 } } catch { Write-Host '[ERROR]' $_.Exception.Message; exit 1 }"
+
+REM Leer puerto IPP asignado desde la respuesta
+set "IPP_PORT=631"
+if exist "%TEMP_RESPONSE%" (
+    for /f "tokens=2 delims=:,}" %%a in ('findstr /i "ippPort" "%TEMP_RESPONSE%"') do (
+        set "IPP_PORT=%%a"
+        set "IPP_PORT=!IPP_PORT: =!"
+    )
+)
 
 if errorlevel 2 (
     echo.
     echo [INFO] La impresora ya estaba registrada en el servidor
     echo        Se usara la configuracion existente
     echo.
+    REM Intentar obtener puerto de impresora existente
+    powershell -NoProfile -Command "try { $printers = Invoke-RestMethod -Uri 'http://%SERVER_IP%:%SERVER_PORT%/api/printers' -Method Get; $myPrinter = $printers.printers | Where-Object {$_.alias -eq '!PRINTER_ALIAS!'}; if ($myPrinter) { Write-Host $myPrinter.ippPort } else { Write-Host '8631' } } catch { Write-Host '8631' }" > "%TEMP%\detected_port.txt"
+    set /p IPP_PORT=<"%TEMP%\detected_port.txt"
+    del "%TEMP%\detected_port.txt" 2>nul
 ) else if errorlevel 1 (
     echo.
     echo [AVISO] No se pudo registrar en el servidor
@@ -225,6 +238,14 @@ if errorlevel 2 (
     echo [OK] Impresora registrada en el servidor
     echo.
 )
+
+echo ====================================================================
+echo   PUERTO IPP ASIGNADO: !IPP_PORT!
+echo ====================================================================
+echo.
+echo Este puerto es FIJO y exclusivo para esta impresora
+echo Los clientes deben conectarse a: %SERVER_IP%:!IPP_PORT!
+echo.
 
 REM Limpiar archivos temporales
 del "%TEMP_JSON%" 2>nul
@@ -554,9 +575,10 @@ REM GUARDAR CONFIGURACION
 REM ====================================================================
 (
     echo PRINTER_NAME=!SELECTED_PRINTER!
+    echo PRINTER_ALIAS=!PRINTER_ALIAS!
     echo SERVER_IP=%SERVER_IP%
     echo SERVER_PORT=%SERVER_PORT%
-    echo IPP_PORT=631
+    echo IPP_PORT=!IPP_PORT!
     echo REGISTERED_AT=%DATE% %TIME%
 ) > "%CONFIG_FILE%"
 
