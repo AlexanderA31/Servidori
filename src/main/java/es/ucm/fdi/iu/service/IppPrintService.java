@@ -687,7 +687,7 @@ public class IppPrintService {
                 log.info("      - Bytes enviados: {} ({} KB)", totalBytes, totalBytes / 1024);
                 log.info("      - Duración: {} ms", duration);
                 if (duration > 0) {
-                    log.info("      - Velocidad: {:.2f} KB/s", speedKBps);
+                    log.info("      - Velocidad: {} KB/s", String.format("%.2f", speedKBps));
                 } else {
                     log.info("      - Velocidad: instantánea (buffered)");
                 }

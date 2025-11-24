@@ -284,15 +284,26 @@ public class MultiPortIppServerService {
                     log.debug("  📦 Recibidos {} bytes iniciales", bytesRead);
                     
                     // Si recibimos datos, aumentar timeout para el resto
-                    clientSocket.setSoTimeout(10000); // 10 segundos para el resto
+                    clientSocket.setSoTimeout(5000); // 5 segundos entre paquetes
                     
-                    // Continuar leyendo hasta que no haya más
-                    while (in.available() > 0) {
-                        bytesRead = in.read(buffer);
-                        if (bytesRead == -1) break;
-                        baos.write(buffer, 0, bytesRead);
-                        totalBytes += bytesRead;
+                    // IMPORTANTE: Leer hasta EOF o timeout, NO usar available()
+                    // available() solo muestra bytes en buffer local, no garantiza que llegaron todos
+                    try {
+                        while ((bytesRead = in.read(buffer)) != -1) {
+                            baos.write(buffer, 0, bytesRead);
+                            totalBytes += bytesRead;
+                            
+                            // Log progreso cada 100KB
+                            if (totalBytes % 102400 == 0) {
+                                log.debug("    ... {} KB recibidos", totalBytes / 1024);
                             }
+                        }
+                    } catch (SocketTimeoutException ste) {
+                        // Timeout después de recibir datos = cliente terminó de enviar
+                        log.debug("  📌 Timeout después de {} bytes - Fin de transmisión", totalBytes);
+                    }
+                    
+                    log.info("  ✅ Recepción completa: {} bytes ({} KB)", totalBytes, totalBytes / 1024);
                     
                     // Analizar cabecera para detectar tipo de datos
                     if (totalBytes >= 8) {
