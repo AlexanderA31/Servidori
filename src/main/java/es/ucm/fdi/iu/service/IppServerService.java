@@ -3,6 +3,7 @@ package es.ucm.fdi.iu.service;
 import es.ucm.fdi.iu.model.Printer;
 import es.ucm.fdi.iu.repository.PrinterRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -21,10 +22,13 @@ import java.util.concurrent.*;
  * ipp://<servidor-ip>:631/printers/<nombre-impresora>
  * 
  * Y la aplicación redirigirá el trabajo a la impresora real
+ * 
+ * NOTA: Este servicio NO se carga en modo usb-client (requiere base de datos)
  */
 // Deshabilitado: Usa MultiPortIppServerService para identificar impresoras
 @Service
 @Slf4j
+@ConditionalOnProperty(name = "app.mode", havingValue = "server", matchIfMissing = true)
 public class IppServerService {
 
     private ServerSocket serverSocket;
