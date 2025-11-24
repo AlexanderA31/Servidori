@@ -641,6 +641,15 @@ public class IppPrintService {
             socket.connect(new InetSocketAddress(ip, port), connectionTimeout);
             socket.setSoTimeout(dataTransferTimeout);
             
+            // Aumentar buffer de envío para evitar pérdida de datos
+            socket.setSendBufferSize(65536); // 64KB
+            
+            // Deshabilitar Nagle para envío inmediato (importante para datos pequeños)
+            socket.setTcpNoDelay(true);
+            
+            // Mantener conexión viva
+            socket.setKeepAlive(true);
+            
             long startTime = System.currentTimeMillis();
             long totalBytes = 0;
             
@@ -703,9 +712,22 @@ public class IppPrintService {
         } finally {
             if (socket != null && !socket.isClosed()) {
                 try {
+                    // Shutdown ordenado: cerrar salida pero dejar entrada abierta
+                    // Esto le indica al receptor que terminamos de enviar
+                    socket.shutdownOutput();
+                    
+                    // Dar tiempo para que el receptor procese los datos
+                    Thread.sleep(50);
+                    
+                    // Ahora cerrar completamente
                     socket.close();
-                } catch (IOException e) {
+                } catch (Exception e) {
                     log.trace("Error cerrando socket: {}", e.getMessage());
+                    try {
+                        socket.close();
+                    } catch (Exception ex) {
+                        // Ignorar
+                    }
                 }
             }
         }
