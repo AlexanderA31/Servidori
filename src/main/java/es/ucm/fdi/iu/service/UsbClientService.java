@@ -544,16 +544,21 @@ public class UsbClientService {
             
             log.info("   🔄 Método 1: SumatraPDF (impresión silenciosa)...");
             
-            // Comando: SumatraPDF.exe -print-to "Nombre Impresora" -silent "archivo.pdf"
-            String command = String.format("\"%s\" -print-to \"%s\" -silent \"%s\"",
-                sumatraPath, localPrinterName, file.toAbsolutePath());
+            // USAR ARRAY en lugar de String para evitar problemas con espacios
+            String[] commandArray = {
+                sumatraPath,
+                "-print-to",
+                localPrinterName,
+                "-silent",
+                file.toAbsolutePath().toString()
+            };
             
-            log.info("      📝 Comando completo:");
-            log.info("         {}", command);
-            log.info("      🗗️  Nombre impresora: [{}]", localPrinterName);
-            log.info("      📄 Archivo PDF: {}", file.toAbsolutePath());
+            log.info("      📝 Comando (array):");
+            log.info("         Ejecutable: {}", sumatraPath);
+            log.info("         Impresora: [{}]", localPrinterName);
+            log.info("         Archivo: {}", file.toAbsolutePath());
             
-            Process process = Runtime.getRuntime().exec(command);
+            Process process = Runtime.getRuntime().exec(commandArray);
             
             // Esperar máximo 30 segundos
             boolean finished = process.waitFor(30, TimeUnit.SECONDS);
