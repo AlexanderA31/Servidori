@@ -294,14 +294,21 @@ public class MultiPortIppServerService {
                         totalBytes += bytesRead;
                             }
                     
-                    // Analizar cabecera IPP si tenemos suficientes datos
+                    // Analizar cabecera para detectar tipo de datos
                     if (totalBytes >= 8) {
                         byte[] currentData = baos.toByteArray();
+                        // Verificar si es IPP (versión 1.x o 2.x)
                         if (currentData[0] == 0x01 || currentData[0] == 0x02) {
-                            headerReceived = true;
-                            int operationId = ((currentData[2] & 0xFF) << 8) | (currentData[3] & 0xFF);
-                            log.info("  📋 Petición IPP v{}.{} - Operation: 0x{}", 
-                                currentData[0], currentData[1], String.format("%04X", operationId));
+                            if (currentData[1] >= 0x00 && currentData[1] <= 0x09) {
+                                headerReceived = true;
+                                int operationId = ((currentData[2] & 0xFF) << 8) | (currentData[3] & 0xFF);
+                                log.info("  📋 Petición IPP v{}.{} - Operation: 0x{}", 
+                                    currentData[0], currentData[1], String.format("%04X", operationId));
+                            }
+                        } else {
+                            // No es IPP, probablemente es RAW (PCL, PostScript, PDF, etc.)
+                            log.info("  📄 Datos RAW detectados (no es protocolo IPP)");
+                            log.info("  ℹ️  Windows está enviando datos directamente sin protocolo IPP");
                         }
                     }
                 }
