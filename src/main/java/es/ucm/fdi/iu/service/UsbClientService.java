@@ -69,23 +69,8 @@ public class UsbClientService {
                 return;
             }
             
-                                    log.info("🖨️  Impresora detectada: {}", localPrinterName);
+                        log.info("🖨️  Impresora detectada: {}", localPrinterName);
             log.info("");
-            
-            // Verificar permisos de administrador
-            if (!isRunningAsAdmin()) {
-                log.warn("⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️");
-                log.warn("🚫 EL CLIENTE USB NO TIENE PERMISOS DE ADMINISTRADOR");
-                log.warn("⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️");
-                log.warn("");
-                log.warn("🚨 PROBLEMA: El diálogo de FAX puede aparecer");
-                log.warn("");
-                log.warn("🔧 SOLUCIÓN: Cierra este programa y ejecútalo como administrador:");
-                log.warn("   1. Click derecho en el archivo .bat o .jar");
-                log.warn("   2. Selecciona 'Ejecutar como administrador'");
-                log.warn("");
-                log.warn("⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️");
-            }
             
             // Configurar impresora para evitar diálogos de FAX
             configureDriverToDisableFax();
@@ -164,10 +149,8 @@ public class UsbClientService {
                 String portName = portReader.readLine();
                 portProcess.waitFor();
                 
-                                log.info("   ✅ Encontrada: [{}]", localPrinterName);
+                log.info("   ✅ Encontrada: {}", localPrinterName);
                 log.info("   🔌 Puerto USB: {}", portName != null ? portName.trim() : "Desconocido");
-                log.info("   ℹ️  Longitud: {} caracteres", localPrinterName.length());
-                log.info("   ℹ️  Nombre en hexadecimal: {}", bytesToHex(localPrinterName.getBytes()));
             } else {
                 log.warn("   ⚠️ No se encontraron impresoras con puerto USB");
                 log.warn("   💡 Verifica que la impresora esté conectada por USB");
@@ -312,17 +295,10 @@ public class UsbClientService {
             
             log.info("   📦 Recibidos: {} bytes", totalBytes);
             
-                        // Guardar en archivo temporal con extensión apropiada
-            // Detectar tipo de archivo rápidamente
-            boolean isPDF = data.length >= 4 && 
-                          data[0] == 0x25 && data[1] == 0x50 && 
-                          data[2] == 0x44 && data[3] == 0x46;
-            
-            String extension = isPDF ? ".pdf" : ".dat";
-            Path tempFile = Files.createTempFile("print-job-", extension);
+            // Guardar en archivo temporal
+            Path tempFile = Files.createTempFile("print-job-", ".dat");
             Files.write(tempFile, data);
             log.info("   💾 Guardado en: {}", tempFile);
-            log.info("   📝 Extensión: {}", extension);
             
             // Enviar a impresora local
             boolean success = printToLocalPrinter(tempFile);
@@ -362,15 +338,12 @@ public class UsbClientService {
         log.info("════════════════════════════════════════════════════════════");
     }
 
-        /**
+    /**
      * Envía un archivo a la impresora local usando comandos nativos de Windows
      */
     private boolean printToLocalPrinter(Path file) {
         try {
             log.info("   🖨️ Enviando a impresora: {}", localPrinterName);
-            
-            // IMPORTANTE: Deshabilitar diálogo de FAX ANTES de imprimir
-            suppressFaxDialogForCurrentJob();
             
             // Detectar tipo de archivo
             byte[] header = Files.readAllBytes(file);
@@ -401,51 +374,6 @@ public class UsbClientService {
         } catch (Exception e) {
             log.error("   ❌ Excepción al enviar a impresora local", e);
             return false;
-        }
-    }
-    
-    /**
-     * Suprime el diálogo de FAX para el trabajo actual
-     * Crea un proceso en segundo plano que busca y cierra automáticamente
-     * cualquier ventana de diálogo de FAX que aparezca
-     */
-    private void suppressFaxDialogForCurrentJob() {
-        try {
-            // Script de PowerShell que busca y cierra ventanas de FAX automáticamente
-            String script = 
-                "$ErrorActionPreference = 'SilentlyContinue'; " +
-                "$timeout = 30; " +  // Monitorear por 30 segundos
-                "$elapsed = 0; " +
-                "while ($elapsed -lt $timeout) { " +
-                "  $faxWindows = @(); " +
-                // Buscar ventanas de FAX por título (español e inglés)
-                "  $faxWindows += Get-Process | Where-Object {$_.MainWindowTitle -like '*Fax*' -or $_.MainWindowTitle -like '*Enviar fax*' -or $_.MainWindowTitle -like '*Send Fax*'}; " +
-                // Cerrar cada ventana encontrada
-                "  foreach ($window in $faxWindows) { " +
-                "    if ($window.MainWindowHandle -ne 0) { " +
-                "      Add-Type -AssemblyName 'System.Windows.Forms'; " +
-                "      $hwnd = $window.MainWindowHandle; " +
-                "      [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); " +  // Presionar ESC
-                "      Start-Sleep -Milliseconds 200; " +
-                "      $window.CloseMainWindow() | Out-Null; " +  // Intentar cerrar
-                "      Start-Sleep -Milliseconds 200; " +
-                "      if (!$window.HasExited) { $window.Kill(); } " +  // Forzar si es necesario
-                "    } " +
-                "  } " +
-                "  Start-Sleep -Milliseconds 500; " +
-                "  $elapsed++; " +
-                "}";
-            
-            // Ejecutar el script en segundo plano (sin bloquear)
-            String command = "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -Command \"" + script + "\"";
-            
-            Process suppressProcess = Runtime.getRuntime().exec(command);
-            
-            // NO esperar a que termine - dejar que corra en segundo plano
-            log.debug("   🛡️ Monitor anti-FAX activado (30s)");
-            
-        } catch (Exception e) {
-            log.debug("   ⚠️ No se pudo activar supresor de FAX: {}", e.getMessage());
         }
     }
     
@@ -544,21 +472,11 @@ public class UsbClientService {
             
             log.info("   🔄 Método 1: SumatraPDF (impresión silenciosa)...");
             
-            // USAR ARRAY en lugar de String para evitar problemas con espacios
-            String[] commandArray = {
-                sumatraPath,
-                "-print-to",
-                localPrinterName,
-                "-silent",
-                file.toAbsolutePath().toString()
-            };
+            // Comando: SumatraPDF.exe -print-to "Nombre Impresora" -silent "archivo.pdf"
+            String command = String.format("\"%s\" -print-to \"%s\" -silent \"%s\"",
+                sumatraPath, localPrinterName, file.toAbsolutePath());
             
-            log.info("      📝 Comando (array):");
-            log.info("         Ejecutable: {}", sumatraPath);
-            log.info("         Impresora: [{}]", localPrinterName);
-            log.info("         Archivo: {}", file.toAbsolutePath());
-            
-            Process process = Runtime.getRuntime().exec(commandArray);
+            Process process = Runtime.getRuntime().exec(command);
             
             // Esperar máximo 30 segundos
             boolean finished = process.waitFor(30, TimeUnit.SECONDS);
@@ -569,32 +487,12 @@ public class UsbClientService {
                 return false;
             }
             
-                        int exitCode = process.exitValue();
-            
-            // Capturar salida de error
-            BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-            String errorOutput = errorReader.lines().reduce("", String::concat);
-            
+            int exitCode = process.exitValue();
             if (exitCode == 0) {
                 log.info("   ✅ PDF enviado con SumatraPDF");
                 return true;
             } else {
                 log.warn("   ⚠️ SumatraPDF falló (código: {})", exitCode);
-                if (!errorOutput.isEmpty()) {
-                    log.warn("      Salida de error: {}", errorOutput);
-                }
-                
-                // Listar impresoras disponibles para diagnóstico
-                log.warn("      🔍 Listando impresoras disponibles en el sistema:");
-                try {
-                    Process listProcess = Runtime.getRuntime().exec("powershell.exe -Command \"Get-Printer | Select-Object Name, PortName\"");
-                    BufferedReader listReader = new BufferedReader(new InputStreamReader(listProcess.getInputStream()));
-                    listReader.lines().forEach(line -> log.warn("         {}", line));
-                    listProcess.waitFor();
-                } catch (Exception e) {
-                    log.warn("         No se pudo listar impresoras");
-                }
-                
                 return false;
             }
             
@@ -858,88 +756,43 @@ public class UsbClientService {
         }
     }
     
-        /**
+    /**
      * Deshabilita el servicio de FAX de Windows
      */
     private void disableWindowsFaxService() {
         try {
             log.info("   🔄 Deshabilitando servicio de FAX de Windows...");
             
-            // Lista de servicios de FAX a deshabilitar
-            String[] faxServices = {"Fax", "FaxSvc"};
+            // Verificar si el servicio existe
+            String checkCommand = "sc query Fax";
+            Process checkProcess = Runtime.getRuntime().exec(checkCommand);
+            int checkResult = checkProcess.waitFor();
             
-            boolean anyServiceFound = false;
-            
-            for (String serviceName : faxServices) {
-                // Verificar si el servicio existe
-                String checkCommand = "sc query " + serviceName;
-                Process checkProcess = Runtime.getRuntime().exec(checkCommand);
+            if (checkResult == 0) {
+                // El servicio existe, intentar detenerlo y deshabilitarlo
+                log.info("      Servicio FAX detectado, procediendo a deshabilitar...");
                 
-                BufferedReader checkReader = new BufferedReader(new InputStreamReader(checkProcess.getInputStream()));
-                String checkOutput = checkReader.lines().reduce("", String::concat);
-                int checkResult = checkProcess.waitFor();
+                // Detener servicio
+                String stopCommand = "sc stop Fax";
+                Process stopProcess = Runtime.getRuntime().exec(stopCommand);
+                stopProcess.waitFor();
                 
-                if (checkResult == 0 && checkOutput.contains("STATE")) {
-                    anyServiceFound = true;
-                    log.info("      Servicio {} detectado, procediendo a deshabilitar...", serviceName);
-                    
-                    // Detener servicio (ignorar errores si ya está detenido)
-                    String stopCommand = "sc stop " + serviceName;
-                    Process stopProcess = Runtime.getRuntime().exec(stopCommand);
-                    stopProcess.waitFor();
-                    Thread.sleep(500);
-                    
-                    // Deshabilitar servicio
-                    String disableCommand = "sc config " + serviceName + " start= disabled";
-                    Process disableProcess = Runtime.getRuntime().exec(disableCommand);
-                    int disableResult = disableProcess.waitFor();
-                    
-                    if (disableResult == 0) {
-                        log.info("      ✅ Servicio {} deshabilitado correctamente", serviceName);
-                    } else {
-                        log.warn("      ⚠️  No se pudo deshabilitar el servicio {} (código: {})", serviceName, disableResult);
-                    }
+                // Deshabilitar servicio
+                String disableCommand = "sc config Fax start= disabled";
+                Process disableProcess = Runtime.getRuntime().exec(disableCommand);
+                int disableResult = disableProcess.waitFor();
+                
+                if (disableResult == 0) {
+                    log.info("      ✅ Servicio FAX deshabilitado correctamente");
+                } else {
+                    log.warn("      ⚠️  No se pudo deshabilitar el servicio FAX (requiere permisos admin)");
                 }
+            } else {
+                log.debug("      ℹ️  Servicio FAX no está instalado");
             }
-            
-            if (!anyServiceFound) {
-                log.debug("      ℹ️  Servicios FAX no están instalados");
-            }
-            
-            // ADICIONAL: Deshabilitar características de FAX en el registro
-            disableFaxInRegistry();
             
         } catch (Exception e) {
             log.debug("      ⚠️  Error deshabilitando servicio FAX: {}", e.getMessage());
-        }
-    }
-    
-    /**
-     * Deshabilita características de FAX en el registro de Windows
-     */
-    private void disableFaxInRegistry() {
-        try {
-            // Deshabilitar el asistente de envío de fax
-            String[] regCommands = {
-                "reg add \"HKCU\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Windows\" /v DisableFaxDialog /t REG_DWORD /d 1 /f",
-                "reg add \"HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\" /v DisableFaxDialog /t REG_DWORD /d 1 /f",
-                "reg add \"HKCU\\Software\\Microsoft\\Fax\" /v ShowFaxDialog /t REG_DWORD /d 0 /f",
-                "reg add \"HKLM\\SOFTWARE\\Microsoft\\Fax\" /v ShowFaxDialog /t REG_DWORD /d 0 /f"
-            };
-            
-            for (String cmd : regCommands) {
-                try {
-                    Process process = Runtime.getRuntime().exec(cmd);
-                    process.waitFor(5, TimeUnit.SECONDS);
-                } catch (Exception e) {
-                    // Ignorar errores individuales
-                }
-            }
-            
-            log.debug("      ℹ️  Claves de registro FAX configuradas");
-            
-        } catch (Exception e) {
-            log.debug("      ⚠️  Error configurando registro FAX: {}", e.getMessage());
         }
     }
     
@@ -1176,40 +1029,6 @@ public class UsbClientService {
         }
         
         // Prioridad 500: IP pública (fallback)
-                return 500;
-    }
-    
-        /**
-     * Convierte bytes a representación hexadecimal
-     */
-    private String bytesToHex(byte[] bytes) {
-        StringBuilder result = new StringBuilder();
-        for (byte b : bytes) {
-            result.append(String.format("%02X ", b));
-        }
-        return result.toString();
-    }
-    
-    /**
-     * Verifica si el proceso se está ejecutando con permisos de administrador
-     */
-    private boolean isRunningAsAdmin() {
-        try {
-            // Intentar escribir en el registro de sistema (solo admin puede)
-            String testCommand = "reg query \"HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\" /v ProductName";
-            Process process = Runtime.getRuntime().exec(testCommand);
-            int exitCode = process.waitFor();
-            
-            if (exitCode == 0) {
-                log.debug("✅ Ejecutando con permisos de administrador");
-                return true;
-            } else {
-                log.debug("❌ NO ejecutando con permisos de administrador");
-                return false;
-            }
-        } catch (Exception e) {
-            log.debug("❌ Error verificando permisos de admin: {}", e.getMessage());
-            return false;
-        }
+        return 500;
     }
 }
