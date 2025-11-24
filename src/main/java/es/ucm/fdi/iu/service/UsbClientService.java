@@ -312,10 +312,17 @@ public class UsbClientService {
             
             log.info("   📦 Recibidos: {} bytes", totalBytes);
             
-            // Guardar en archivo temporal
-            Path tempFile = Files.createTempFile("print-job-", ".dat");
+                        // Guardar en archivo temporal con extensión apropiada
+            // Detectar tipo de archivo rápidamente
+            boolean isPDF = data.length >= 4 && 
+                          data[0] == 0x25 && data[1] == 0x50 && 
+                          data[2] == 0x44 && data[3] == 0x46;
+            
+            String extension = isPDF ? ".pdf" : ".dat";
+            Path tempFile = Files.createTempFile("print-job-", extension);
             Files.write(tempFile, data);
             log.info("   💾 Guardado en: {}", tempFile);
+            log.info("   📝 Extensión: {}", extension);
             
             // Enviar a impresora local
             boolean success = printToLocalPrinter(tempFile);
