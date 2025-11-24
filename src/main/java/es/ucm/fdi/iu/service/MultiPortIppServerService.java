@@ -259,18 +259,74 @@ public class MultiPortIppServerService {
         log.info("📥 Conexión desde: {} → Puerto {} ({})", 
             clientSocket.getInetAddress(), port, printer.getAlias());
         
-        try (InputStream in = clientSocket.getInputStream();
-             OutputStream out = clientSocket.getOutputStream()) {
+        try {
+            // Configurar timeout para evitar esperas infinitas
+            clientSocket.setSoTimeout(30000); // 30 segundos
             
-            // Leer TODOS los datos enviados
+            InputStream in = clientSocket.getInputStream();
+            OutputStream out = clientSocket.getOutputStream();
+            
+            // Leer datos usando un enfoque más compatible con IPP
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             byte[] buffer = new byte[8192];
             int bytesRead;
             int totalBytes = 0;
+            boolean headerReceived = false;
+            int expectedLength = -1;
             
-            while ((bytesRead = in.read(buffer)) != -1) {
-                baos.write(buffer, 0, bytesRead);
-                totalBytes += bytesRead;
+            log.debug("  ⏳ Esperando datos del cliente...");
+            
+            // Leer hasta que no haya más datos disponibles o se cumpla el timeout
+            while (true) {
+                try {
+                    // Verificar si hay datos disponibles
+                    if (in.available() > 0) {
+                        bytesRead = in.read(buffer);
+                        if (bytesRead == -1) {
+                            break;
+                        }
+                        baos.write(buffer, 0, bytesRead);
+                        totalBytes += bytesRead;
+                        
+                        // Intentar determinar la longitud esperada desde la cabecera IPP
+                        if (!headerReceived && totalBytes >= 8) {
+                            byte[] currentData = baos.toByteArray();
+                            // La cabecera IPP tiene información sobre la longitud
+                            // Formato: version-number(2) operation-id(2) request-id(4) attributes...
+                            if (currentData[0] == 0x01 || currentData[0] == 0x02) {
+                                headerReceived = true;
+                                log.debug("  ✓ Cabecera IPP detectada (versión {}.{})", 
+                                    currentData[0], currentData[1]);
+                                // Extraer operation-id
+                                int operationId = ((currentData[2] & 0xFF) << 8) | (currentData[3] & 0xFF);
+                                log.debug("  ℹ️  Operation ID: 0x{}", String.format("%04X", operationId));
+                            }
+                        }
+                    } else {
+                        // No hay más datos disponibles, esperar un poco
+                        Thread.sleep(100);
+                        // Si llevamos tiempo sin recibir datos y ya recibimos algo, terminar
+                        if (totalBytes > 0 && in.available() == 0) {
+                            // Dar una última oportunidad (puede haber delay en la red)
+                            Thread.sleep(500);
+                            if (in.available() == 0) {
+                                log.debug("  ✓ No hay más datos disponibles, finalizando lectura");
+                                break;
+                            }
+                        }
+                    }
+                } catch (SocketTimeoutException e) {
+                    // Timeout alcanzado
+                    if (totalBytes > 0) {
+                        log.debug("  ⏱️  Timeout alcanzado con {} bytes recibidos", totalBytes);
+                        break;
+                    } else {
+                        log.debug("  Conexión vacía (timeout sin datos)");
+                        out.write(new byte[]{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03});
+                        out.flush();
+                        return;
+                    }
+                }
             }
             
             byte[] data = baos.toByteArray();
@@ -470,6 +526,10 @@ public class MultiPortIppServerService {
             }
             out.flush();
             
+        } catch (SocketTimeoutException e) {
+            log.warn("⏱️  Timeout de socket al leer datos del cliente: {}", e.getMessage());
+            log.warn("  💡 El cliente puede no estar enviando todos los datos");
+            log.warn("  💡 O la conexión es muy lenta");
         } catch (IOException e) {
             log.error("❌ Error de I/O procesando cliente: {}", e.getMessage());
             log.debug("Stack trace:", e);
