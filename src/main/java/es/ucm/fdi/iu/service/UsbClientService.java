@@ -444,7 +444,7 @@ public class UsbClientService {
         }
     }
     
-    /**
+        /**
      * Imprime PDF usando SumatraPDF (impresión silenciosa)
      */
     private boolean printWithSumatraPDF(Path file) {
@@ -471,12 +471,33 @@ public class UsbClientService {
             }
             
             log.info("   🔄 Método 1: SumatraPDF (impresión silenciosa)...");
+            log.debug("      Ejecutable: {}", sumatraPath);
+            log.debug("      Impresora: {}", localPrinterName);
+            log.debug("      Archivo: {}", file.toAbsolutePath());
             
-            // Comando: SumatraPDF.exe -print-to "Nombre Impresora" -silent "archivo.pdf"
-            String command = String.format("\"%s\" -print-to \"%s\" -silent \"%s\"",
-                sumatraPath, localPrinterName, file.toAbsolutePath());
+            // Usar ProcessBuilder para mejor manejo de argumentos con espacios
+            ProcessBuilder pb = new ProcessBuilder(
+                sumatraPath,
+                "-print-to",
+                localPrinterName,
+                "-silent",
+                file.toAbsolutePath().toString()
+            );
             
-            Process process = Runtime.getRuntime().exec(command);
+            // Redirigir stdout y stderr para capturar errores
+            pb.redirectErrorStream(true);
+            
+            Process process = pb.start();
+            
+            // Capturar salida para diagnóstico
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append("\n");
+                }
+            }
             
             // Esperar máximo 30 segundos
             boolean finished = process.waitFor(30, TimeUnit.SECONDS);
@@ -488,16 +509,35 @@ public class UsbClientService {
             }
             
             int exitCode = process.exitValue();
+            
+            // Mostrar salida si hay errores
+            if (exitCode != 0 && output.length() > 0) {
+                log.warn("   📄 Salida de SumatraPDF:");
+                for (String line : output.toString().split("\n")) {
+                    if (!line.trim().isEmpty()) {
+                        log.warn("      {}", line.trim());
+                    }
+                }
+            }
+            
             if (exitCode == 0) {
                 log.info("   ✅ PDF enviado con SumatraPDF");
                 return true;
             } else {
                 log.warn("   ⚠️ SumatraPDF falló (código: {})", exitCode);
+                
+                // Diagnósticos adicionales
+                verifyPrinterAccess();
+                verifyPdfFile(file);
+                
                 return false;
             }
             
         } catch (Exception e) {
-            log.debug("   ⚠️ Error con SumatraPDF: {}", e.getMessage());
+            log.warn("   ⚠️ Error con SumatraPDF: {}", e.getMessage());
+            if (log.isDebugEnabled()) {
+                log.debug("   Stack trace:", e);
+            }
             return false;
         }
     }
@@ -555,26 +595,62 @@ public class UsbClientService {
         }
     }
     
-    /**
+        /**
      * Imprime PDF usando PowerShell y .NET Framework
      */
     private boolean printWithPowerShell(Path file) {
         try {
             log.info("   🔄 Método 3: PowerShell con .NET...");
             
-            // Script PowerShell que usa .NET para imprimir PDF
+            // Script PowerShell que usa Shell.Application para imprimir
+            // Escapar comillas simples en el nombre de la impresora
+            String safePrinterName = localPrinterName.replace("'", "''");
+            String safeFilePath = file.toAbsolutePath().toString().replace("'", "''");
+            
             String script = String.format(
-                "$printer = Get-Printer -Name '%s' -ErrorAction Stop; " +
-                "$shell = New-Object -ComObject Shell.Application; " +
-                "$file = Get-Item '%s'; " +
-                "$verb = $file | Select-Object -ExpandProperty Verbs | Where-Object {$_.Name -eq 'Imprimir'}; " +
-                "if ($verb) { $verb.DoIt(); Start-Sleep -Seconds 3; exit 0 } else { exit 1 }",
-                localPrinterName, file.toAbsolutePath()
+                "$ErrorActionPreference = 'Stop'; " +
+                "try { " +
+                "  $printer = Get-Printer -Name '%s' -ErrorAction Stop; " +
+                "  $shell = New-Object -ComObject Shell.Application; " +
+                "  $folder = $shell.Namespace((Get-Item '%s').DirectoryName); " +
+                "  $item = $folder.ParseName((Get-Item '%s').Name); " +
+                "  $verb = $item.Verbs() | Where-Object {$_.Name -match 'Imprimir|Print'}; " +
+                "  if ($verb) { " +
+                "    $verb[0].DoIt(); " +
+                "    Start-Sleep -Seconds 3; " +
+                "    Write-Output 'SUCCESS'; " +
+                "    exit 0; " +
+                "  } else { " +
+                "    Write-Error 'No se encontró verbo de impresión'; " +
+                "    exit 1; " +
+                "  } " +
+                "} catch { " +
+                "  Write-Error $_.Exception.Message; " +
+                "  exit 1; " +
+                "}",
+                safePrinterName, safeFilePath, safeFilePath
             );
             
-            String command = "powershell.exe -ExecutionPolicy Bypass -Command \"" + script + "\"";
+            ProcessBuilder pb = new ProcessBuilder(
+                "powershell.exe",
+                "-ExecutionPolicy", "Bypass",
+                "-NoProfile",
+                "-Command", script
+            );
             
-            Process process = Runtime.getRuntime().exec(command);
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            
+            // Capturar salida
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append("\n");
+                }
+            }
+            
             boolean finished = process.waitFor(15, TimeUnit.SECONDS);
             
             if (!finished) {
@@ -584,6 +660,16 @@ public class UsbClientService {
             }
             
             int exitCode = process.exitValue();
+            
+            if (exitCode != 0 && output.length() > 0) {
+                log.warn("   📄 Salida de PowerShell:");
+                for (String line : output.toString().split("\n")) {
+                    if (!line.trim().isEmpty()) {
+                        log.warn("      {}", line.trim());
+                    }
+                }
+            }
+            
             if (exitCode == 0) {
                 log.info("   ✅ PDF enviado con PowerShell");
                 return true;
@@ -593,7 +679,7 @@ public class UsbClientService {
             }
             
         } catch (Exception e) {
-            log.debug("   ⚠️ Error con PowerShell: {}", e.getMessage());
+            log.warn("   ⚠️ Error con PowerShell: {}", e.getMessage());
             return false;
         }
     }
@@ -998,7 +1084,7 @@ public class UsbClientService {
         }
     }
     
-    /**
+        /**
      * Calcula prioridad de una IP para selección
      * Mayor prioridad = mejor IP para comunicación con servidor
      */
@@ -1030,5 +1116,94 @@ public class UsbClientService {
         
         // Prioridad 500: IP pública (fallback)
         return 500;
+    }
+    
+    /**
+     * Verifica que el archivo PDF sea válido y legible
+     */
+    private void verifyPdfFile(Path file) {
+        try {
+            if (!Files.exists(file)) {
+                log.error("      ❌ El archivo PDF no existe: {}", file);
+                return;
+            }
+            
+            if (!Files.isReadable(file)) {
+                log.error("      ❌ El archivo PDF no es legible (permisos?): {}", file);
+                return;
+            }
+            
+            long fileSize = Files.size(file);
+            if (fileSize == 0) {
+                log.error("      ❌ El archivo PDF está vacío");
+                return;
+            }
+            
+            // Verificar header PDF
+            byte[] header = new byte[4];
+            try (FileInputStream fis = new FileInputStream(file.toFile())) {
+                fis.read(header);
+            }
+            
+            boolean isValidPdf = header[0] == 0x25 && header[1] == 0x50 && 
+                                header[2] == 0x44 && header[3] == 0x46; // %PDF
+            
+            if (!isValidPdf) {
+                log.error("      ❌ El archivo no parece ser un PDF válido (header incorrecto)");
+                log.debug("         Header: {} {} {} {}", 
+                    String.format("0x%02X", header[0]),
+                    String.format("0x%02X", header[1]),
+                    String.format("0x%02X", header[2]),
+                    String.format("0x%02X", header[3]));
+                return;
+            }
+            
+            log.debug("      ✅ Archivo PDF válido ({} bytes)", fileSize);
+            
+        } catch (Exception e) {
+            log.error("      ❌ Error verificando archivo PDF: {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * Verifica que la impresora esté accesible y en estado correcto
+     */
+    private void verifyPrinterAccess() {
+        try {
+            log.debug("      🔍 Verificando estado de impresora...");
+            
+            String script = String.format(
+                "$printer = Get-Printer -Name '%s' -ErrorAction Stop; " +
+                "Write-Output \"Name: $($printer.Name)\"; " +
+                "Write-Output \"Status: $($printer.PrinterStatus)\"; " +
+                "Write-Output \"JobCount: $($printer.JobCount)\"; " +
+                "Write-Output \"PortName: $($printer.PortName)\"; " +
+                "Write-Output \"DriverName: $($printer.DriverName)\"",
+                localPrinterName.replace("'", "''")
+            );
+            
+            ProcessBuilder pb = new ProcessBuilder(
+                "powershell.exe",
+                "-ExecutionPolicy", "Bypass",
+                "-NoProfile",
+                "-Command", script
+            );
+            
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    log.debug("         {}", line.trim());
+                }
+            }
+            
+            process.waitFor(5, TimeUnit.SECONDS);
+            
+        } catch (Exception e) {
+            log.error("      ❌ Error verificando impresora: {}", e.getMessage());
+        }
     }
 }
