@@ -164,8 +164,10 @@ public class UsbClientService {
                 String portName = portReader.readLine();
                 portProcess.waitFor();
                 
-                log.info("   ✅ Encontrada: {}", localPrinterName);
+                                log.info("   ✅ Encontrada: [{}]", localPrinterName);
                 log.info("   🔌 Puerto USB: {}", portName != null ? portName.trim() : "Desconocido");
+                log.info("   ℹ️  Longitud: {} caracteres", localPrinterName.length());
+                log.info("   ℹ️  Nombre en hexadecimal: {}", bytesToHex(localPrinterName.getBytes()));
             } else {
                 log.warn("   ⚠️ No se encontraron impresoras con puerto USB");
                 log.warn("   💡 Verifica que la impresora esté conectada por USB");
@@ -539,6 +541,11 @@ public class UsbClientService {
             String command = String.format("\"%s\" -print-to \"%s\" -silent \"%s\"",
                 sumatraPath, localPrinterName, file.toAbsolutePath());
             
+            log.info("      📝 Comando completo:");
+            log.info("         {}", command);
+            log.info("      🗗️  Nombre impresora: [{}]", localPrinterName);
+            log.info("      📄 Archivo PDF: {}", file.toAbsolutePath());
+            
             Process process = Runtime.getRuntime().exec(command);
             
             // Esperar máximo 30 segundos
@@ -550,12 +557,32 @@ public class UsbClientService {
                 return false;
             }
             
-            int exitCode = process.exitValue();
+                        int exitCode = process.exitValue();
+            
+            // Capturar salida de error
+            BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+            String errorOutput = errorReader.lines().reduce("", String::concat);
+            
             if (exitCode == 0) {
                 log.info("   ✅ PDF enviado con SumatraPDF");
                 return true;
             } else {
                 log.warn("   ⚠️ SumatraPDF falló (código: {})", exitCode);
+                if (!errorOutput.isEmpty()) {
+                    log.warn("      Salida de error: {}", errorOutput);
+                }
+                
+                // Listar impresoras disponibles para diagnóstico
+                log.warn("      🔍 Listando impresoras disponibles en el sistema:");
+                try {
+                    Process listProcess = Runtime.getRuntime().exec("powershell.exe -Command \"Get-Printer | Select-Object Name, PortName\"");
+                    BufferedReader listReader = new BufferedReader(new InputStreamReader(listProcess.getInputStream()));
+                    listReader.lines().forEach(line -> log.warn("         {}", line));
+                    listProcess.waitFor();
+                } catch (Exception e) {
+                    log.warn("         No se pudo listar impresoras");
+                }
+                
                 return false;
             }
             
@@ -1138,6 +1165,17 @@ public class UsbClientService {
         
         // Prioridad 500: IP pública (fallback)
                 return 500;
+    }
+    
+        /**
+     * Convierte bytes a representación hexadecimal
+     */
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder result = new StringBuilder();
+        for (byte b : bytes) {
+            result.append(String.format("%02X ", b));
+        }
+        return result.toString();
     }
     
     /**
