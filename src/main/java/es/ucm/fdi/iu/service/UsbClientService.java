@@ -295,9 +295,22 @@ public class UsbClientService {
             
             log.info("   📦 Recibidos: {} bytes", totalBytes);
             
-            // Guardar en archivo temporal
-            Path tempFile = Files.createTempFile("print-job-", ".dat");
+                        // Guardar en archivo temporal con extensión correcta según el tipo
+            String fileExtension = detectFileExtension(data);
+            Path tempFile = Files.createTempFile("print-job-", fileExtension);
+            
+            log.debug("   🔍 Escribiendo {} bytes al archivo {}", data.length, tempFile);
             Files.write(tempFile, data);
+            
+            // Verificar que el archivo se escribió correctamente
+            long savedSize = Files.size(tempFile);
+            if (savedSize != data.length) {
+                log.error("   ❌ ERROR: Tamaño inconsistente!");
+                log.error("      Bytes recibidos: {}", data.length);
+                log.error("      Bytes guardados: {}", savedSize);
+            } else {
+                log.debug("   ✅ Archivo verificado: {} bytes", savedSize);
+            }
             log.info("   💾 Guardado en: {}", tempFile);
             
             // Enviar a impresora local
@@ -1084,7 +1097,33 @@ public class UsbClientService {
         }
     }
     
-        /**
+            /**
+     * Detecta la extensión correcta del archivo según su contenido
+     */
+    private String detectFileExtension(byte[] data) {
+        if (data == null || data.length < 4) {
+            return ".dat";
+        }
+        
+        // PDF: %PDF
+        if (data[0] == 0x25 && data[1] == 0x50 && data[2] == 0x44 && data[3] == 0x46) {
+            return ".pdf";
+        }
+        
+        // PostScript: %!
+        if (data[0] == 0x25 && data[1] == 0x21) {
+            return ".ps";
+        }
+        
+        // PCL
+        if (data[0] == 0x1B && (data[1] == 0x45 || data[1] == 0x26)) {
+            return ".pcl";
+        }
+        
+        return ".dat";
+    }
+    
+    /**
      * Calcula prioridad de una IP para selección
      * Mayor prioridad = mejor IP para comunicación con servidor
      */
