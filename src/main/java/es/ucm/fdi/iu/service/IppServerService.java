@@ -442,19 +442,60 @@ public class IppServerService {
             parseIppAttributes(bufferedIn, request);
             
             // Si hay datos de documento (para Print-Job), leerlos
+            // IMPORTANTE: Los datos vienen DESPUÉS del tag end-of-attributes (0x03)
             if ("Print-Job".equals(request.operation)) {
+                log.info("  📄 Leyendo datos del documento PDF/PostScript...");
+                
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 byte[] buffer = new byte[8192];
                 int bytesRead;
                 int totalBytes = 0;
+                int readCount = 0;
+                
+                long startTime = System.currentTimeMillis();
                 
                 while ((bytesRead = bufferedIn.read(buffer)) != -1) {
                     baos.write(buffer, 0, bytesRead);
                     totalBytes += bytesRead;
+                    readCount++;
+                    
+                    // Log progreso cada 100KB
+                    if (totalBytes % 102400 == 0) {
+                        log.debug("    ... {} KB leídos", totalBytes / 1024);
+                    }
                 }
                 
+                long duration = System.currentTimeMillis() - startTime;
+                
                 request.documentData = baos.toByteArray();
-                log.debug("  Datos del documento: {} bytes", totalBytes);
+                
+                log.info("  ✅ Datos del documento leídos: {} bytes en {} ms ({} lecturas)", 
+                    totalBytes, duration, readCount);
+                
+                // Verificar si es un PDF válido
+                if (request.documentData.length >= 4) {
+                    boolean isPDF = request.documentData[0] == 0x25 && 
+                                   request.documentData[1] == 0x50 && 
+                                   request.documentData[2] == 0x44 && 
+                                   request.documentData[3] == 0x46; // %PDF
+                    
+                    if (isPDF) {
+                        log.info("  📑 Formato detectado: PDF válido");
+                    } else {
+                        log.warn("  ⚠️  No es un PDF - Header: {} {} {} {} (puede ser PostScript/PCL)",
+                            String.format("0x%02X", request.documentData[0]),
+                            String.format("0x%02X", request.documentData[1]),
+                            String.format("0x%02X", request.documentData[2]),
+                            String.format("0x%02X", request.documentData[3]));
+                    }
+                }
+                
+                // DIAGNÓSTICO: Si recibimos muy pocos bytes, el PDF está incompleto
+                if (totalBytes < 1000) {
+                    log.error("  ❌ ADVERTENCIA: Solo {} bytes recibidos - El documento puede estar incompleto", totalBytes);
+                    log.error("     Un PDF típico tiene al menos varios KB");
+                    log.error("     Posible problema en el cliente o en el parsing IPP");
+                }
             }
             
             return request;
@@ -466,33 +507,58 @@ public class IppServerService {
     }
     
     private void parseIppAttributes(InputStream in, IppRequest request) throws IOException {
+        int attributeCount = 0;
+        
         while (true) {
             int tag = in.read();
             
             if (tag == -1) {
+                log.debug("  Fin del stream alcanzado ({} atributos leídos)", attributeCount);
                 break; // Fin del stream
             }
             
             if (tag == 0x03) {
-                // End-of-attributes tag
-                log.debug("  End-of-attributes encontrado");
+                // End-of-attributes tag - LOS DATOS DEL DOCUMENTO VIENEN DESPUÉS
+                log.debug("  End-of-attributes encontrado ({} atributos leídos)", attributeCount);
+                log.debug("  ⚠️  Los datos del documento deberían venir después de este punto");
                 break;
             }
             
-            // Saltar el tag y leer el nombre del atributo
+            // Tags de grupo (0x01-0x0F) no tienen nombre/valor
+            if (tag >= 0x01 && tag <= 0x0F) {
+                log.debug("  Tag de grupo: 0x{}", Integer.toHexString(tag));
+                continue;
+            }
+            
+            // Leer nombre del atributo (puede ser vacío para valores adicionales)
             int nameLength = (in.read() << 8) | in.read();
+            String name = "";
+            
             if (nameLength > 0) {
                 byte[] nameBytes = new byte[nameLength];
-                in.read(nameBytes);
-                String name = new String(nameBytes, "UTF-8");
-                
-                // Leer valor del atributo
-                int valueLength = (in.read() << 8) | in.read();
+                int nameRead = in.read(nameBytes);
+                if (nameRead != nameLength) {
+                    log.warn("  ⚠️  Nombre de atributo incompleto: esperado {} bytes, leído {}", nameLength, nameRead);
+                }
+                name = new String(nameBytes, "UTF-8");
+            }
+            
+            // Leer valor del atributo
+            int valueLength = (in.read() << 8) | in.read();
+            String value = "";
+            
+            if (valueLength > 0) {
                 byte[] valueBytes = new byte[valueLength];
-                in.read(valueBytes);
-                String value = new String(valueBytes, "UTF-8");
-                
-                log.debug("    Atributo: {} = {}", name, value);
+                int valueRead = in.read(valueBytes);
+                if (valueRead != valueLength) {
+                    log.warn("  ⚠️  Valor de atributo incompleto: esperado {} bytes, leído {}", valueLength, valueRead);
+                }
+                value = new String(valueBytes, "UTF-8");
+            }
+            
+            if (!name.isEmpty()) {
+                log.debug("    Atributo #{}: {} = {} (tag: 0x{})", attributeCount, name, value, Integer.toHexString(tag));
+                attributeCount++;
                 
                 // Guardar atributos importantes
                 if ("printer-uri".equals(name) || "job-printer-uri".equals(name)) {
@@ -506,6 +572,8 @@ public class IppServerService {
                 request.options.put(name, value);
             }
         }
+        
+        log.debug("  ✅ Parsing de atributos completo: {} atributos", attributeCount);
     }
 
     private void sendResponse(OutputStream out, IppResponse response) throws IOException {
