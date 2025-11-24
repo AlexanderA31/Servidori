@@ -260,73 +260,58 @@ public class MultiPortIppServerService {
             clientSocket.getInetAddress(), port, printer.getAlias());
         
         try {
-            // Configurar timeout para evitar esperas infinitas
-            clientSocket.setSoTimeout(30000); // 30 segundos
+            // Configurar timeout CORTO inicialmente (2 segundos)
+            clientSocket.setSoTimeout(2000);
             
             InputStream in = clientSocket.getInputStream();
             OutputStream out = clientSocket.getOutputStream();
             
-            // Leer datos usando un enfoque más compatible con IPP
+            // Leer datos con timeout corto primero
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             byte[] buffer = new byte[8192];
             int bytesRead;
             int totalBytes = 0;
             boolean headerReceived = false;
-            int expectedLength = -1;
             
-            log.debug("  ⏳ Esperando datos del cliente...");
+            log.debug("  ⏳ Esperando datos del cliente (timeout 2s)...");
             
-            // Leer hasta que no haya más datos disponibles o se cumpla el timeout
-            while (true) {
-                try {
-                    // Verificar si hay datos disponibles
-                    if (in.available() > 0) {
+            // Intentar leer con timeout de 2 segundos
+            try {
+                bytesRead = in.read(buffer);
+                if (bytesRead > 0) {
+                    baos.write(buffer, 0, bytesRead);
+                    totalBytes = bytesRead;
+                    log.debug("  📦 Recibidos {} bytes iniciales", bytesRead);
+                    
+                    // Si recibimos datos, aumentar timeout para el resto
+                    clientSocket.setSoTimeout(10000); // 10 segundos para el resto
+                    
+                    // Continuar leyendo hasta que no haya más
+                    while (in.available() > 0) {
                         bytesRead = in.read(buffer);
-                        if (bytesRead == -1) {
-                            break;
-                        }
+                        if (bytesRead == -1) break;
                         baos.write(buffer, 0, bytesRead);
                         totalBytes += bytesRead;
-                        
-                        // Intentar determinar la longitud esperada desde la cabecera IPP
-                        if (!headerReceived && totalBytes >= 8) {
-                            byte[] currentData = baos.toByteArray();
-                            // La cabecera IPP tiene información sobre la longitud
-                            // Formato: version-number(2) operation-id(2) request-id(4) attributes...
-                            if (currentData[0] == 0x01 || currentData[0] == 0x02) {
-                                headerReceived = true;
-                                log.debug("  ✓ Cabecera IPP detectada (versión {}.{})", 
-                                    currentData[0], currentData[1]);
-                                // Extraer operation-id
-                                int operationId = ((currentData[2] & 0xFF) << 8) | (currentData[3] & 0xFF);
-                                log.debug("  ℹ️  Operation ID: 0x{}", String.format("%04X", operationId));
                             }
+                    
+                    // Analizar cabecera IPP si tenemos suficientes datos
+                    if (totalBytes >= 8) {
+                        byte[] currentData = baos.toByteArray();
+                        if (currentData[0] == 0x01 || currentData[0] == 0x02) {
+                            headerReceived = true;
+                            int operationId = ((currentData[2] & 0xFF) << 8) | (currentData[3] & 0xFF);
+                            log.info("  📋 Petición IPP v{}.{} - Operation: 0x{}", 
+                                currentData[0], currentData[1], String.format("%04X", operationId));
                         }
-                    } else {
-                        // No hay más datos disponibles, esperar un poco
-                        Thread.sleep(100);
-                        // Si llevamos tiempo sin recibir datos y ya recibimos algo, terminar
-                        if (totalBytes > 0 && in.available() == 0) {
-                            // Dar una última oportunidad (puede haber delay en la red)
-                            Thread.sleep(500);
-                            if (in.available() == 0) {
-                                log.debug("  ✓ No hay más datos disponibles, finalizando lectura");
-                                break;
-                            }
-                        }
-                    }
-                } catch (SocketTimeoutException e) {
-                    // Timeout alcanzado
-                    if (totalBytes > 0) {
-                        log.debug("  ⏱️  Timeout alcanzado con {} bytes recibidos", totalBytes);
-                        break;
-                    } else {
-                        log.debug("  Conexión vacía (timeout sin datos)");
-                        out.write(new byte[]{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03});
-                        out.flush();
-                        return;
                     }
                 }
+            } catch (SocketTimeoutException e) {
+                // Si no hay datos en 2 segundos, es un probe
+                log.debug("  🔍 Conexión de probe (sin datos en 2s)");
+                // Responder con OK para mantener la conexión abierta
+                out.write(new byte[]{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03});
+                out.flush();
+                return;
             }
             
             byte[] data = baos.toByteArray();
