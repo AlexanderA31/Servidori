@@ -313,6 +313,9 @@ public class UsbClientService {
             }
             log.info("   💾 Guardado en: {}", tempFile);
             
+            // DIAGNÓSTICO COMPLETO del PDF recibido
+            diagnosticPdfContent(data);
+            
             // Enviar a impresora local
             boolean success = printToLocalPrinter(tempFile);
             
@@ -1202,6 +1205,122 @@ public class UsbClientService {
         } catch (Exception e) {
             log.error("      ❌ Error verificando archivo PDF: {}", e.getMessage());
         }
+    }
+    
+        /**
+     * Diagnóstico completo del contenido PDF recibido
+     */
+    private void diagnosticPdfContent(byte[] data) {
+        log.info("   🔬 DIAGNÓSTICO DEL PDF RECIBIDO:");
+        log.info("   ════════════════════════════════════════");
+        
+        if (data == null || data.length == 0) {
+            log.error("   ❌ Datos NULOS o VACÍOS");
+            return;
+        }
+        
+        log.info("   📊 Tamaño total: {} bytes ({} KB)", data.length, data.length / 1024);
+        
+        // Mostrar primeros 80 bytes
+        int headerSize = Math.min(80, data.length);
+        log.info("   🔍 Primeros {} bytes (HEX):", headerSize);
+        StringBuilder hexHeader = new StringBuilder();
+        StringBuilder asciiHeader = new StringBuilder();
+        
+        for (int i = 0; i < headerSize; i++) {
+            hexHeader.append(String.format("%02X ", data[i]));
+            char c = (char)(data[i] & 0xFF);
+            asciiHeader.append(c >= 32 && c < 127 ? c : '.');
+            
+            if ((i + 1) % 16 == 0 || i == headerSize - 1) {
+                log.info("      {}", hexHeader.toString());
+                log.info("      {}", asciiHeader.toString());
+                hexHeader.setLength(0);
+                asciiHeader.setLength(0);
+            }
+        }
+        
+        // Mostrar últimos 80 bytes
+        int footerSize = Math.min(80, data.length);
+        int footerStart = Math.max(0, data.length - footerSize);
+        log.info("   🔍 Últimos {} bytes (HEX):", footerSize);
+        StringBuilder hexFooter = new StringBuilder();
+        StringBuilder asciiFooter = new StringBuilder();
+        
+        for (int i = footerStart; i < data.length; i++) {
+            hexFooter.append(String.format("%02X ", data[i]));
+            char c = (char)(data[i] & 0xFF);
+            asciiFooter.append(c >= 32 && c < 127 ? c : '.');
+            
+            if ((i - footerStart + 1) % 16 == 0 || i == data.length - 1) {
+                log.info("      {}", hexFooter.toString());
+                log.info("      {}", asciiFooter.toString());
+                hexFooter.setLength(0);
+                asciiFooter.setLength(0);
+            }
+        }
+        
+        // Buscar marcadores PDF
+        boolean hasPdfHeader = false;
+        boolean hasPdfFooter = false;
+        int pdfHeaderPos = -1;
+        int pdfFooterPos = -1;
+        
+        // Buscar %PDF- en los primeros 200 bytes
+        for (int i = 0; i <= Math.min(200, data.length - 5); i++) {
+            if (data[i] == 0x25 && data[i+1] == 0x50 && data[i+2] == 0x44 && 
+                data[i+3] == 0x46 && data[i+4] == 0x2D) {
+                hasPdfHeader = true;
+                pdfHeaderPos = i;
+                log.info("   ✅ Header %PDF- encontrado en byte {}", i);
+                if (i > 0) {
+                    log.warn("   ⚠️  HAY {} BYTES DE BASURA ANTES del PDF!", i);
+                }
+                break;
+            }
+        }
+        
+        // Buscar %%EOF en los últimos 200 bytes
+        int searchStart = Math.max(0, data.length - 200);
+        for (int i = data.length - 1; i >= searchStart; i--) {
+            if (i >= 4 && data[i-4] == 0x25 && data[i-3] == 0x25 && data[i-2] == 0x45 && 
+                data[i-1] == 0x4F && data[i] == 0x46) {
+                hasPdfFooter = true;
+                pdfFooterPos = i;
+                log.info("   ✅ Footer %%EOF encontrado en byte {}", i);
+                if (i < data.length - 1) {
+                    log.warn("   ⚠️  HAY {} BYTES DE BASURA DESPUÉS del PDF!", data.length - i - 1);
+                }
+                break;
+            }
+        }
+        
+        // Resumen
+        log.info("   ════════════════════════════════════════");
+        if (!hasPdfHeader) {
+            log.error("   ❌ FALTA EL HEADER %PDF-");
+            log.error("   💡 El archivo NO ES un PDF válido o está corrupto");
+        }
+        
+        if (!hasPdfFooter) {
+            log.error("   ❌ FALTA EL FOOTER %%EOF");
+            log.error("   💡 El PDF está INCOMPLETO o TRUNCADO");
+        }
+        
+        if (hasPdfHeader && hasPdfFooter) {
+            int pdfSize = pdfFooterPos - pdfHeaderPos + 1;
+            log.info("   ✅ PDF completo detectado");
+            log.info("   📊 Tamaño del PDF puro: {} bytes", pdfSize);
+            
+            if (pdfHeaderPos > 0 || pdfFooterPos < data.length - 1) {
+                log.warn("   ⚠️  Hay basura extra que debe ser removida:");
+                log.warn("      - Basura al inicio: {} bytes", pdfHeaderPos);
+                log.warn("      - Basura al final: {} bytes", data.length - pdfFooterPos - 1);
+                log.warn("   💡 SOLUCIÓN: Extraer solo bytes {} a {}", pdfHeaderPos, pdfFooterPos);
+            }
+        }
+        
+        log.info("   ════════════════════════════════════════");
     }
     
     /**
