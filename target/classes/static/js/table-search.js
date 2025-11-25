@@ -7,10 +7,25 @@
  */
 function searchTable(searchInputId, tableSelector) {
     const searchInput = document.getElementById(searchInputId);
-    const table = document.querySelector(tableSelector);
     
-    if (!searchInput || !table) {
-        console.warn('Search input or table not found');
+    if (!searchInput) {
+        console.warn('Search input not found');
+        return;
+    }
+    
+    // IMPORTANTE: Solo buscar la tabla en el contexto visible (no en modales ocultos)
+    // Primero, encontrar el contenedor más cercano que no sea un modal oculto
+    let searchContext = document;
+    const closestCard = searchInput.closest('.departments-table-card');
+    if (closestCard) {
+        // Si está dentro de una card, usar solo esa card como contexto
+        searchContext = closestCard;
+    }
+    
+    const table = searchContext.querySelector(tableSelector);
+    
+    if (!table) {
+        console.warn('Table not found with selector:', tableSelector);
         return;
     }
     

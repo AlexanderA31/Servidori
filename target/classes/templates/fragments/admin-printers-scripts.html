@@ -1108,11 +1108,14 @@
                         setTimeout(() => {
                             row.remove();
                             
+                            // Actualizar contador de impresoras
+                            updatePrinterCount();
+                            
                             // Verificar si quedan filas en la tabla
                             const tbody = document.querySelector('.data-table tbody');
                             if (tbody && tbody.querySelectorAll('tr').length === 0) {
-                                // Si no quedan impresoras, recargar para mostrar estado vacío
-                                location.reload();
+                                // Si no quedan impresoras, mostrar estado vacío SIN RECARGAR
+                                showEmptyState();
                             } else {
                                 // Mostrar mensaje de éxito
                                 showAlert({
@@ -1133,6 +1136,48 @@
                     type: 'error'
                 });
             }
+        }
+        
+        // Función para actualizar el contador de impresoras
+        function updatePrinterCount() {
+            const tbody = document.querySelector('.data-table tbody');
+            const visibleRows = tbody ? tbody.querySelectorAll('tr:not([style*="display: none"])').length : 0;
+            
+            // Actualizar el contador en la tarjeta de estadísticas
+            const countElement = document.querySelector('.dept-stat-card .dept-stat-value');
+            if (countElement) {
+                countElement.textContent = visibleRows;
+            }
+        }
+        
+        // Función para mostrar estado vacío sin recargar
+        function showEmptyState() {
+            const cardBody = document.querySelector('.departments-table-card .card-body');
+            if (!cardBody) return;
+            
+            // Limpiar el contenido actual
+            cardBody.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon"><i class="fas fa-print"></i></div>
+                    <p>No hay impresoras registradas en el sistema</p>
+                    <button class="btn btn-primary" onclick="openModal('addPrinterModal')">
+                        <i class="fas fa-plus"></i> Agregar Primera Impresora
+                    </button>
+                </div>
+            `;
+            
+            // Actualizar contador a 0
+            const countElement = document.querySelector('.dept-stat-card .dept-stat-value');
+            if (countElement) {
+                countElement.textContent = '0';
+            }
+            
+            // Mostrar mensaje informativo
+            showAlert({
+                title: '✅ Impresora Eliminada',
+                message: 'La última impresora ha sido eliminada. Los botones de acción permanecen disponibles.',
+                type: 'success'
+            });
         }
         
         // Auto-cerrar alertas
