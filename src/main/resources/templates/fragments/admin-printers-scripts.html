@@ -1115,15 +1115,9 @@
                             const tbody = document.querySelector('.data-table tbody');
                             if (tbody && tbody.querySelectorAll('tr').length === 0) {
                                 // Si no quedan impresoras, mostrar estado vacío SIN RECARGAR
-                                showEmptyState();
-                            } else {
-                                // Mostrar mensaje de éxito
-                                showAlert({
-                                    title: '✅ Impresora Eliminada',
-                                    message: `"${data.name}" ha sido eliminada exitosamente.`,
-                                    type: 'success'
-                                });
+                                showEmptyStateWithoutAlert();
                             }
+                            // No mostrar alert de éxito
                         }, 300);
                     }
                 } else {
@@ -1150,8 +1144,8 @@
             }
         }
         
-        // Función para mostrar estado vacío sin recargar
-        function showEmptyState() {
+        // Función para mostrar estado vacío sin recargar (sin alert)
+        function showEmptyStateWithoutAlert() {
             const cardBody = document.querySelector('.departments-table-card .card-body');
             if (!cardBody) return;
             
@@ -1171,13 +1165,7 @@
             if (countElement) {
                 countElement.textContent = '0';
             }
-            
-            // Mostrar mensaje informativo
-            showAlert({
-                title: '✅ Impresora Eliminada',
-                message: 'La última impresora ha sido eliminada. Los botones de acción permanecen disponibles.',
-                type: 'success'
-            });
+            // No mostrar alert
         }
         
         // Auto-cerrar alertas

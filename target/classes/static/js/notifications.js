@@ -74,6 +74,94 @@ window.showNotification = function(message, type = 'info', duration = 5000, titl
 };
 
 /**
+ * Modal de alerta moderno (con un solo botón OK)
+ * @param {Object} options - Opciones del modal
+ * @returns {Promise<void>} - Promesa que resuelve cuando se cierra el modal
+ */
+window.showAlert = function(options = {}) {
+    return new Promise((resolve) => {
+        const {
+            title = 'Información',
+            message = '',
+            okText = 'OK',
+            type = 'info' // 'success', 'error', 'warning', 'info'
+        } = options;
+        
+        // Iconos según tipo
+        const icons = {
+            success: 'fas fa-check-circle',
+            error: 'fas fa-times-circle',
+            warning: 'fas fa-exclamation-triangle',
+            info: 'fas fa-info-circle'
+        };
+        
+        // Clases de botón según tipo
+        const btnClasses = {
+            success: 'btn-success',
+            error: 'btn-danger',
+            warning: 'btn-warning',
+            info: 'btn-primary'
+        };
+        
+        // Crear overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'confirm-modal-overlay';
+        
+        overlay.innerHTML = `
+            <div class="confirm-modal">
+                <div class="confirm-modal-header">
+                    <div class="confirm-modal-icon ${type}">
+                        <i class="${icons[type] || icons.info}"></i>
+                    </div>
+                    <div class="confirm-modal-text">
+                        <div class="confirm-modal-title">${title}</div>
+                        <div class="confirm-modal-message">${message}</div>
+                    </div>
+                </div>
+                <div class="confirm-modal-footer">
+                    <button class="btn ${btnClasses[type] || btnClasses.info} confirm-ok">${okText}</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(overlay);
+        
+        // Enfocar el botón OK
+        setTimeout(() => {
+            overlay.querySelector('.confirm-ok').focus();
+        }, 100);
+        
+        // Función para cerrar y resolver
+        function closeModal() {
+            overlay.style.animation = 'fadeOut 0.2s ease-out';
+            setTimeout(() => {
+                overlay.remove();
+                resolve();
+            }, 200);
+        }
+        
+        // Event listeners
+        overlay.querySelector('.confirm-ok').addEventListener('click', closeModal);
+        
+        // Cerrar al hacer clic fuera del modal
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                closeModal();
+            }
+        });
+        
+        // Cerrar con ESC o ENTER
+        const keyHandler = (e) => {
+            if (e.key === 'Escape' || e.key === 'Enter') {
+                closeModal();
+                document.removeEventListener('keydown', keyHandler);
+            }
+        };
+        document.addEventListener('keydown', keyHandler);
+    });
+};
+
+/**
  * Modal de confirmación moderno
  * @param {Object} options - Opciones del modal
  * @returns {Promise<boolean>} - Promesa que resuelve true si confirma, false si cancela
