@@ -59,13 +59,23 @@ public class SecurityConfig {
 	 * as a first rule. Note that this may break an application that expects to have
 	 * login information available.
 	 */
-	@Bean
+		@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 	    	    http
 			.csrf(csrf -> csrf
 				.ignoringRequestMatchers("/api/**")
 			)
-	        	        	        	        	        	        .authorizeHttpRequests(auth -> auth
+			// Configurar headers de seguridad para evitar mixed content
+			.headers(headers -> headers
+				.contentSecurityPolicy(csp -> csp
+					.policyDirectives("default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data:; upgrade-insecure-requests;")
+				)
+				.httpStrictTransportSecurity(hsts -> hsts
+					.includeSubDomains(true)
+					.maxAgeInSeconds(31536000)
+				)
+			)
+	        	        	        	        	        .authorizeHttpRequests(auth -> auth
 	                                    .requestMatchers("/css/**", "/js/**", "/img/**", "/", "/index.html", "/error").permitAll()
 				.requestMatchers("/api/**").permitAll()             // <-- public api access
 				.requestMatchers("/login").permitAll()
