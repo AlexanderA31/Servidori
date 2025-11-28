@@ -75,8 +75,8 @@ public class SecurityConfig {
 					.maxAgeInSeconds(31536000)
 				)
 			)
-	        	        	        	        	        .authorizeHttpRequests(auth -> auth
-	                                    .requestMatchers("/css/**", "/js/**", "/img/**", "/", "/index.html", "/error").permitAll()
+	        	        	        	        	                        .authorizeHttpRequests(auth -> auth
+                                    .requestMatchers("/css/**", "/js/**", "/img/**", "/images/**", "/", "/index.html", "/error").permitAll()
 				.requestMatchers("/api/**").permitAll()             // <-- public api access
 				.requestMatchers("/login").permitAll()
 	            // Dashboard - accesible para ADMIN y TECNICO
